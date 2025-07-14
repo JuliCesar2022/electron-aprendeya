@@ -1,0 +1,31 @@
+{
+  "exec": "electron .",
+  "watch": [
+    "main.js",
+    "preload.js", 
+    "auth.js",
+    "index.html",
+    "login.html",
+    "*.js",
+    "*.html",
+    "*.css"
+  ],
+  "ignore": [
+    "node_modules/",
+    "notes.html",
+    "*.log",
+    "*.tmp"
+  ],
+  "ext": "js,html,css,json",
+  "env": {
+    "NODE_ENV": "development",
+    "ELECTRON_IS_DEV": "1"
+  },
+  "delay": 1000,
+  "verbose": false,
+  "colours": true,
+  "legacyWatch": false,
+  "signal": "SIGTERM",
+  "restartable": "rs",
+  "stdout": true
+}

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Udemy AprendeYa - Iniciar Sesión</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .form-input:focus {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+        }
+
+        .login-button {
+            width: 100%;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 18px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+            margin-top: 20px;
+        }
+
+        .login-button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+            background: linear-gradient(45deg, #ee5a24, #ff6b6b);
+        }
+
+        .login-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            color: #4ecdc4;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .demo-credentials {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .demo-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #4ecdc4;
+        }
+
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-container {
+            animation: fadeInUp 0.8s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <a href="#" class="back-button" onclick="goBack()">← Volver</a>
+    
+    <div class="login-container">
+        <div class="logo">🔐 Login</div>
+        <div class="subtitle">Ingresa a Udemy AprendeYa</div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label" for="email">Correo Electrónico</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    class="form-input" 
+                    placeholder="tu@email.com"
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="password">Contraseña</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    class="form-input" 
+                    placeholder="Tu contraseña"
+                    required
+                >
+            </div>
+            
+            <button type="submit" class="login-button" id="loginBtn">
+                Iniciar Sesión
+            </button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                Iniciando sesión...
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+        </form>
+
+        <div class="demo-credentials">
+            <div class="demo-title">📝 Credenciales de Demo</div>
+            <div>Email: admin@forif.com</div>
+            <div>Password: string</div>
+        </div>
+    </div>
+
+    <script>
+        // Generar UUID v4
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // Obtener información del dispositivo
+        function getDeviceInfo() {
+            return {
+                device_id: generateUUID(),
+                user_agent: navigator.userAgent,
+                ip_address: "192.168.1.1" // Placeholder, en producción se obtendría del servidor
+            };
+        }
+
+        // Función para mostrar mensajes
+        function showMessage(type, message) {
+            const errorEl = document.getElementById('errorMessage');
+            const successEl = document.getElementById('successMessage');
+            
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+            
+            if (type === 'error') {
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+            } else if (type === 'success') {
+                successEl.textContent = message;
+                successEl.style.display = 'block';
+            }
+        }
+
+        // Función para obtener cuenta óptima de Udemy
+        async function getOptimalAccount(token) {
+            console.log('🔍 Obteniendo cuenta óptima de Udemy...');
+
+            try {
+                const response = await fetch('https://aprendeya-backend.forif.co/api/v1/udemy-accounts/optimal-account', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                console.log('📥 Respuesta optimal-account:', response.status);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+                }
+
+                const accountData = await response.json();
+                console.log('✅ Cuenta óptima obtenida:', accountData);
+
+                // Guardar datos de la cuenta
+                localStorage.setItem('udemyAccount', JSON.stringify({
+                    id: accountData.id,
+                    accessToken: accountData.accessToken,
+                    dj_session_id: accountData.dj_session_id,
+                    client_id: accountData.client_id,
+                    createdAt: accountData.createdAt,
+                    usersConected: accountData.usersConected,
+                    revokedAt: accountData.revokedAt,
+                    fetchedAt: new Date().toISOString()
+                }));
+
+                // Setear cookies para Udemy
+                await setCookiesForUdemy(accountData);
+
+                return accountData;
+
+            } catch (error) {
+                console.error('❌ Error al obtener cuenta óptima:', error);
+                throw error;
+            }
+        }
+
+        // Función para setear cookies de Udemy
+        async function setCookiesForUdemy(accountData) {
+            console.log('🍪 Configurando cookies para Udemy...');
+
+            const domain = '.udemy.com';
+            const cookies = [];
+
+            // Cookie de access token
+            if (accountData.accessToken) {
+                cookies.push({
+                    name: 'access_token',
+                    value: accountData.accessToken,
+                    domain: domain,
+                    path: '/',
+                    secure: true,
+                    httpOnly: false
+                });
+            }
+
+            // Cookie de session ID
+            if (accountData.dj_session_id) {
+                cookies.push({
+                    name: 'dj_session_id',
+                    value: accountData.dj_session_id,
+                    domain: domain,
+                    path: '/',
+                    secure: true,
+                    httpOnly: true
+                });
+            }
+
+            // Cookie de client ID
+            if (accountData.client_id) {
+                cookies.push({
+                    name: 'client_id',
+                    value: accountData.client_id,
+                    domain: domain,
+                    path: '/',
+                    secure: true,
+                    httpOnly: false
+                });
+            }
+
+            try {
+                // Si estamos en Electron, usar la API de session
+                if (window.electronAPI) {
+                    await window.electronAPI.setCookies(cookies);
+                } else {
+                    // Fallback para navegador (limitado por CORS)
+                    cookies.forEach(cookie => {
+                        if (!cookie.httpOnly) {
+                            document.cookie = `${cookie.name}=${cookie.value}; domain=${cookie.domain}; path=${cookie.path}; secure`;
+                        }
+                    });
+                }
+
+                console.log('✅ Cookies configuradas exitosamente');
+            } catch (error) {
+                console.error('❌ Error al configurar cookies:', error);
+                // No lanzar error, continuar con el flujo
+            }
+        }
+
+        // Función de login mejorada
+        async function login(email, password) {
+            const deviceInfo = getDeviceInfo();
+            
+            const loginData = {
+                email: email,
+                password: password,
+                device_id: deviceInfo.device_id,
+                user_agent: deviceInfo.user_agent,
+                ip_address: deviceInfo.ip_address
+            };
+
+            console.log('📤 Enviando datos de login:', loginData);
+
+            try {
+                // Paso 1: Login
+                const response = await fetch('https://aprendeya-backend.forif.co/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(loginData)
+                });
+
+                console.log('📥 Respuesta del servidor:', response.status);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+                }
+
+                const responseData = await response.json();
+                console.log('✅ Login exitoso:', responseData);
+
+                // Guardar todos los datos del usuario
+                if (responseData.token) {
+                    localStorage.setItem('authToken', responseData.token);
+                }
+                
+                if (responseData.id) {
+                    localStorage.setItem('userId', responseData.id);
+                }
+                
+                if (responseData.email) {
+                    localStorage.setItem('userEmail', responseData.email);
+                }
+                
+                if (responseData.fullname) {
+                    localStorage.setItem('userFullname', responseData.fullname);
+                }
+
+                // Guardar datos completos del usuario
+                localStorage.setItem('userData', JSON.stringify({
+                    id: responseData.id,
+                    email: responseData.email,
+                    fullname: responseData.fullname,
+                    userDevices: responseData.userDevices || [],
+                    token: responseData.token,
+                    loginTime: new Date().toISOString()
+                }));
+
+                showMessage('success', `¡Bienvenido ${responseData.fullname}! Configurando acceso a Udemy...`);
+
+                // Paso 2: Obtener cuenta óptima de Udemy
+                try {
+                    await getOptimalAccount(responseData.token);
+                    showMessage('success', `¡Todo listo! Redirigiendo a Udemy...`);
+                } catch (accountError) {
+                    console.warn('⚠️ Error al obtener cuenta de Udemy:', accountError);
+                    showMessage('success', `¡Login exitoso! Redirigiendo a Udemy... (sin configuración de cuenta)`);
+                }
+                
+                // Redirigir al dashboard después de 1.5 segundos
+                setTimeout(() => {
+                    goToDashboard();
+                }, 1500);
+
+                return responseData;
+
+            } catch (error) {
+                console.error('❌ Error en login:', error);
+                throw error;
+            }
+        }
+
+        // Manejar envío del formulario
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loading = document.getElementById('loading');
+            
+            // Validación básica
+            if (!email || !password) {
+                showMessage('error', 'Por favor completa todos los campos');
+                return;
+            }
+
+            // Mostrar estado de carga
+            loginBtn.disabled = true;
+            loading.style.display = 'block';
+            showMessage('', '');
+
+            try {
+                await login(email, password);
+            } catch (error) {
+                showMessage('error', error.message || 'Error al iniciar sesión');
+            } finally {
+                loginBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+
+        // Función para volver
+        function goBack() {
+            if (window.electronAPI) {
+                window.electronAPI.goToHome();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Función para ir al dashboard
+        function goToDashboard() {
+            if (window.electronAPI) {
+                window.electronAPI.goToDashboard();
+            } else {
+                window.location.href = 'dashboard.html';
+            }
+        }
+
+        // Función para ir a Udemy directamente
+        function goToUdemy() {
+            if (window.electronAPI) {
+                window.electronAPI.goToUdemy();
+            } else {
+                window.location.href = 'https://www.udemy.com/courses/search/?src=ukw&q=';
+            }
+        }
+
+        // Función para ir a la app principal
+        function goToMainApp() {
+            if (window.electronAPI) {
+                window.electronAPI.goToHome();
+            } else {
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Auto-completar credenciales demo al hacer clic
+        document.querySelector('.demo-credentials').addEventListener('click', function() {
+            document.getElementById('email').value = 'admin@forif.com';
+            document.getElementById('password').value = 'string';
+        });
+
+        // Atajos de teclado
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                goBack();
+            }
+        });
+    </script>
+</body>
+</html>
