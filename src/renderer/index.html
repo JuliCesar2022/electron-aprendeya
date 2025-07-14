@@ -215,17 +215,7 @@
             📝 Abrir Notas
         </button>
         
-        <div id="authenticatedButtons" style="display: none;">
-            <button class="secondary-button" id="go-to-my-learning-button">
-                📚 Ir a Mis Aprendizajes
-            </button>
-            <button class="secondary-button" id="take-screenshot-button">
-                📸 Tomar Captura
-            </button>
-            <button class="secondary-button" id="add-bookmark-button">
-                🔖 Añadir Marcador
-            </button>
-        </div>
+        
 
         <div id="userInfo" style="display: none;">
             <div class="user-info">
@@ -420,40 +410,7 @@
             }
 
             // Attach event listeners for new buttons
-            const goToMyLearningButton = document.getElementById('go-to-my-learning-button');
-            if (goToMyLearningButton) {
-                goToMyLearningButton.addEventListener('click', () => {
-                    if (window.electronAPI) {
-                        window.electronAPI.send('go-to-my-learning');
-                    } else {
-                        window.location.href = 'my-learning.html';
-                    }
-                });
-            }
-
-            const takeScreenshotButton = document.getElementById('take-screenshot-button');
-            if (takeScreenshotButton) {
-                takeScreenshotButton.addEventListener('click', async () => {
-                    if (window.electronAPI) {
-                        await window.electronAPI.invoke('take-screenshot');
-                    } else {
-                        alert('Screenshot functionality is only available in Electron app.');
-                    }
-                });
-            }
-
-            const addBookmarkButton = document.getElementById('add-bookmark-button');
-            if (addBookmarkButton) {
-                addBookmarkButton.addEventListener('click', async () => {
-                    if (window.electronAPI) {
-                        const currentURL = window.location.href;
-                        const title = document.title;
-                        await window.electronAPI.invoke('add-bookmark', currentURL, title);
-                    } else {
-                        alert('Bookmark functionality is only available in Electron app.');
-                    }
-                });
-            }
+            
         });
 
         // Atajos de teclado

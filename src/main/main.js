@@ -137,27 +137,7 @@ function createMenu(mainWindow) {
     {
       label: 'Extensiones',
       submenu: [
-        {
-          label: 'Tomar captura',
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => {
-            takeScreenshot(mainWindow);
-          }
-        },
-        {
-          label: 'Notas rápidas',
-          accelerator: 'CmdOrCtrl+Shift+N',
-          click: () => {
-            showQuickNotes();
-          }
-        },
-        {
-          label: 'Marcador rápido',
-          accelerator: 'CmdOrCtrl+D',
-          click: () => {
-            addQuickBookmark(mainWindow);
-          }
-        },
+        
         { type: 'separator' },
         {
           label: 'Cerrar sesión',
@@ -204,56 +184,7 @@ function createMenu(mainWindow) {
   Menu.setApplicationMenu(menu);
 }
 
-async function takeScreenshot(mainWindow) {
-  try {
-    const image = await mainWindow.webContents.capturePage();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `udemy-screenshot-${timestamp}.png`;
-    
-    const { filePath } = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: filename,
-      filters: [
-        { name: 'PNG Images', extensions: ['png'] }
-      ]
-    });
 
-    if (filePath) {
-      require('fs').writeFileSync(filePath, image.toPNG());
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'Captura guardada',
-        message: `Captura guardada en: ${filePath}`
-      });
-    }
-  } catch (error) {
-    dialog.showErrorBox('Error', 'No se pudo tomar la captura: ' + error.message);
-  }
-}
-
-function showQuickNotes() {
-  const notesWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    },
-    title: 'Notas rápidas'
-  });
-
-  notesWindow.loadFile(path.join(__dirname, '../renderer/notes.html'));
-}
-
-async function addQuickBookmark(mainWindow) {
-  const currentURL = mainWindow.webContents.getURL();
-  const title = await mainWindow.webContents.executeJavaScript('document.title');
-  
-  dialog.showMessageBox(mainWindow, {
-    type: 'info',
-    title: 'Marcador agregado',
-    message: `Página marcada: ${title}\nURL: ${currentURL}`
-  });
-}
 
 async function logout(mainWindow) {
   const response = dialog.showMessageBoxSync(mainWindow, {
@@ -315,9 +246,7 @@ function openInterceptorConfig() {
 // --- IPC Main Handlers ---
 
 // Handlers para llamadas unidireccionales (send)
-ipcMain.on('show-notes', () => {
-  showQuickNotes();
-});
+
 
 ipcMain.on('go-to-udemy', (event, url) => {
   const webContents = event.sender;
@@ -387,23 +316,9 @@ ipcMain.handle('get-udemy-interceptor-code', () => {
   return udemyInterceptorCode;
 });
 
-ipcMain.handle('take-screenshot', async (event) => {
-  const webContents = event.sender;
-  const window = BrowserWindow.fromWebContents(webContents);
-  if (window) {
-    return await takeScreenshot(window);
-  }
-  return null;
-});
 
-ipcMain.handle('add-bookmark', async (event, url, title) => {
-  const webContents = event.sender;
-  const window = BrowserWindow.fromWebContents(webContents);
-  if (window) {
-    return await addQuickBookmark(window, url, title);
-  }
-  return null;
-});
+
+
 
 ipcMain.handle('set-cookies', async (event, cookies) => {
   try {

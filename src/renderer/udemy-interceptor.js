@@ -871,9 +871,7 @@ if (window.location.hostname.includes('udemy.com')) {
   toolbar.innerHTML = `
     ${dashboardBtn}
     <button class="udemy-extension-btn" id="my-learning-btn">📚 My learning</button>
-    <button class="udemy-extension-btn" id="screenshot-btn">📸 Captura</button>
-    <button class="udemy-extension-btn" id="notes-btn">📝 Notas</button>
-    <button class="udemy-extension-btn" id="bookmark-btn">🔖 Marcar</button>
+    
   `;
   
   document.body.appendChild(toolbar);
@@ -882,17 +880,7 @@ if (window.location.hostname.includes('udemy.com')) {
     window.electronAPI.send('go-to-my-learning');
   });
 
-  document.getElementById('screenshot-btn').addEventListener('click', () => {
-    window.electronAPI.invoke('take-screenshot');
-  });
-
-  document.getElementById('notes-btn').addEventListener('click', () => {
-    window.electronAPI.send('show-notes');
-  });
-
-  document.getElementById('bookmark-btn').addEventListener('click', () => {
-    window.electronAPI.invoke('add-bookmark', window.location.href, document.title);
-  });
+  
 
   // Agregar event listener para el botón de dashboard si existe
   const dashboardButton = document.getElementById('dashboard-btn');
@@ -905,22 +893,6 @@ if (window.location.hostname.includes('udemy.com')) {
   document.addEventListener('keydown', (event) => {
     if (event.ctrlKey || event.metaKey) {
       switch(event.key) {
-        case 's':
-          if (event.shiftKey) {
-            event.preventDefault();
-            window.electronAPI.invoke('take-screenshot');
-          }
-          break;
-        case 'n':
-          if (event.shiftKey) {
-            event.preventDefault();
-            window.electronAPI.send('show-notes');
-          }
-          break;
-        case 'd':
-          event.preventDefault();
-          window.electronAPI.invoke('add-bookmark', window.location.href, document.title);
-          break;
         case 'i':
           // Activar/desactivar interceptor con Ctrl+I
           if (window.udemyInterceptor) {
