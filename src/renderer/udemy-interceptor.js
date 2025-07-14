@@ -863,15 +863,12 @@ if (window.location.hostname.includes('udemy.com')) {
   const toolbar = document.createElement('div');
   toolbar.className = 'udemy-extension-toolbar';
   
-  // Mostrar botón de dashboard solo si estamos en Udemy
-  const dashboardBtn = window.location.hostname.includes('udemy.com') 
-    ? '<button class="udemy-extension-btn" id="dashboard-btn">🏠 Dashboard</button>' 
-    : '';
+  const dashboardBtn = '<button class="udemy-extension-btn" id="dashboard-btn">🏠 Dashboard</button>';
   
   toolbar.innerHTML = `
     ${dashboardBtn}
     <button class="udemy-extension-btn" id="my-learning-btn">📚 My learning</button>
-    
+    <button class="udemy-extension-btn" id="back-btn">⬅️ Volver</button>
   `;
   
   document.body.appendChild(toolbar);
@@ -880,7 +877,13 @@ if (window.location.hostname.includes('udemy.com')) {
     window.electronAPI.send('go-to-my-learning');
   });
 
-  
+  // Agregar event listener para el botón de volver
+  const backButton = document.getElementById('back-btn');
+  if (backButton) {
+    backButton.addEventListener('click', () => {
+      window.history.back();
+    });
+  }
 
   // Agregar event listener para el botón de dashboard si existe
   const dashboardButton = document.getElementById('dashboard-btn');

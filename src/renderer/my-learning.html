@@ -459,6 +459,7 @@
     <div class="quick-actions">
         <button class="quick-action-btn btn-notes" id="open-notes-btn" title="Notas Rápidas">📝</button>
         <button class="quick-action-btn btn-screenshot" id="take-screenshot-btn" title="Captura de Pantalla">📸</button>
+        <button class="quick-action-btn" id="back-btn">⬅️ Volver</button>
     </div>
 
     <script src="auth.js"></script>
@@ -470,8 +471,16 @@
             // Attach event listeners after DOMContentLoaded
             document.getElementById('logout-btn').addEventListener('click', logout);
             document.getElementById('search-my-courses-btn').addEventListener('click', searchMyCourses);
+            document.getElementById('searchInput').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    searchMyCourses();
+                }
+            });
             document.getElementById('open-notes-btn').addEventListener('click', openNotes);
             document.getElementById('take-screenshot-btn').addEventListener('click', takeScreenshot);
+            document.getElementById('back-btn').addEventListener('click', () => {
+                window.history.back();
+            });
         });
 
         function loadUserData() {
@@ -491,64 +500,79 @@
             }
         }
 
+        let allMyCourses = []; // Variable para almacenar todos los cursos
+
         async function loadMyCourses() {
-    const container = document.getElementById('myCoursesList');
-    container.innerHTML = '<p style="color:white;">Cargando cursos...</p>';
+            const container = document.getElementById('myCoursesList');
+            container.innerHTML = '<p style="color:white;">Cargando cursos...</p>';
 
-    try {
-        const token = window.authManager?.getToken();
-        if (!token) throw new Error("Token no disponible");
+            try {
+                const token = window.authManager?.getToken();
+                if (!token) throw new Error("Token no disponible");
 
-        const response = await fetch('https://aprendeya-backend.forif.co/api/v1/user-courses', {
-            headers: {
-                Authorization: `Bearer ${token}`
+                const response = await fetch('https://aprendeya-backend.forif.co/api/v1/user-courses', {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Error al cargar cursos');
+
+                const result = await response.json();
+
+                allMyCourses = result.data || result; // Almacenar todos los cursos
+
+                if (!Array.isArray(allMyCourses) || allMyCourses.length === 0) {
+                    container.innerHTML = '<p style="color:white;">No tienes cursos registrados aún.</p>';
+                    return;
+                }
+
+                renderCourses(allMyCourses); // Renderizar todos los cursos inicialmente
+
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = '<p style="color:red;">Error al cargar tus cursos.</p>';
             }
-        });
-
-        if (!response.ok) throw new Error('Error al cargar cursos');
-
-        const result = await response.json();
-
-        // ⚠️ Ajusta esta línea según la estructura real
-        const cursos = result.data || result;
-
-        if (!Array.isArray(cursos) || cursos.length === 0) {
-            container.innerHTML = '<p style="color:white;">No tienes cursos registrados aún.</p>';
-            return;
         }
 
-        container.innerHTML = cursos.map(item => {
-            const course = item.course;
-            return `
-                <div class="course-card" onclick="openCourse('https://www.udemy.com/course/${course.urlCourseUdemy}/')">
-                    <div class="course-image" style="background: url('${course.urlImage}') center/cover no-repeat;"></div>
-                    <div class="course-content">
-                        <div class="course-title">${course.name}</div>
-                        <div class="course-instructor">Curso de Udemy</div>
-                        <div class="course-progress">
-                            <div class="course-progress-bar" style="width: 0%"></div>
+        function renderCourses(coursesToRender) {
+            const container = document.getElementById('myCoursesList');
+            if (!Array.isArray(coursesToRender) || coursesToRender.length === 0) {
+                container.innerHTML = '<p style="color:white;">No se encontraron cursos que coincidan con tu búsqueda.</p>';
+                return;
+            }
+
+            container.innerHTML = coursesToRender.map(item => {
+                const course = item.course;
+                return `
+                    <div class="course-card" onclick="openCourse('https://www.udemy.com/course/${course.urlCourseUdemy}/learn/')">
+                        <div class="course-image" style="background: url('${course.urlImage}') center/cover no-repeat;"></div>
+                        <div class="course-content">
+                            <div class="course-title">${course.name}</div>
+                            <div class="course-instructor">Curso de Udemy</div>
+                            <div class="course-progress">
+                                <div class="course-progress-bar" style="width: 0%"></div>
+                            </div>
+                            <small>Progreso desconocido</small>
                         </div>
-                        <small>Progreso desconocido</small>
                     </div>
-                </div>
-            `;
-        }).join('');
-
-    } catch (error) {
-        console.error(error);
-        container.innerHTML = '<p style="color:red;">Error al cargar tus cursos.</p>';
-    }
-}
-
+                `;
+            }).join('');
+        }
 
         function searchMyCourses() {
-            const query = document.getElementById('searchInput').value;
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            let filteredCourses = [];
+
             if (query) {
-                alert(`Buscando "${query}" en tus cursos... (Funcionalidad en desarrollo)`);
-                // Aquí podrías implementar la lógica para filtrar los cursos mostrados
+                filteredCourses = allMyCourses.filter(item => {
+                    const course = item.course;
+                    return course.name.toLowerCase().includes(query);
+                });
             } else {
-                alert('Por favor, ingresa un término de búsqueda.');
+                filteredCourses = allMyCourses; // Si la búsqueda está vacía, mostrar todos los cursos
             }
+            renderCourses(filteredCourses);
         }
 
         function openCourse(url) {

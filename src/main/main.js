@@ -46,6 +46,15 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  // Inject Udemy Interceptor on navigation to Udemy domains
+  mainWindow.webContents.on('did-navigate', (event, url) => {
+    if (url.includes('udemy.com')) {
+      mainWindow.webContents.executeJavaScript(udemyInterceptorCode)
+        .then(() => console.log('✅ Udemy Interceptor Injected on navigation'))
+        .catch(error => console.error('❌ Error injecting Udemy Interceptor on navigation:', error));
+    }
+  });
+
   createMenu(mainWindow);
 
   return mainWindow;
@@ -253,14 +262,6 @@ ipcMain.on('go-to-udemy', (event, url) => {
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) { 
     window.loadURL(url);
-    // Inject the interceptor code once the page has loaded
-    window.webContents.once('did-finish-load', () => {
-      if (url.includes('udemy.com')) {
-        window.webContents.executeJavaScript(udemyInterceptorCode)
-          .then(() => console.log('✅ Udemy Interceptor Injected'))
-          .catch(error => console.error('❌ Error injecting Udemy Interceptor:', error));
-      }
-    });
   }
 });
 
