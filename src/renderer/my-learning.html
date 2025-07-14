@@ -554,7 +554,7 @@
         function openCourse(url) {
             if (window.electronAPI) {
                 // Abrir el curso en la vista principal de Electron
-                window.electronAPI.goToUdemyCourse(url); // Asumiendo que existe esta función
+                window.electronAPI.send('go-to-udemy', url);
             } else {
                 window.open(url, '_blank');
             }

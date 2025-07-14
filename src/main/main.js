@@ -319,11 +319,11 @@ ipcMain.on('show-notes', () => {
   showQuickNotes();
 });
 
-ipcMain.on('go-to-udemy', (event) => {
+ipcMain.on('go-to-udemy', (event, url) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) { 
-    window.loadURL('https://www.udemy.com');
+    window.loadURL(url);
   }
 });
 
