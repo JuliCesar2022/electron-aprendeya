@@ -276,7 +276,7 @@
 
         function goToUdemy() {
             if (window.electronAPI) {
-                window.electronAPI.send('go-to-udemy');
+                window.electronAPI.send('go-to-udemy', 'https://www.udemy.com/');
             } else {
                 // Fallback para testing en navegador
                 window.location.href = 'https://www.udemy.com/';

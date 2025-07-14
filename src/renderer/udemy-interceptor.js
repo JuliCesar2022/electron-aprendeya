@@ -14,32 +14,34 @@ class UdemyInterceptor {
     }
 
     init() {
-        console.log('🎯 Inicializando UdemyInterceptor...');
-        console.log('📍 URL actual:', window.location.href);
-        console.log('🌐 Dominio:', window.location.hostname);
-        console.log('📄 Estado del DOM:', document.readyState);
+        console.log('🎯 [UdemyInterceptor] Inicializando...');
+        console.log('📍 [UdemyInterceptor] URL actual:', window.location.href);
+        console.log('🌐 [UdemyInterceptor] Dominio:', window.location.hostname);
+        console.log('📄 [UdemyInterceptor] Estado del DOM:', document.readyState);
         
         // Verificar si estamos en Udemy
         if (!this.isUdemyDomain()) {
-            console.log('❌ No estamos en Udemy, interceptor inactivo');
+            console.log('❌ [UdemyInterceptor] No estamos en Udemy, interceptor inactivo');
             return;
         }
 
         this.isActive = true;
-        console.log('✅ UdemyInterceptor activo en Udemy');
-        console.log('🔧 Configurando modificaciones por defecto...');
+        console.log('✅ [UdemyInterceptor] Activo en Udemy');
+        console.log('🔧 [UdemyInterceptor] Configurando modificaciones por defecto...');
         
         // Configurar modificaciones por defecto
         this.setupDefaultModifications();
         
-        console.log(`📝 Total de modificaciones configuradas: ${this.modifications.size}`);
+        console.log(`📝 [UdemyInterceptor] Total de modificaciones configuradas: ${this.modifications.size}`);
         
         // Iniciar observadores cuando el DOM esté listo
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
+                console.log('⏳ [UdemyInterceptor] DOMContentLoaded, iniciando observadores...');
                 this.startObservers();
             });
         } else {
+            console.log('🚀 [UdemyInterceptor] DOM ya cargado, iniciando observadores directamente...');
             this.startObservers();
         }
 
@@ -668,30 +670,9 @@ class UdemyInterceptor {
 
 // --- Lógica de inicialización y UI para el proceso de renderizado ---
 
-window.addEventListener('DOMContentLoaded', async () => {
-  // Función para obtener el código del interceptor desde el proceso principal
-  async function getUdemyInterceptorCode() {
-    try {
-      return await window.electronAPI.invoke('get-udemy-interceptor-code');
-    } catch (error) {
-      console.error('❌ Error al obtener el interceptor desde el proceso principal:', error);
-      return '';
-    }
-  }
-
-  // Cargar interceptor de Udemy si estamos en Udemy
-  if (window.location.hostname.includes('udemy.com')) {
-    console.log('🎯 Detectado dominio de Udemy, cargando interceptor...');
-    
-    // Crear y agregar el script del interceptor
-    const interceptorCode = await getUdemyInterceptorCode();
-    const script = document.createElement('script');
-    script.textContent = `
-      // Inyectar interceptor directamente
-      ${interceptorCode}
-    `;
-    document.head.appendChild(script);
-  }
+// Cargar interceptor de Udemy si estamos en Udemy
+if (window.location.hostname.includes('udemy.com')) {
+  console.log('🎯 Detectado dominio de Udemy, cargando interceptor...');
 
   // Crear instancia global del interceptor si no existe (para evitar duplicados si se inyecta varias veces)
   if (!window.udemyInterceptor) {
@@ -743,7 +724,8 @@ window.addEventListener('DOMContentLoaded', async () => {
           
           console.log(`📊 Encontrados ${holaElements.length} elementos con "Hola"`);
           holaElements.forEach((item, index) => {
-              console.log(`\n[${index}] 🎯 ELEMENTO CON "HOLA":`);
+              console.log(`
+[${index}] 🎯 ELEMENTO CON "HOLA":`);
               console.log(`  📄 Texto: "${item.text}"`);
               console.log(`  🏷️ Tag: ${item.tag}`);
               console.log(`  🎨 Clases: ${item.classes}`);
@@ -771,7 +753,8 @@ window.addEventListener('DOMContentLoaded', async () => {
           selectors.forEach(selector => {
               try {
                   const elements = document.querySelectorAll(selector);
-                  console.log(`\n📋 ${selector}:`);
+                  console.log(`
+📋 ${selector}:`);
                   console.log(`  📊 Elementos: ${elements.length}`);
                   elements.forEach((el, i) => {
                       if (i < 3) { // Solo mostrar los primeros 3
@@ -955,4 +938,4 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
-});
+}

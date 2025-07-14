@@ -324,6 +324,14 @@ ipcMain.on('go-to-udemy', (event, url) => {
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) { 
     window.loadURL(url);
+    // Inject the interceptor code once the page has loaded
+    window.webContents.once('did-finish-load', () => {
+      if (url.includes('udemy.com')) {
+        window.webContents.executeJavaScript(udemyInterceptorCode)
+          .then(() => console.log('✅ Udemy Interceptor Injected'))
+          .catch(error => console.error('❌ Error injecting Udemy Interceptor:', error));
+      }
+    });
   }
 });
 
