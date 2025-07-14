@@ -90,8 +90,8 @@
         <textarea id="noteInput" placeholder="Escribe tus notas aquí..."></textarea>
         
         <div class="buttons">
-            <button class="save-btn" onclick="saveNote()">Guardar nota</button>
-            <button class="clear-btn" onclick="clearInput()">Limpiar</button>
+            <button class="save-btn" id="save-note-btn">Guardar nota</button>
+            <button class="clear-btn" id="clear-input-btn">Limpiar</button>
         </div>
         
         <div class="notes-list">
@@ -138,9 +138,17 @@
                 <div class="note-item">
                     <div class="note-date">${note.date}</div>
                     <div>${note.text}</div>
-                    <button onclick="deleteNote(${note.id})" style="background: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 2px; font-size: 10px; margin-top: 5px;">Eliminar</button>
+                    <button class="delete-note-btn" data-note-id="${note.id}" style="background: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 2px; font-size: 10px; margin-top: 5px;">Eliminar</button>
                 </div>
             `).reverse().join('');
+
+            // Attach event listeners for delete buttons using event delegation
+            notesList.querySelectorAll('.delete-note-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const noteId = event.target.dataset.noteId;
+                    deleteNote(parseInt(noteId));
+                });
+            });
         }
         
         function deleteNote(id) {
@@ -150,13 +158,18 @@
             displayNotes();
         }
         
-        document.getElementById('noteInput').addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                saveNote();
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            displayNotes();
+
+            document.getElementById('save-note-btn').addEventListener('click', saveNote);
+            document.getElementById('clear-input-btn').addEventListener('click', clearInput);
+
+            document.getElementById('noteInput').addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    saveNote();
+                }
+            });
         });
-        
-        displayNotes();
     </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Udemy AprendeYa - Dashboard</title>
+    <title>Udemy AprendeYa - Mi Aprendizaje</title>
     <style>
         * {
             margin: 0;
@@ -413,19 +413,19 @@
                     <h3 id="userName">Usuario</h3>
                     <p id="userEmail">email@ejemplo.com</p>
                 </div>
-                <button class="logout-btn" onclick="logout()">🚪 Salir</button>
+                <button class="logout-btn" id="logout-btn">🚪 Salir</button>
             </div>
         </div>
     </nav>
 
     <div class="main-container">
         <div class="welcome-section">
-            <h1 class="welcome-title">¡Bienvenido de vuelta!</h1>
-            <p class="welcome-subtitle">Continúa tu viaje de aprendizaje</p>
+            <h1 class="welcome-title">Mi Aprendizaje</h1>
+            <p class="welcome-subtitle">Aquí puedes ver todos tus cursos y tu progreso.</p>
             
             <div class="search-container">
-                <input type="text" class="search-input" placeholder="Busca cursos, temas o instructores..." id="searchInput">
-                <button class="search-btn" onclick="goToUdemy()">🔍</button>
+                <input type="text" class="search-input" placeholder="Busca en tus cursos..." id="searchInput">
+                <button class="search-btn" id="search-my-courses-btn">🔍</button>
             </div>
         </div>
 
@@ -448,60 +448,30 @@
             </div>
         </div>
 
-        <div class="dashboard-grid">
-            <div class="dashboard-card">
-                <div class="card-icon" style="background: linear-gradient(45deg, #667eea, #764ba2);">📚</div>
-                <h3 class="card-title">Mis Cursos</h3>
-                <p class="card-description">Accede a todos tus cursos matriculados, revisa tu progreso y continúa aprendiendo.</p>
-                <button class="card-button" onclick="goToMyCourses()">Ver Mis Cursos</button>
-            </div>
-
-            <div class="dashboard-card">
-                <div class="card-icon" style="background: linear-gradient(45deg, #4ecdc4, #44bd87);">🔍</div>
-                <h3 class="card-title">Explorar Cursos</h3>
-                <p class="card-description">Descubre nuevos cursos en categorías populares y encuentra tu próximo tema de interés.</p>
-                <button class="card-button secondary" onclick="exploreCourses()">Explorar Ahora</button>
-            </div>
-
-            <div class="dashboard-card">
-                <div class="card-icon" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24);">🎯</div>
-                <h3 class="card-title">Mis Objetivos</h3>
-                <p class="card-description">Establece y sigue tus metas de aprendizaje. Mantente motivado y organizado.</p>
-                <button class="card-button danger" onclick="setGoals()">Configurar Objetivos</button>
-            </div>
-
-            <div class="dashboard-card">
-                <div class="card-icon" style="background: linear-gradient(45deg, #9b59b6, #8e44ad);">📜</div>
-                <h3 class="card-title">Certificados</h3>
-                <p class="card-description">Descarga y comparte tus certificados de finalización de cursos completados.</p>
-                <button class="card-button" style="background: linear-gradient(45deg, #9b59b6, #8e44ad);" onclick="viewCertificates()">Ver Certificados</button>
-            </div>
-        </div>
-
         <div class="dashboard-card" style="margin-top: 30px;">
-            <h3 class="card-title">🔥 Continúa Aprendiendo</h3>
-            <div class="courses-grid" id="continueLearning">
+            <h3 class="card-title">🔥 Mis Cursos</h3>
+            <div class="courses-grid" id="myCoursesList">
                 <!-- Los cursos se cargarán dinámicamente -->
             </div>
         </div>
     </div>
 
     <div class="quick-actions">
-        <button class="quick-action-btn btn-notes" onclick="openNotes()" title="Notas Rápidas">📝</button>
-        <button class="quick-action-btn btn-screenshot" onclick="takeScreenshot()" title="Captura de Pantalla">📸</button>
+        <button class="quick-action-btn btn-notes" id="open-notes-btn" title="Notas Rápidas">📝</button>
+        <button class="quick-action-btn btn-screenshot" id="take-screenshot-btn" title="Captura de Pantalla">📸</button>
     </div>
 
     <script src="auth.js"></script>
     <script>
-        // Cargar datos del usuario al iniciar
         document.addEventListener('DOMContentLoaded', function() {
-            // Debug electronAPI
-            console.log('🔧 DEBUG electronAPI:', window.electronAPI);
-            console.log('🔧 DEBUG searchInUdemy function:', window.electronAPI?.searchInUdemy);
-            console.log('🔧 DEBUG all electronAPI methods:', Object.keys(window.electronAPI || {}));
-            
             loadUserData();
-            loadContinueLearning();
+            loadMyCourses();
+
+            // Attach event listeners after DOMContentLoaded
+            document.getElementById('logout-btn').addEventListener('click', logout);
+            document.getElementById('search-my-courses-btn').addEventListener('click', searchMyCourses);
+            document.getElementById('open-notes-btn').addEventListener('click', openNotes);
+            document.getElementById('take-screenshot-btn').addEventListener('click', takeScreenshot);
         });
 
         function loadUserData() {
@@ -510,9 +480,7 @@
                 
                 if (userInfo.fullname) {
                     document.getElementById('userName').textContent = userInfo.fullname;
-                    document.querySelector('.welcome-title').textContent = `¡Bienvenido de vuelta, ${userInfo.fullname.split(' ')[0]}!`;
                     
-                    // Avatar con inicial del nombre
                     const initial = userInfo.fullname.charAt(0).toUpperCase();
                     document.getElementById('userAvatar').textContent = initial;
                 }
@@ -523,101 +491,72 @@
             }
         }
 
-        function loadContinueLearning() {
-            const coursesContainer = document.getElementById('continueLearning');
-            
-            // Cursos de ejemplo
-            const courses = [
-                {
-                    title: "JavaScript Moderno ES6+",
-                    instructor: "Juan Pérez",
-                    progress: 75,
-                    icon: "🟨"
-                },
-                {
-                    title: "React para Principiantes",
-                    instructor: "María García",
-                    progress: 45,
-                    icon: "⚛️"
-                },
-                {
-                    title: "Diseño UX/UI Avanzado",
-                    instructor: "Carlos López",
-                    progress: 60,
-                    icon: "🎨"
-                }
-            ];
+        async function loadMyCourses() {
+    const container = document.getElementById('myCoursesList');
+    container.innerHTML = '<p style="color:white;">Cargando cursos...</p>';
 
-            coursesContainer.innerHTML = courses.map(course => `
-                <div class="course-card" onclick="openCourse('${course.title}')">
-                    <div class="course-image">${course.icon}</div>
-                    <div class="course-content">
-                        <div class="course-title">${course.title}</div>
-                        <div class="course-instructor">Por ${course.instructor}</div>
-                        <div class="course-progress">
-                            <div class="course-progress-bar" style="width: ${course.progress}%"></div>
-                        </div>
-                        <small>${course.progress}% completado</small>
-                    </div>
-                </div>
-            `).join('');
+    try {
+        const token = window.authManager?.getToken();
+        if (!token) throw new Error("Token no disponible");
+
+        const response = await fetch('https://aprendeya-backend.forif.co/api/v1/user-courses', {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Error al cargar cursos');
+
+        const result = await response.json();
+
+        // ⚠️ Ajusta esta línea según la estructura real
+        const cursos = result.data || result;
+
+        if (!Array.isArray(cursos) || cursos.length === 0) {
+            container.innerHTML = '<p style="color:white;">No tienes cursos registrados aún.</p>';
+            return;
         }
 
-        function searchCourses() {
+        container.innerHTML = cursos.map(item => {
+            const course = item.course;
+            return `
+                <div class="course-card" onclick="openCourse('https://www.udemy.com/course/${course.urlCourseUdemy}/')">
+                    <div class="course-image" style="background: url('${course.urlImage}') center/cover no-repeat;"></div>
+                    <div class="course-content">
+                        <div class="course-title">${course.name}</div>
+                        <div class="course-instructor">Curso de Udemy</div>
+                        <div class="course-progress">
+                            <div class="course-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <small>Progreso desconocido</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = '<p style="color:red;">Error al cargar tus cursos.</p>';
+    }
+}
+
+
+        function searchMyCourses() {
             const query = document.getElementById('searchInput').value;
             if (query) {
-                if (window.electronAPI) {
-                    window.electronAPI.searchInUdemy(query);
-                } else {
-                    // Fallback para testing en navegador
-                    window.open(`https://www.udemy.com/courses/search/?src=ukw&q=${encodeURIComponent(query)}`, '_blank');
-                }
+                alert(`Buscando "${query}" en tus cursos... (Funcionalidad en desarrollo)`);
+                // Aquí podrías implementar la lógica para filtrar los cursos mostrados
             } else {
                 alert('Por favor, ingresa un término de búsqueda.');
             }
         }
 
-        function goToMyCourses() {
+        function openCourse(url) {
             if (window.electronAPI) {
-                // Ir a Udemy en la sección de mis cursos
-                window.electronAPI.goToUdemy();
-                setTimeout(() => {
-                    // Opcional: navegar a la sección específica
-                }, 1000);
+                // Abrir el curso en la vista principal de Electron
+                window.electronAPI.goToUdemyCourse(url); // Asumiendo que existe esta función
             } else {
-                window.open('https://www.udemy.com/home/my-courses/learning/', '_blank');
-            }
-        }
-
-        function goToUdemy() {
-            if (window.electronAPI) {
-                window.electronAPI.goToUdemy();
-            } else {
-                // Fallback para testing en navegador
-                window.location.href = 'https://www.udemy.com/courses/search/?src=ukw&q=a';
-            }
-        }
-        function exploreCourses() {
-            if (window.electronAPI) {
-                window.electronAPI.goToDashboard();
-            } else {
-                window.location.href = 'dashboard.html';
-            }
-        }
-
-        function setGoals() {
-            alert('🎯 Función de objetivos en desarrollo.\n\nPodrás establecer metas de aprendizaje, tiempo de estudio y seguimiento de progreso.');
-        }
-
-        function viewCertificates() {
-            alert('📜 Función de certificados en desarrollo.\n\nAquí podrás ver, descargar y compartir todos tus certificados.');
-        }
-
-        function openCourse(courseTitle) {
-            if (window.electronAPI) {
-                window.electronAPI.goToUdemy();
-            } else {
-                alert(`Abriendo curso: ${courseTitle}`);
+                window.open(url, '_blank');
             }
         }
 
@@ -657,22 +596,6 @@
                 console.error('Error al cerrar sesión:', error);
             }
         }
-
-        // Efectos y animaciones
-        document.addEventListener('keydown', function(e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-                e.preventDefault();
-                document.getElementById('searchInput').focus();
-            }
-        });
-
-        // Auto-focus en búsqueda con "/"
-        document.addEventListener('keydown', function(e) {
-            if (e.key === '/' && e.target.tagName !== 'INPUT') {
-                e.preventDefault();
-                document.getElementById('searchInput').focus();
-            }
-        });
     </script>
 </body>
 </html>

@@ -1,14 +1,9 @@
 {
   "exec": "electron .",
   "watch": [
-    "main.js",
-    "preload.js", 
-    "auth.js",
-    "index.html",
-    "login.html",
-    "*.js",
-    "*.html",
-    "*.css"
+    "src/**/*.js",
+    "src/**/*.html",
+    "src/**/*.css"
   ],
   "ignore": [
     "node_modules/",

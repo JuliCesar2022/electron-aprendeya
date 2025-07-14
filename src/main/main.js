@@ -1,5 +1,14 @@
 const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+// Read the interceptor code once when the main process starts
+let udemyInterceptorCode = '';
+try {
+  udemyInterceptorCode = fs.readFileSync(path.join(__dirname, '../renderer/udemy-interceptor.js'), 'utf8');
+} catch (error) {
+  console.error('Error reading udemy-interceptor.js:', error);
+}
 
 function createWindow() {
   const isDev = process.env.NODE_ENV === 'development' || process.env.ELECTRON_IS_DEV === '1';
@@ -12,7 +21,7 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
       webSecurity: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, '../preload/preload.js')
     },
     icon: path.join(__dirname, 'assets', 'icon.png'),
     titleBarStyle: 'default',
@@ -25,7 +34,7 @@ function createWindow() {
     console.log('🔧 Modo desarrollo activado - DevTools abierto');
   }
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
@@ -65,28 +74,28 @@ function createMenu(mainWindow) {
           label: 'Ir a Inicio',
           accelerator: 'CmdOrCtrl+H',
           click: () => {
-            mainWindow.loadFile(path.join(__dirname, 'index.html'));
+            mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
           }
         },
         {
           label: 'Ir a Login',
           accelerator: 'CmdOrCtrl+L',
           click: () => {
-            mainWindow.loadFile(path.join(__dirname, 'login.html'));
+            mainWindow.loadFile(path.join(__dirname, '../renderer/login.html'));
           }
         },
         {
           label: 'Ir a Dashboard',
           accelerator: 'CmdOrCtrl+D',
           click: () => {
-            mainWindow.loadFile(path.join(__dirname, 'dashboard.html'));
+            mainWindow.loadFile(path.join(__dirname, '../renderer/dashboard.html'));
           }
         },
         {
           label: 'Ir a Dashboard',
           accelerator: 'CmdOrCtrl+U',
           click: () => {
-            mainWindow.loadFile(path.join(__dirname, 'dashboard.html'));
+            mainWindow.loadFile(path.join(__dirname, '../renderer/dashboard.html'));
           }
         },
         { type: 'separator' },
@@ -232,7 +241,7 @@ function showQuickNotes() {
     title: 'Notas rápidas'
   });
 
-  notesWindow.loadFile(path.join(__dirname, 'notes.html'));
+  notesWindow.loadFile(path.join(__dirname, '../renderer/notes.html'));
 }
 
 async function addQuickBookmark(mainWindow) {
@@ -273,7 +282,7 @@ async function logout(mainWindow) {
       console.log('🧹 Datos de sesión limpiados completamente');
       
       // Recargar página principal
-      mainWindow.loadFile(path.join(__dirname, 'index.html'));
+      mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
       
       dialog.showMessageBox(mainWindow, {
         type: 'info',
@@ -300,9 +309,12 @@ function openInterceptorConfig() {
     autoHideMenuBar: true
   });
 
-  configWindow.loadFile(path.join(__dirname, 'interceptor-config.html'));
+  configWindow.loadFile(path.join(__dirname, '../renderer/interceptor-config.html'));
 }
 
+// --- IPC Main Handlers ---
+
+// Handlers para llamadas unidireccionales (send)
 ipcMain.on('show-notes', () => {
   showQuickNotes();
 });
@@ -311,7 +323,7 @@ ipcMain.on('go-to-udemy', (event) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) { 
-    window.loadURL('https://www.udemy.com/courses/search/?src=ukw&q=a');
+    window.loadURL('https://www.udemy.com');
   }
 });
 
@@ -319,7 +331,7 @@ ipcMain.on('go-to-login', (event) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) {
-    window.loadFile(path.join(__dirname, 'login.html'));
+    window.loadFile(path.join(__dirname, '../renderer/login.html'));
   }
 });
 
@@ -327,7 +339,7 @@ ipcMain.on('go-to-home', (event) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) {
-    window.loadFile(path.join(__dirname, 'index.html'));
+    window.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 });
 
@@ -335,7 +347,15 @@ ipcMain.on('go-to-dashboard', (event) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) {
-    window.loadFile(path.join(__dirname, 'dashboard.html'));
+    window.loadFile(path.join(__dirname, '../renderer/dashboard.html'));
+  }
+});
+
+ipcMain.on('go-to-my-learning', (event) => {
+  const webContents = event.sender;
+  const window = BrowserWindow.fromWebContents(webContents);
+  if (window) {
+    window.loadFile(path.join(__dirname, '../renderer/my-learning.html'));
   }
 });
 
@@ -352,6 +372,29 @@ ipcMain.on('search-in-udemy', (event, query) => {
   } else {
     console.log('❌ Error: ventana o query no disponibles');
   }
+});
+
+// Handlers para llamadas bidireccionales (invoke)
+ipcMain.handle('get-udemy-interceptor-code', () => {
+  return udemyInterceptorCode;
+});
+
+ipcMain.handle('take-screenshot', async (event) => {
+  const webContents = event.sender;
+  const window = BrowserWindow.fromWebContents(webContents);
+  if (window) {
+    return await takeScreenshot(window);
+  }
+  return null;
+});
+
+ipcMain.handle('add-bookmark', async (event, url, title) => {
+  const webContents = event.sender;
+  const window = BrowserWindow.fromWebContents(webContents);
+  if (window) {
+    return await addQuickBookmark(window, url, title);
+  }
+  return null;
 });
 
 ipcMain.handle('set-cookies', async (event, cookies) => {

@@ -203,17 +203,29 @@
             Incluye capturas de pantalla, notas rápidas y marcadores integrados.
         </div>
         
-        <button class="main-button" onclick="goToLogin()">
+        <button class="main-button" id="login-button">
             🔐 Iniciar Sesión
         </button>
         
-        <button class="secondary-button" onclick="goToUdemy()">
+        <button class="secondary-button" id="go-to-udemy-button">
             🚀 Ir a Udemy (Demo)
         </button>
         
-        <button class="secondary-button" onclick="openNotes()">
+        <button class="secondary-button" id="open-notes-button">
             📝 Abrir Notas
         </button>
+        
+        <div id="authenticatedButtons" style="display: none;">
+            <button class="secondary-button" id="go-to-my-learning-button">
+                📚 Ir a Mis Aprendizajes
+            </button>
+            <button class="secondary-button" id="take-screenshot-button">
+                📸 Tomar Captura
+            </button>
+            <button class="secondary-button" id="add-bookmark-button">
+                🔖 Añadir Marcador
+            </button>
+        </div>
 
         <div id="userInfo" style="display: none;">
             <div class="user-info">
@@ -223,7 +235,7 @@
         </div>
 
         <div id="logoutSection" style="display: none;">
-            <button class="logout-button" onclick="logout()">
+            <button class="logout-button" id="logout-button">
                 🚪 Cerrar Sesión
             </button>
         </div>
@@ -255,7 +267,7 @@
     <script>
         function goToLogin() {
             if (window.electronAPI) {
-                window.electronAPI.goToLogin();
+                window.electronAPI.send('go-to-login');
             } else {
                 // Fallback para testing en navegador
                 window.location.href = 'login.html';
@@ -264,16 +276,16 @@
 
         function goToUdemy() {
             if (window.electronAPI) {
-                window.electronAPI.goToDashboard();
+                window.electronAPI.send('go-to-udemy');
             } else {
                 // Fallback para testing en navegador
-                window.location.href = 'dashboard.html';
+                window.location.href = 'https://www.udemy.com/';
             }
         }
 
         function openNotes() {
             if (window.electronAPI) {
-                window.electronAPI.showNotes();
+                window.electronAPI.send('show-notes');
             } else {
                 // Fallback para testing en navegador
                 window.open('notes.html', '_blank', 'width=400,height=300');
@@ -296,7 +308,7 @@
                 
                 // Limpiar cookies si estamos en Electron
                 if (window.electronAPI) {
-                    window.electronAPI.clearCookies();
+                    window.electronAPI.invoke('clear-cookies');
                 }
 
                 // Actualizar UI
@@ -344,6 +356,12 @@
                 if (logoutSection) {
                     logoutSection.style.display = 'block';
                 }
+
+                // Show authenticated buttons
+                const authenticatedButtons = document.getElementById('authenticatedButtons');
+                if (authenticatedButtons) {
+                    authenticatedButtons.style.display = 'block';
+                }
                 
                 // Cambiar subtitle
                 const subtitle = document.querySelector('.subtitle');
@@ -354,6 +372,7 @@
                 // Usuario no autenticado - ocultar elementos de sesión activa
                 const userInfoSection = document.getElementById('userInfo');
                 const logoutSection = document.getElementById('logoutSection');
+                const authenticatedButtons = document.getElementById('authenticatedButtons');
                 
                 if (userInfoSection) {
                     userInfoSection.style.display = 'none';
@@ -361,6 +380,10 @@
                 
                 if (logoutSection) {
                     logoutSection.style.display = 'none';
+                }
+
+                if (authenticatedButtons) {
+                    authenticatedButtons.style.display = 'none';
                 }
                 
                 // Restaurar botón principal
@@ -389,25 +412,82 @@
 
             // Actualizar UI después de que auth.js se haya cargado
             setTimeout(updateUIBasedOnAuth, 100);
+
+            // Attach event listener for logout button
+            const logoutButton = document.getElementById('logout-button');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', logout);
+            }
+
+            // Attach event listeners for new buttons
+            const goToMyLearningButton = document.getElementById('go-to-my-learning-button');
+            if (goToMyLearningButton) {
+                goToMyLearningButton.addEventListener('click', () => {
+                    if (window.electronAPI) {
+                        window.electronAPI.send('go-to-my-learning');
+                    } else {
+                        window.location.href = 'my-learning.html';
+                    }
+                });
+            }
+
+            const takeScreenshotButton = document.getElementById('take-screenshot-button');
+            if (takeScreenshotButton) {
+                takeScreenshotButton.addEventListener('click', async () => {
+                    if (window.electronAPI) {
+                        await window.electronAPI.invoke('take-screenshot');
+                    } else {
+                        alert('Screenshot functionality is only available in Electron app.');
+                    }
+                });
+            }
+
+            const addBookmarkButton = document.getElementById('add-bookmark-button');
+            if (addBookmarkButton) {
+                addBookmarkButton.addEventListener('click', async () => {
+                    if (window.electronAPI) {
+                        const currentURL = window.location.href;
+                        const title = document.title;
+                        await window.electronAPI.invoke('add-bookmark', currentURL, title);
+                    } else {
+                        alert('Bookmark functionality is only available in Electron app.');
+                    }
+                });
+            }
         });
 
         // Atajos de teclado
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                goToUdemy();
+                // Ensure electronAPI is available before calling
+                if (window.electronAPI) {
+                    window.electronAPI.send('go-to-udemy');
+                } else {
+                    window.location.href = 'https://www.udemy.com/courses/search/?src=ukw&q=';
+                }
             }
             if (e.ctrlKey || e.metaKey) {
                 switch(e.key) {
                     case 'n':
                         if (e.shiftKey) {
                             e.preventDefault();
-                            openNotes();
+                            // Ensure electronAPI is available before calling
+                            if (window.electronAPI) {
+                                window.electronAPI.send('show-notes');
+                            } else {
+                                window.open('notes.html', '_blank', 'width=400,height=300');
+                            }
                         }
                         break;
                     case 'u':
                         e.preventDefault();
-                        goToUdemy();
+                        // Ensure electronAPI is available before calling
+                        if (window.electronAPI) {
+                            window.electronAPI.send('go-to-udemy');
+                        } else {
+                            window.location.href = 'https://www.udemy.com/';
+                        }
                         break;
                 }
             }
