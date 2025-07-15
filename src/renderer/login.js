@@ -73,12 +73,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const account = await response.json();
     localStorage.setItem('udemyAccount', JSON.stringify(account));
+const userEmail = localStorage.getItem('userEmail');
+const userFullname = localStorage.getItem('userFullname');
 
     if (window.electronAPI) {
       await window.electronAPI.invoke('set-cookies', [
         { name: 'access_token', value: account.accessToken, domain: '.udemy.com', path: '/', secure: true },
         { name: 'dj_session_id', value: account.dj_session_id, domain: '.udemy.com', path: '/', secure: true, httpOnly: true },
-        { name: 'client_id', value: account.client_id, domain: '.udemy.com', path: '/', secure: true }
+        { name: 'client_id', value: account.client_id, domain: '.udemy.com', path: '/', secure: true },
+        {name: 'user_email', value: userEmail || '', domain: '.udemy.com', path: '/', secure: false},
+        {name: 'user_fullname',value: encodeURIComponent(userFullname || ''),domain: '.udemy.com',path: '/',secure: false}
       ]);
     }
 
@@ -112,13 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function goToUdemy() {
-    if (window.electronAPI) {
-      window.electronAPI.send('go-to-udemy');
-    } else {
-      window.location.href = 'https://www.udemy.com/';
-    }
-  }
+   function goToUdemy() {
+            if (window.electronAPI) {
+                window.electronAPI.send('go-to-udemy', 'https://www.udemy.com/');
+            } else {
+                // Fallback para testing en navegador
+                window.location.href = 'https://www.udemy.com/';
+            }
+        }
 
   // EVENT LISTENERS
   loginForm.addEventListener('submit', handleLoginSubmit);

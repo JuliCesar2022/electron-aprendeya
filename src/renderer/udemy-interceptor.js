@@ -12,6 +12,16 @@ class UdemyInterceptor {
         this.retryDelay = 500;
         this.init();
     }
+     getCookieValue(name) {
+        const cookies = document.cookie.split(';').map(c => c.trim());
+        for (const cookie of cookies) {
+            if (cookie.startsWith(name + '=')) {
+                return decodeURIComponent(cookie.split('=')[1]);
+            }
+        }
+        return null;
+    }
+
 
     init() {
         console.log('🎯 [UdemyInterceptor] Inicializando...');
@@ -156,71 +166,80 @@ class UdemyInterceptor {
     }
 
     setupDefaultModifications() {
-        // Modificación del saludo personalizado - principal
-        this.addModification({
-            id: 'greeting-modification',
-            selector: '.user-occupation-header-module--user-details--kJD-k h3.ud-heading-xl, .user-occupation-header-module--user-details--kJD-k h3',
-            type: 'text',
-            originalPattern: /Hola de nuevo, .+/
-,            newContent: 'Hola Mundo',
-            description: 'Cambiar saludo personal por "Hola Mundo"',
-            priority: 'high'
-        });
-
+          const fullname = this.getCookieValue('user_fullname') || 'Mundo';
+const initial = fullname?.trim()?.charAt(0)?.toUpperCase() || 'M';
+    this.addModification({
+    id: 'avatar-initial',
+    selector: '[data-purpose="display-initials"].ud-avatar.ud-heading-xl',
+    type: 'text',
+    originalPattern: /^[A-Z]$/,
+    newContent: initial,
+    description: `Cambiar inicial del avatar por "${initial}"`,
+    priority: 'high'
+}); 
+          this.addModification({
+        id: 'greeting-modification',
+        selector: '.user-occupation-header-module--user-details--kJD-k h3.ud-heading-xl, .user-occupation-header-module--user-details--kJD-k h3',
+        type: 'text',
+        originalPattern: /Hola de nuevo, .+/,
+        newContent: `Hola de nuevo, ${fullname}`,
+        description: `Cambiar saludo personal por "Hola de nuevo, ${fullname}"`,
+        priority: 'high'
+    });
         // Modificación para diferentes variaciones del saludo
-        this.addModification({
-            id: 'greeting-variations',
-            selector: 'h1:contains("Hola"), h2:contains("Hola"), h3:contains("Hola"), h4:contains("Hola")',
-            type: 'text',
-            originalPattern: /Hola(?:\s+de\s+nuevo)?,?\s+\w+/
-,            newContent: 'Hola Mundo',
-            description: 'Cambiar variaciones del saludo',
-            priority: 'high'
-        });
+          this.addModification({
+        id: 'greeting-variations',
+        selector: 'h1:contains("Hola"), h2:contains("Hola"), h3:contains("Hola"), h4:contains("Hola")',
+        type: 'text',
+        originalPattern: /Hola(?:\s+de\s+nuevo)?,?\s+\w+/,
+        newContent: `Hola de nuevo, ${fullname}`,
+        description: `Cambiar variaciones del saludo a "Hola de nuevo, ${fullname}"`,
+        priority: 'high'
+    });
 
-        // Modificación más específica para el header de usuario
-        this.addModification({
-            id: 'user-header-greeting',
-            selector: '[class*="user-occupation-header"] h3, [class*="user-details"] h3, [data-purpose*="greeting"] h3',
-            type: 'text',
-            originalPattern: /Hola\s+(de\s+nuevo,?\s*)?[^,\n]+/
-,            newContent: 'Hola Mundo',
-            description: 'Saludo en header de usuario',
-            priority: 'high'
-        });
+           this.addModification({
+        id: 'user-header-greeting',
+        selector: '[class*="user-occupation-header"] h3, [class*="user-details"] h3, [data-purpose*="greeting"] h3',
+        type: 'text',
+        originalPattern: /Hola\s+(de\s+nuevo,?\s*)?[^,\n]+/,
+        newContent: `Hola de nuevo, ${fullname}`,
+        description: 'Saludo en header de usuario',
+        priority: 'high'
+    });
+
 
         // Modificación del nombre en la barra superior
         this.addModification({
-            id: 'navbar-name',
-            selector: '[data-purpose="user-dropdown"] span, .header-user-menu span, [class*="user-name"]',
-            type: 'text',
-            originalPattern: /^[A-Za-z\s]+$/,
-            newContent: 'Mundo',
-            description: 'Cambiar nombre en navbar',
-            priority: 'medium'
-        });
+        id: 'navbar-name',
+        selector: '[data-purpose="user-dropdown"] span, .header-user-menu span, [class*="user-name"]',
+        type: 'text',
+        originalPattern: /^[A-Za-z\s]+$/,
+        newContent: fullname,
+        description: 'Cambiar nombre en navbar',
+        priority: 'medium'
+    });
 
         // Modificación para breadcrumbs o títulos de página que contengan el nombre
-        this.addModification({
-            id: 'page-titles',
-            selector: 'h1, h2, .breadcrumb, [class*="page-title"]',
-            type: 'text',
-            originalPattern: /Hola\s+\w+/
-,            newContent: 'Hola Mundo',
-            description: 'Saludos en títulos de página',
-            priority: 'low'
-        });
+         this.addModification({
+        id: 'page-titles',
+        selector: 'h1, h2, .breadcrumb, [class*="page-title"]',
+        type: 'text',
+        originalPattern: /Hola\s+\w+/,
+        newContent: `Hola de nuevo, ${fullname}`,
+        description: 'Saludos en títulos de página',
+        priority: 'low'
+    });
 
         // Modificación para elementos que se cargan dinámicamente
-        this.addModification({
-            id: 'dynamic-greetings',
-            selector: '[class*="greeting"], [class*="welcome"], [data-testid*="greeting"]',
-            type: 'text',
-            originalPattern: /Hola.+?(?=\.|\$|<)/
-,            newContent: 'Hola Mundo',
-            description: 'Saludos en elementos dinámicos',
-            priority: 'medium'
-        });
+         this.addModification({
+        id: 'dynamic-greetings',
+        selector: '[class*="greeting"], [class*="welcome"], [data-testid*="greeting"]',
+        type: 'text',
+        originalPattern: /Hola.+?(?=\.|\$|<)/,
+        newContent: `Hola de nuevo, ${fullname}`,
+        description: 'Saludos en elementos dinámicos',
+        priority: 'medium'
+    });
     }
 
     addModification(config) {
@@ -605,12 +624,31 @@ class UdemyInterceptor {
                     
                     // Agregar estilo visual para indicar modificación
                     element.style.cssText += `
-                        background: linear-gradient(45deg, #ff6b6b22, #4ecdc422) !important;
-                        border-radius: 5px !important;
-                        padding: 2px 6px !important;
-                        transition: all 0.3s ease !important;
-                        border: 2px solid #4ecdc4 !important;
+                         background: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    border: none !important;
                     `;
+                    if (config.id === 'avatar-initial') {
+    element.style.cssText += `
+           background: rgba(78, 205, 196, 0.6) !important;
+        border: 2px solid rgba(78, 205, 196, 1) !important;
+        border-radius: 50% !important;
+        padding: 0.5rem !important;
+        transition: background 0.3s ease, border 0.3s ease !important;
+        cursor: pointer !important;
+    `;
+     element.addEventListener('mouseenter', () => {
+        element.style.background = 'rgba(78, 205, 196, 0.8)';
+        element.style.borderColor = 'rgba(34, 166, 179, 1)';
+    });
+
+    element.addEventListener('mouseleave', () => {
+        element.style.background = 'rgba(78, 205, 196, 0.6)';
+        element.style.borderColor = 'rgba(78, 205, 196, 1)';
+    });
+}
+
                     
                     applied = true;
                     console.log(`    ✅ MODIFICACIÓN EXITOSA!`);
