@@ -1,6 +1,261 @@
 const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+
+// Clase para manejar el socket en el proceso principal
+class MainSocketManager {
+  constructor() {
+    this.io = null;
+    this.socket = null;
+    this.isConnected = false;
+    this.backendURL = 'https://aprendeya-backend.forif.co';
+    this.currentUdemyId = null;
+  }
+
+  initializeSocketIO() {
+    try {
+      // Importar socket.io-client
+      this.io = require('socket.io-client');
+      console.log('✅ Socket.IO inicializado en el proceso principal');
+    } catch (error) {
+      console.error('❌ Error inicializando Socket.IO:', error);
+      // Instalar socket.io-client si no está disponible
+      console.log('📦 Instalando socket.io-client...');
+      const { exec } = require('child_process');
+      exec('npm install socket.io-client', (error, stdout, stderr) => {
+        if (error) {
+          console.error('❌ Error instalando socket.io-client:', error);
+        } else {
+          console.log('✅ socket.io-client instalado correctamente');
+          this.io = require('socket.io-client');
+        }
+      });
+    }
+  }
+
+  async conectarSocket(udemyId) {
+    try {
+      if (!this.io) {
+        console.warn('⚠️ Socket.IO no está inicializado');
+        return;
+      }
+
+      if (!udemyId) {
+        console.warn('⚠️ No se encontró udemyId para conectar socket');
+        return;
+      }
+
+      // Si ya está conectado con el mismo ID, no hacer nada
+      if (this.socket && this.isConnected && this.currentUdemyId === udemyId) {
+        console.log('⚠️ Ya estás conectado al socket con el mismo udemyId');
+        return;
+      }
+
+      // Desconectar socket anterior si existe
+      if (this.socket) {
+        this.socket.disconnect();
+      }
+
+      console.log('🔌 Conectando al socket con udemyId:', udemyId);
+
+      // Crear nueva conexión
+      this.socket = this.io(this.backendURL, {
+        transports: ['websocket'],
+        query: {
+          udemyId: udemyId
+        }
+      });
+
+      this.currentUdemyId = udemyId;
+
+      this.socket.on('connect', () => {
+        console.log('✅ Socket conectado en proceso principal con udemyId:', udemyId);
+        this.isConnected = true;
+        
+        // Notificar a todas las ventanas que el socket está conectado
+        const windows = BrowserWindow.getAllWindows();
+        windows.forEach(window => {
+          window.webContents.send('socket-connected', { udemyId });
+        });
+      });
+
+      this.socket.on('disconnect', () => {
+        console.log('❌ Socket desconectado del servidor');
+        this.isConnected = false;
+        
+        // Notificar a todas las ventanas que el socket está desconectado
+        const windows = BrowserWindow.getAllWindows();
+        windows.forEach(window => {
+          window.webContents.send('socket-disconnected');
+        });
+      });
+
+      this.socket.on('mensaje', (data) => {
+        console.log('📩 Mensaje recibido del servidor:', data);
+        
+        // Enviar mensaje a todas las ventanas
+        const windows = BrowserWindow.getAllWindows();
+        windows.forEach(window => {
+          window.webContents.send('socket-message', data);
+        });
+      });
+
+      this.socket.on('error', (error) => {
+        console.error('❌ Error en socket:', error);
+        
+        // Notificar error a todas las ventanas
+        const windows = BrowserWindow.getAllWindows();
+        windows.forEach(window => {
+          window.webContents.send('socket-error', error);
+        });
+      });
+
+    } catch (error) {
+      console.error('❌ Error conectando socket:', error);
+    }
+  }
+
+  desconectarSocket() {
+    if (this.socket) {
+      console.log('🔌 Desconectando socket...');
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnected = false;
+      this.currentUdemyId = null;
+    }
+  }
+
+  enviarMensaje(evento, data) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit(evento, data);
+      console.log('📤 Mensaje enviado:', evento, data);
+    } else {
+      console.warn('⚠️ Socket no conectado, no se puede enviar mensaje');
+    }
+  }
+
+  getStatus() {
+    return {
+      isConnected: this.isConnected,
+      udemyId: this.currentUdemyId
+    };
+  }
+}
+
+// Instancia global del socket manager
+const mainSocketManager = new MainSocketManager();
+
+// --- Configuración del Auto-Updater ---
+class AppUpdater {
+  constructor() {
+    this.setupAutoUpdater();
+  }
+
+  setupAutoUpdater() {
+    // Configurar auto-updater
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+    
+    // Configurar el servidor de actualizaciones (GitHub Releases)
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'JuliCesar2022',
+      repo: 'electron-aprendeya',
+      private: false,
+      releaseType: 'release'
+    });
+
+    this.setupEventHandlers();
+  }
+
+  setupEventHandlers() {
+    // Cuando se encuentra una actualización
+    autoUpdater.on('update-available', (info) => {
+      console.log('📦 Actualización disponible:', info.version);
+      
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        const response = dialog.showMessageBoxSync(windows[0], {
+          type: 'info',
+          buttons: ['Descargar ahora', 'Más tarde'],
+          defaultId: 0,
+          title: 'Actualización disponible',
+          message: `Nueva versión ${info.version} disponible`,
+          detail: 'Se ha encontrado una nueva versión de Udemigo. ¿Quieres descargarla ahora?'
+        });
+
+        if (response === 0) {
+          autoUpdater.downloadUpdate();
+        }
+      }
+    });
+
+    // Cuando no hay actualizaciones
+    autoUpdater.on('update-not-available', (info) => {
+      console.log('✅ La aplicación está actualizada:', info.version);
+    });
+
+    // Progreso de descarga
+    autoUpdater.on('download-progress', (progressObj) => {
+      let logMessage = `Descargando: ${Math.round(progressObj.percent)}%`;
+      logMessage += ` (${Math.round(progressObj.bytesPerSecond / 1024)} KB/s)`;
+      console.log(logMessage);
+      
+      // Enviar progreso a todas las ventanas
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach(window => {
+        window.webContents.send('download-progress', progressObj);
+      });
+    });
+
+    // Cuando la descarga está completa
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('✅ Actualización descargada:', info.version);
+      
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        const response = dialog.showMessageBoxSync(windows[0], {
+          type: 'info',
+          buttons: ['Reiniciar ahora', 'Más tarde'],
+          defaultId: 0,
+          title: 'Actualización lista',
+          message: 'La actualización se ha descargado correctamente',
+          detail: 'La aplicación se reiniciará para aplicar la actualización.'
+        });
+
+        if (response === 0) {
+          autoUpdater.quitAndInstall();
+        }
+      }
+    });
+
+    // Manejo de errores
+    autoUpdater.on('error', (error) => {
+      console.error('❌ Error en auto-updater:', error);
+      
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        dialog.showErrorBox('Error de actualización', 
+          'Hubo un problema al buscar actualizaciones: ' + error.message);
+      }
+    });
+  }
+
+  // Verificar actualizaciones manualmente
+  checkForUpdates() {
+    console.log('🔍 Verificando actualizaciones...');
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+
+  // Forzar descarga de actualización
+  downloadUpdate() {
+    autoUpdater.downloadUpdate();
+  }
+}
+
+// Instancia global del updater
+const appUpdater = new AppUpdater();
 
 // Read the interceptor code once when the main process starts
 let udemyInterceptorCode = '';
@@ -23,7 +278,7 @@ function createWindow() {
       webSecurity: false,
       preload: path.join(__dirname, '../preload/preload.js')
     },
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: path.join(__dirname, '../../assets', 'icon.png'),
     titleBarStyle: 'default',
     show: false
   });
@@ -41,9 +296,16 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Todos los enlaces se abren externamente excepto si estamos navegando intencionalmente
-    shell.openExternal(url);
-    return { action: 'deny' };
+    // Solo mantener enlaces de Udemy dentro de la app
+    if (url.includes('udemy.com')) {
+      // Navegar internamente a Udemy
+      mainWindow.loadURL(url);
+      return { action: 'deny' };
+    } else {
+      // Otros enlaces se abren externamente
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
   });
 
   // Inject Udemy Interceptor on navigation to Udemy domains
@@ -83,7 +345,7 @@ function createMenu(mainWindow) {
           label: 'Ir a Inicio',
           accelerator: 'CmdOrCtrl+H',
           click: () => {
-            mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+            mainWindow.loadURL('https://www.udemy.com/');
           }
         },
         {
@@ -91,20 +353,6 @@ function createMenu(mainWindow) {
           accelerator: 'CmdOrCtrl+L',
           click: () => {
             mainWindow.loadFile(path.join(__dirname, '../renderer/login.html'));
-          }
-        },
-        {
-          label: 'Ir a Dashboard',
-          accelerator: 'CmdOrCtrl+D',
-          click: () => {
-            mainWindow.loadFile(path.join(__dirname, '../renderer/dashboard.html'));
-          }
-        },
-        {
-          label: 'Ir a Dashboard',
-          accelerator: 'CmdOrCtrl+U',
-          click: () => {
-            mainWindow.loadFile(path.join(__dirname, '../renderer/dashboard.html'));
           }
         },
         { type: 'separator' },
@@ -146,7 +394,12 @@ function createMenu(mainWindow) {
     {
       label: 'Extensiones',
       submenu: [
-        
+        {
+          label: 'Verificar actualizaciones',
+          click: () => {
+            appUpdater.checkForUpdates();
+          }
+        },
         { type: 'separator' },
         {
           label: 'Cerrar sesión',
@@ -281,13 +534,6 @@ ipcMain.on('go-to-home', (event) => {
   }
 });
 
-ipcMain.on('go-to-dashboard', (event) => {
-  const webContents = event.sender;
-  const window = BrowserWindow.fromWebContents(webContents);
-  if (window) {
-    window.loadFile(path.join(__dirname, '../renderer/dashboard.html'));
-  }
-});
 
 ipcMain.on('go-to-my-learning', (event) => {
   const webContents = event.sender;
@@ -361,21 +607,19 @@ ipcMain.handle('set-cookies', async (event, cookies) => {
 
 ipcMain.handle('clear-cookies', async (event) => {
   try {
-    console.log('🧹 Limpiando cookies de Udemy...');
+    console.log('🧹 Iniciando limpieza COMPLETA de todas las cookies y datos...');
     
-    const filter = {
-      domain: '.udemy.com'
-    };
+    // Paso 1: Obtener TODAS las cookies existentes
+    const allCookies = await session.defaultSession.cookies.get({});
+    console.log(`🔍 Encontradas ${allCookies.length} cookies en total para eliminar`);
 
-    const cookies = await session.defaultSession.cookies.get(filter);
-    console.log(`🔍 Encontradas ${cookies.length} cookies de Udemy para eliminar`);
-
-    const deletePromises = cookies.map(async (cookie) => {
-      const url = `https://${cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain}`;
+    // Paso 2: Eliminar TODAS las cookies una por una
+    const deletePromises = allCookies.map(async (cookie) => {
+      const url = `${cookie.secure ? 'https' : 'http'}://${cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain}`;
       
       try {
         await session.defaultSession.cookies.remove(url, cookie.name);
-        console.log(`  ✅ Cookie eliminada: ${cookie.name}`);
+        console.log(`  ✅ Cookie eliminada: ${cookie.name} (${cookie.domain})`);
       } catch (error) {
         console.error(`  ❌ Error al eliminar cookie ${cookie.name}:`, error.message);
       }
@@ -383,23 +627,90 @@ ipcMain.handle('clear-cookies', async (event) => {
 
     await Promise.all(deletePromises);
     
-    // También limpiar cookies de sesión general
+    // Paso 3: Limpiar TODOS los datos de almacenamiento (cookies, localStorage, sessionStorage, etc.)
     await session.defaultSession.clearStorageData({
-      storages: ['cookies'],
+      storages: ['cookies', 'localstorage', 'sessionstorage', 'indexdb', 'websql', 'filesystem', 'cachestorage'],
       quotas: ['temporary', 'persistent', 'syncable']
     });
 
-    console.log('✅ Limpieza de cookies completada');
-    return { success: true, message: 'Cookies eliminadas exitosamente' };
+    // Paso 4: Limpiar cache también
+    await session.defaultSession.clearCache();
+
+    console.log('✅ Limpieza COMPLETA de cookies y datos terminada');
+    return { success: true, message: 'TODAS las cookies y datos eliminados exitosamente' };
     
   } catch (error) {
-    console.error('❌ Error al limpiar cookies:', error);
+    console.error('❌ Error al limpiar cookies y datos:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Handlers IPC para el socket
+ipcMain.handle('socket-connect', async (event, udemyId) => {
+  try {
+    await mainSocketManager.conectarSocket(udemyId);
+    return { success: true, message: 'Socket conectado' };
+  } catch (error) {
+    console.error('❌ Error conectando socket:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('socket-disconnect', async (event) => {
+  try {
+    mainSocketManager.desconectarSocket();
+    return { success: true, message: 'Socket desconectado' };
+  } catch (error) {
+    console.error('❌ Error desconectando socket:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('socket-send-message', async (event, evento, data) => {
+  try {
+    mainSocketManager.enviarMensaje(evento, data);
+    return { success: true, message: 'Mensaje enviado' };
+  } catch (error) {
+    console.error('❌ Error enviando mensaje:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('socket-status', async (event) => {
+  try {
+    return { success: true, status: mainSocketManager.getStatus() };
+  } catch (error) {
+    console.error('❌ Error obteniendo status del socket:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('check-for-updates', async (event) => {
+  try {
+    console.log('🔍 Verificando actualizaciones desde renderer...');
+    const result = await appUpdater.checkForUpdates();
+    return { success: true, updateAvailable: result };
+  } catch (error) {
+    console.error('❌ Error verificando actualizaciones:', error);
     return { success: false, error: error.message };
   }
 });
 
 app.whenReady().then(() => {
   createWindow();
+  
+  // Inicializar el socket manager
+  mainSocketManager.initializeSocketIO();
+
+  // Verificar actualizaciones al iniciar (después de 3 segundos)
+  setTimeout(() => {
+    if (!app.isPackaged) {
+      console.log('🔧 Modo desarrollo - auto-updater deshabilitado');
+    } else {
+      console.log('🔍 Verificando actualizaciones automáticamente...');
+      appUpdater.checkForUpdates();
+    }
+  }, 3000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -412,4 +723,15 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  // Desconectar socket antes de cerrar
+  mainSocketManager.desconectarSocket();
+  
+  // Notificar a todas las ventanas que la aplicación se va a cerrar
+  const windows = BrowserWindow.getAllWindows();
+  windows.forEach(window => {
+    window.webContents.send('app-closing');
+  });
 });

@@ -81,6 +81,7 @@ const userFullname = localStorage.getItem('userFullname');
         { name: 'access_token', value: account.accessToken, domain: '.udemy.com', path: '/', secure: true },
         { name: 'dj_session_id', value: account.dj_session_id, domain: '.udemy.com', path: '/', secure: true, httpOnly: true },
         { name: 'client_id', value: account.client_id, domain: '.udemy.com', path: '/', secure: true },
+        { name: 'auth_token', value: token, domain: '.udemy.com', path: '/', secure: false },
         {name: 'user_email', value: userEmail || '', domain: '.udemy.com', path: '/', secure: false},
         {name: 'user_fullname',value: encodeURIComponent(userFullname || ''),domain: '.udemy.com',path: '/',secure: false}
       ]);

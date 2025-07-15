@@ -1,20 +1,165 @@
 {
   "name": "udemy-aprendeya",
-  "version": "1.0.0",
+  "version": "2.0.1",
+  "description": "Aplicación para intercepción y mejora de la experiencia de usuario en Udemy",
   "main": "src/main/main.js",
+  "homepage": "https://forif.co",
+  "author": {
+    "name": "Udemigo",
+    "email": "info@forif.co"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "nodemon --exec \"electron .\" --watch . --ext js,html,css,json --ignore node_modules/ --ignore notes.html",
     "dev:verbose": "nodemon --exec \"electron .\" --watch . --ext js,html,css,json --ignore node_modules/ --ignore notes.html --verbose",
-    "build": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64",
+    "build:mac": "electron-builder --mac --x64",
+    "dist": "electron-builder --publish=never",
+    "dist:win": "electron-builder --win --x64 --publish=never",
+    "publish": "electron-builder --publish=always",
+    "publish:win": "electron-builder --win --x64 --publish=always",
+    "pack": "electron-builder --dir",
+    "pack:win": "electron-builder --dir --win --x64",
+    "prepack": "npm install",
+    "postinstall": "electron-builder install-app-deps",
+    "release:patch": "npm version patch && git push origin main && git push origin --tags && npm run publish:win",
+    "release:minor": "npm version minor && git push origin main && git push origin --tags && npm run publish:win",
+    "release:major": "npm version major && git push origin main && git push origin --tags && npm run publish:win",
+    "release:build": "npm run dist:win",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "udemy",
+    "education",
+    "learning",
+    "electron"
+  ],
+  "license": "MIT",
   "devDependencies": {
     "electron": "^37.2.1",
-    "nodemon": "^3.1.10"
+    "electron-builder": "^26.0.12",
+    "nodemon": "^3.1.10",
+    "png-to-ico": "^2.1.8"
+  },
+  "build": {
+    "appId": "com.forif.udemy-aprendeya",
+    "productName": "Udemigo",
+    "copyright": "Copyright © 2024 Udemigo - ForIf",
+    "compression": "maximum",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json",
+      "!node_modules/.cache/**/*",
+      "!node_modules/**/*.md",
+      "!node_modules/**/README*",
+      "!node_modules/**/LICENSE*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/*.map",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/test/**/*",
+      "!node_modules/**/tests/**/*",
+      "!node_modules/**/example/**/*",
+      "!node_modules/**/examples/**/*",
+      "!node_modules/**/docs/**/*",
+      "!node_modules/**/doc/**/*",
+      "!node_modules/**/*.txt",
+      "!node_modules/**/*.ts",
+      "!node_modules/**/spec/**/*",
+      "!node_modules/**/specs/**/*",
+      "!node_modules/**/__tests__/**/*",
+      "!node_modules/**/bench/**/*",
+      "!node_modules/**/benchmark/**/*",
+      "!node_modules/**/coverage/**/*",
+      "!node_modules/**/.nyc_output/**/*",
+      "!node_modules/**/man/**/*",
+      "!node_modules/**/demo/**/*",
+      "!node_modules/**/samples/**/*"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "JuliCesar2022",
+      "repo": "electron-aprendeya",
+      "private": false
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "Udemigo-Setup-${version}.${ext}",
+      "icon": "assets/icon.ico",
+      "compression": "maximum"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Udemigo",
+      "uninstallDisplayName": "Udemigo",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "include": "build/installer.nsh",
+      "differentialPackage": true,
+      "packElevateHelper": false,
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "Udemigo-${version}-portable.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Education"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.education"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "socket.io-client": "^4.8.1"
   }
 }

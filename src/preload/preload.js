@@ -10,7 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'go-to-udemy',
       'go-to-login',
       'go-to-home',
-      'go-to-dashboard',
       'go-to-my-learning',
       'search-in-udemy'
     ];
@@ -28,7 +27,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'add-bookmark',
       'set-cookies',
       'clear-cookies',
-      'get-udemy-interceptor-code'
+      'get-udemy-interceptor-code',
+      'socket-connect',
+      'socket-disconnect',
+      'socket-send-message',
+      'socket-status'
     ];
     if (validInvokeChannels.includes(channel)) {
       return await ipcRenderer.invoke(channel, data);
@@ -41,7 +44,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Funciones para escuchar mensajes del proceso principal
   receive: (channel, func) => {
     const validReceiveChannels = [
-      'keyboard-shortcut'
+      'keyboard-shortcut',
+      'app-closing',
+      'socket-connected',
+      'socket-disconnected',
+      'socket-message',
+      'socket-error'
     ];
     if (validReceiveChannels.includes(channel)) {
       // Eliminar listeners anteriores para evitar duplicados
@@ -54,6 +62,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 console.log('✅ electronAPI expuesto al main world');
+
+// Las cookies de cuenta óptima ahora se configuran desde index.html
+// Este archivo se mantiene para otras funcionalidades del preload
 
 // El resto de la lógica de UI/DOM se moverá a udemy-interceptor.js
 // La inyección del interceptor se manejará en udemy-interceptor.js también,

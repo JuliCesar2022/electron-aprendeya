@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Udemy AprendeYa - Dashboard</title>
+    <title>Udemigos - Dashboard</title>
     <style>
         * {
             margin: 0;
@@ -406,7 +406,7 @@
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">📚 Udemy AprendeYa</div>
+            <div class="logo"><img src="assets/icon.png" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; vertical-align: middle;">Udemigos</div>
             <div class="user-info">
                 <div class="user-avatar" id="userAvatar">U</div>
                 <div class="user-details">
@@ -493,12 +493,31 @@
 
     <script src="auth.js"></script>
     <script>
+        // Función para prevenir navegación hacia atrás al index
+        function preventBackToIndex() {
+            // Agregar entrada al historial para prevenir que el botón "Atrás" vaya al index
+            window.history.pushState(null, null, window.location.href);
+            
+            // Interceptar evento de navegación hacia atrás
+            window.addEventListener('popstate', function(event) {
+                // Verificar si hay sesión activa
+                const hasSession = window.authManager && window.authManager.isAuthenticated() && !window.authManager.isTokenExpired();
+                
+                if (hasSession) {
+                    // Si hay sesión activa, mantener en dashboard
+                    window.history.pushState(null, null, window.location.href);
+                    console.log('🚫 Navegación hacia atrás bloqueada - sesión activa');
+                } else {
+                    // Si no hay sesión, permitir navegación normal
+                    console.log('✅ Navegación hacia atrás permitida - no hay sesión activa');
+                }
+            });
+        }
+
         // Cargar datos del usuario al iniciar
         document.addEventListener('DOMContentLoaded', function() {
-            // Debug electronAPI
-            console.log('🔧 DEBUG electronAPI:', window.electronAPI);
-            console.log('🔧 DEBUG searchInUdemy function:', window.electronAPI?.searchInUdemy);
-            console.log('🔧 DEBUG all electronAPI methods:', Object.keys(window.electronAPI || {}));
+            // Prevenir navegación hacia atrás al index
+            preventBackToIndex();
             
             loadUserData();
             loadContinueLearning();
@@ -654,7 +673,7 @@
                 
                 if (window.electronAPI) {
                     window.electronAPI.clearCookies();
-                    window.electronAPI.goToHome();
+                    window.electronAPI.send('go-to-home');
                 } else {
                     window.location.href = 'index.html';
                 }
