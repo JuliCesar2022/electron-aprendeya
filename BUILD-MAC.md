@@ -85,7 +85,7 @@ Agrega la configuración para macOS en el `package.json`:
       }
     },
     "mas": {
-      "type": "distribution",
+      "type": "distribution", 
       "category": "public.app-category.education",
       "provisioningProfile": "build/embedded.provisionprofile"
     }

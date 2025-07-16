@@ -1,6 +1,6 @@
 {
   "name": "udemy-aprendeya",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Aplicación para intercepción y mejora de la experiencia de usuario en Udemy",
   "main": "src/main/main.js",
   "homepage": "https://forif.co",
@@ -15,7 +15,12 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win --x64",
     "build:linux": "electron-builder --linux --x64",
-    "build:mac": "electron-builder --mac --x64",
+    "build:mac": "electron-builder --mac",
+    "build:mac:universal": "electron-builder --mac --universal",
+    "build:mac:arm64": "electron-builder --mac --arm64",
+    "build:mac:x64": "electron-builder --mac --x64",
+    "publish:mac": "electron-builder --mac --publish=always",
+    "dist:mac": "npm run build && electron-builder --mac",
     "dist": "electron-builder --publish=never",
     "dist:win": "electron-builder --win --x64 --publish=never",
     "publish": "electron-builder --publish=always",
@@ -40,6 +45,7 @@
   "devDependencies": {
     "electron": "^37.2.1",
     "electron-builder": "^26.0.12",
+    "electron-notarize": "^1.2.2",
     "nodemon": "^3.1.10",
     "png-to-ico": "^2.1.8"
   },
@@ -153,9 +159,47 @@
             "x64",
             "arm64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
-      "category": "public.app-category.education"
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.education",
+      "artifactName": "Udemigo-${version}-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "Udemigo ${version}",
+      "artifactName": "Udemigo-${version}.${ext}",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "mas": {
+      "type": "distribution",
+      "category": "public.app-category.education",
+      "provisioningProfile": "build/embedded.provisionprofile"
     }
   },
   "dependencies": {
