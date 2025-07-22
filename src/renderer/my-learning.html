@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Udemigos - Mi Aprendizaje</title>
+    <title>Udemigo - Mi Aprendizaje</title>
     <style>
         * {
             margin: 0;
@@ -309,6 +309,7 @@
             overflow: hidden;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
+            cursor: pointer;
         }
 
         .course-card:hover {
@@ -462,7 +463,7 @@
                 <button class="back-btn-nav" id="back-btn-nav">⬅️ Volver</button>
             </div>
             <div class="nav-center">
-                <div class="logo"><img src="assets/icon.png" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; vertical-align: middle;">Udemigos</div>
+                <div class="logo"><img src="assets/icon.png" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; vertical-align: middle;">Udemigo</div>
             </div>
             <div class="nav-right">
                 <div class="user-info">
@@ -667,13 +668,97 @@
             renderCourses(filteredCourses);
         }
 
-        function openCourse(url) {
+        async function openCourse(url) {
             if (window.electronAPI) {
-                // Abrir el curso en la vista principal de Electron
-                window.electronAPI.send('go-to-udemy', url);
+                try {
+                    console.log('🎓 Abriendo curso en Brave con sesión transferida:', url);
+                    
+                    // Mostrar mensaje de carga
+                    showLoadingMessage('Cargando curso...');
+                    
+                    // Lanzar curso en Brave con cookies transferidas
+                    const success = await window.electronAPI.invoke('chrome-launch-course', url);
+                    
+                    hideLoadingMessage();
+                    
+                    if (success) {
+                        console.log('✅ Curso abierto exitosamente en Brave');
+                        showNotification('¡Curso abierto en Brave con tu sesión!', 'success');
+                    } else {
+                        console.error('❌ Error abriendo curso en Brave');
+                        showNotification('Error abriendo el curso', 'error');
+                        // Fallback: abrir en Electron
+                        window.electronAPI.send('go-to-udemy', url);
+                    }
+                } catch (error) {
+                    hideLoadingMessage();
+                    console.error('❌ Error:', error);
+                    showNotification('Error abriendo el curso', 'error');
+                    // Fallback: abrir en Electron
+                    window.electronAPI.send('go-to-udemy', url);
+                }
             } else {
                 window.open(url, '_blank');
             }
+        }
+        
+        // Función para mostrar mensaje de carga
+        function showLoadingMessage(message) {
+            const existingLoader = document.getElementById('courseLoader');
+            if (existingLoader) existingLoader.remove();
+            
+            const loader = document.createElement('div');
+            loader.id = 'courseLoader';
+            loader.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 20px 40px;
+                border-radius: 10px;
+                z-index: 10000;
+                font-size: 16px;
+                text-align: center;
+                backdrop-filter: blur(5px);
+            `;
+            loader.innerHTML = `
+                <div style="margin-bottom: 10px;">🎓</div>
+                <div>${message}</div>
+                <div style="margin-top: 10px; font-size: 12px; opacity: 0.8;">Esto puede tomar unos segundos...</div>
+            `;
+            document.body.appendChild(loader);
+        }
+        
+        // Función para ocultar mensaje de carga
+        function hideLoadingMessage() {
+            const loader = document.getElementById('courseLoader');
+            if (loader) loader.remove();
+        }
+        
+        // Función para mostrar notificaciones
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 5px;
+                color: white;
+                font-weight: bold;
+                z-index: 10001;
+                max-width: 400px;
+                background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 4000);
         }
 
         function openNotes() {

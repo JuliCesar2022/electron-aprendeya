@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Udemigos - Iniciando...</title>
+    <title>Udemigo - Iniciando...</title>
     <style>
         * {
             margin: 0;
@@ -230,7 +230,7 @@
     <!-- Splash Screen -->
     <div id="splashScreen" class="splash-screen">
         <div class="splash-logo"><img src="assets/icon.png" style="width: 80px; height: 80px; border-radius: 50%;"></div>
-        <div class="splash-title">Udemigos</div>
+        <div class="splash-title">Udemigo</div>
         <div class="splash-subtitle">Tu plataforma de aprendizaje mejorada</div>
         
         <div class="loading-container">
@@ -242,7 +242,7 @@
 
     <!-- Main Content (hidden initially) -->
     <div id="mainContent" class="main-content">
-        <div class="main-logo"><img src="assets/icon.png" style="width: 60px; height: 60px; border-radius: 50%; margin-right: 15px; vertical-align: middle;">Udemigos</div>
+        <div class="main-logo"><img src="assets/icon.png" style="width: 60px; height: 60px; border-radius: 50%; margin-right: 15px; vertical-align: middle;">Udemigo</div>
         <div id="mainTitle" class="subtitle">Tu plataforma de aprendizaje mejorada</div>
         <div id="mainDescription" class="description">
             Accede a Udemy con herramientas adicionales para mejorar tu experiencia de aprendizaje.
@@ -257,8 +257,9 @@
         </button>
     </div>
 
-    <div class="version">v1.0.4</div>
+    <div class="version" id="version-display">v0.0.0</div>
 
+    <script src="config.js"></script>
     <script src="auth.js"></script>
     <script src="socket.io.js"></script>
     <script>
@@ -377,6 +378,12 @@
                 window.appInitialized = true;
                 console.log('✅ Variable global appInitialized establecida');
                 
+                // El proceso principal se encarga de la extracción automáticamente
+                this.updateStatus('Configurando todo...');
+                
+                // Configurar listeners para eventos de extracción del proceso principal
+                this.setupBraveExtractionListeners();
+                
                 // Verificar si llegamos aquí por error teniendo sesión activa
                 const hasValidSession = await this.checkSession();
                 
@@ -390,7 +397,7 @@
                     return;
                 }
                 
-                // Mostrar splash screen por al menos 2 segundos
+                // Mostrar splash screen
                 await this.showSplashScreen();
                 
                 // Si no hay sesión válida, mostrar opciones de login
@@ -399,13 +406,32 @@
                 this.showMainContent();
             }
 
+            setupBraveExtractionListeners() {
+                if (window.electronAPI) {
+                    // Escuchar cuando inicia la extracción
+                    window.electronAPI.receive('brave-extraction-started', () => {
+                        console.log('📦 Extracción de Brave iniciada desde proceso principal');
+                        this.updateStatus('Extrayendo navegador integrado...');
+                    });
+                    
+                    // Escuchar cuando termina la extracción
+                    window.electronAPI.receive('brave-extraction-completed', (result) => {
+                        console.log('📦 Extracción completada:', result);
+                        if (result.success) {
+                            this.updateStatus('Navegador integrado configurado ✓');
+                        } else {
+                            this.updateStatus('Usando navegador del sistema');
+                        }
+                    });
+                } else {
+                    console.log('ℹ️ Modo navegador web - listeners no configurados');
+                }
+            }
+
             async showSplashScreen() {
                 this.updateStatus('Verificando actualizaciones...');
                 await this.checkForUpdates();
                 await this.delay(800);
-                
-                this.updateStatus('Verificando aplicación...');
-                await this.delay(600);
                 
                 this.updateStatus('Cargando componentes...');
                 await this.delay(600);
@@ -430,6 +456,7 @@
                     console.error('❌ Error verificando actualizaciones:', error);
                 }
             }
+
 
             async checkSession() {
                 try {
@@ -630,8 +657,46 @@
             }
         }
 
+        // Función para imprimir ruta actual (solo en consola)
+        function printCurrentRoute() {
+            const currentUrl = window.location.href;
+            const currentPath = window.location.pathname;
+            console.log('📍 Ruta actual:', currentUrl);
+            console.log('📂 Path actual:', currentPath);
+        }
+
+        // Función para interceptar y prevenir redirecciones (DESACTIVADA)
+        function preventRedirections() {
+            console.log('ℹ️ Interceptores de redirección desactivados - redirecciones permitidas');
+        }
+
+        // Función para cargar la versión desde configuración
+        function loadVersion() {
+            try {
+                if (window.AppConfig && window.AppConfig.app.version) {
+                    document.getElementById('version-display').textContent = `v${window.AppConfig.app.version}`;
+                    console.log('✅ Versión cargada desde config:', window.AppConfig.app.version);
+                } else {
+                    console.error('❌ No se pudo cargar la configuración');
+                    document.getElementById('version-display').textContent = 'v?.?.?';
+                }
+            } catch (error) {
+                console.error('❌ Error cargando versión:', error);
+                document.getElementById('version-display').textContent = 'v?.?.?';
+            }
+        }
+
         // Inicializar la aplicación cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', () => {
+            // Cargar versión dinámicamente
+            loadVersion();
+            
+            // Imprimir ruta actual
+            printCurrentRoute();
+            
+            // Activar prevención de redirecciones
+            preventRedirections();
+            
             new AppInitializer();
             
             // Solo desconectar socket cuando se cierre la aplicación completa

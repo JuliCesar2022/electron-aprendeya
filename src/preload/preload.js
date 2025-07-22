@@ -31,7 +31,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'socket-connect',
       'socket-disconnect',
       'socket-send-message',
-      'socket-status'
+      'socket-status',
+      'chrome-launch',
+      'chrome-launch-course',
+      'chrome-navigate',
+      'chrome-back',
+      'chrome-forward',
+      'chrome-reload',
+      'chrome-hide',
+      'chrome-show',
+      'chrome-position',
+      'chrome-cleanup',
+      'update-download',
+      'update-restart',
+      'check-for-updates'
     ];
     if (validInvokeChannels.includes(channel)) {
       return await ipcRenderer.invoke(channel, data);
@@ -49,7 +62,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'socket-connected',
       'socket-disconnected',
       'socket-message',
-      'socket-error'
+      'socket-error',
+      'update-available',
+      'download-progress',
+      'update-downloaded',
+      'show-update-overlay',
+      'update-download-progress',
+      'update-downloaded-overlay'
     ];
     if (validReceiveChannels.includes(channel)) {
       // Eliminar listeners anteriores para evitar duplicados

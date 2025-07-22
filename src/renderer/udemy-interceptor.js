@@ -1,3 +1,102 @@
+// Función global para abrir cursos en Brave con modo kiosko
+window.openCourseInBrave = async function(courseUrl) {
+    console.log('🎓 Abriendo curso en Brave con modo kiosko:', courseUrl);
+    
+    try {
+        // Mostrar indicador de carga
+        showUdemyLoader('Abriendo curso en Brave...');
+        
+        // Lanzar curso en Brave con cookies transferidas
+        const success = await window.electronAPI.invoke('chrome-launch-course', courseUrl);
+        
+        hideUdemyLoader();
+        
+        if (success) {
+            console.log('✅ Curso abierto exitosamente en Brave');
+            showUdemyNotification('¡Curso abierto en Brave con modo kiosko!', 'success');
+        } else {
+            console.error('❌ Error abriendo curso en Brave');
+            showUdemyNotification('Error abriendo el curso', 'error');
+        }
+        
+        return success;
+    } catch (error) {
+        hideUdemyLoader();
+        console.error('❌ Error:', error);
+        showUdemyNotification('Error abriendo el curso', 'error');
+        return false;
+    }
+};
+
+// Funciones de utilidad para notificaciones en Udemy
+function showUdemyLoader(message) {
+    const existingLoader = document.getElementById('udemy-course-loader');
+    if (existingLoader) existingLoader.remove();
+    
+    const loader = document.createElement('div');
+    loader.id = 'udemy-course-loader';
+    loader.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 25px 40px;
+        border-radius: 15px;
+        z-index: 100000;
+        font-size: 16px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    loader.innerHTML = `
+        <div style="margin-bottom: 15px; font-size: 24px;">🚀</div>
+        <div style="font-weight: 600;">${message}</div>
+        <div style="margin-top: 10px; font-size: 14px; opacity: 0.8;">Transferiendo sesión y activando modo kiosko...</div>
+    `;
+    document.body.appendChild(loader);
+}
+
+function hideUdemyLoader() {
+    const loader = document.getElementById('udemy-course-loader');
+    if (loader) loader.remove();
+}
+
+function showUdemyNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 100001;
+        max-width: 400px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    // Animar entrada
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 10);
+    
+    // Animar salida y remover
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => notification.remove(), 300);
+    }, 3700);
+}
+
 // Sistema de intercepción y modificación de contenido de Udemy
 class UdemyInterceptor {
     constructor() {
@@ -88,15 +187,15 @@ class UdemyInterceptor {
 
         this.isActive = true;
         
-        // Prevenir navegación hacia atrás al index
-        this.preventBackToIndex();
-        
         // Verificar y optimizar sesión de usuario existente
         this.checkAndOptimizeUserSession();
         
         
         // Configurar modificaciones por defecto
         this.setupDefaultModifications();
+        
+        // Interceptar enlaces de cursos para abrir en Brave
+        this.setupCourseLinksInterceptor();
         
         
         // Iniciar observadores cuando el DOM esté listo
@@ -112,51 +211,7 @@ class UdemyInterceptor {
         this.performInitialCheck();
     }
 
-    preventBackToIndex() {
-        // Detectar si NO hay variable global (primera vez desde index/login)
-        const isFirstTime = !window.appInitialized;
-        
-        console.log('🔍 DEBUG - preventBackToIndex:');
-        console.log('  window.appInitialized:', window.appInitialized);
-        console.log('  isFirstTime:', isFirstTime);
-        
-        if (isFirstTime) {
-            // Reemplazar completamente el historial para eliminar cualquier navegación hacia atrás
-            window.history.replaceState(null, null, window.location.href);
-            
-            // Agregar múltiples entradas al historial para hacer más difícil volver
-            for (let i = 0; i < 10; i++) {
-                window.history.pushState(null, null, window.location.href);
-            }
-            
-            // Interceptar cualquier intento de navegación hacia atrás
-            window.addEventListener('popstate', (event) => {
-                // Prevenir completamente la navegación hacia atrás
-                event.preventDefault();
-                window.history.pushState(null, null, window.location.href);
-                
-                // Forzar recarga en la página actual si es necesario
-                if (window.location.href !== document.URL) {
-                    window.location.href = document.URL;
-                }
-            });
-            
-            // Interceptar teclas de navegación (Alt + Flecha izquierda, Backspace, etc.)
-            document.addEventListener('keydown', (event) => {
-                // Prevenir Alt + Flecha izquierda (navegación hacia atrás)
-                if (event.altKey && event.key === 'ArrowLeft') {
-                    event.preventDefault();
-                    return false;
-                }
-                
-                // Prevenir Backspace fuera de inputs (navegación hacia atrás)
-                if (event.key === 'Backspace' && !['INPUT', 'TEXTAREA'].includes(event.target.tagName)) {
-                    event.preventDefault();
-                    return false;
-                }
-            });
-        }
-    }
+    // Función preventBackToIndex eliminada - ya no bloquea navegación
 
     performInitialCheck() {
         
@@ -564,10 +619,23 @@ const initial = fullname?.trim()?.charAt(0)?.toUpperCase() || 'M';
                 } 
             }));
             
-            // Redirigir al curso después de 1.5 segundos
-            setTimeout(() => {
+            // Abrir el curso en Brave después de 1.5 segundos
+            setTimeout(async () => {
                 const learnUrl = `https://www.udemy.com/course/${slug}/learn/`;
-                window.location.href = learnUrl;
+                
+                if (window.electronAPI && window.openCourseInBrave) {
+                    try {
+                        console.log('🎓 Abriendo curso guardado en Brave:', learnUrl);
+                        await window.openCourseInBrave(learnUrl);
+                    } catch (error) {
+                        console.error('❌ Error abriendo curso guardado:', error);
+                        // Fallback: navegar en Electron
+                        window.location.href = learnUrl;
+                    }
+                } else {
+                    // Fallback: navegar normalmente
+                    window.location.href = learnUrl;
+                }
             }, 1500);
         })
         .catch(error => {
@@ -727,26 +795,106 @@ const initial = fullname?.trim()?.charAt(0)?.toUpperCase() || 'M';
             </p>
         `;
         
-        // Agregar hover effects
-        const button = customButton.querySelector('#custom-enroll-btn');
-        button.addEventListener('mouseenter', () => {
-            button.style.transform = 'translateY(-2px)';
-            button.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.6)';
-        });
-        
-        button.addEventListener('mouseleave', () => {
-            button.style.transform = 'translateY(0)';
-            button.style.boxShadow = '0 4px 15px rgba(255, 107, 107, 0.4)';
-        });
-        
-        // Agregar evento click
-        button.addEventListener('click', () => {
-            alert(`🎓 ¡Botón interceptado!\n\nCurso: ${courseTitle}\nURL: ${courseUrl}`);
-        });
         
         // Reemplazar el contenido
         element.innerHTML = customButton.outerHTML;
         element.dataset.interceptorReplaced = 'true';
+        
+        // Re-obtener el botón después del reemplazo y agregar los event listeners
+        const newButton = element.querySelector('#custom-enroll-btn');
+        if (newButton) {
+            // Re-agregar hover effects
+            newButton.addEventListener('mouseenter', () => {
+                newButton.style.transform = 'translateY(-2px)';
+                newButton.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.6)';
+            });
+            
+            newButton.addEventListener('mouseleave', () => {
+                newButton.style.transform = 'translateY(0)';
+                newButton.style.boxShadow = '0 4px 15px rgba(255, 107, 107, 0.4)';
+            });
+            
+            // Re-agregar evento click
+            newButton.addEventListener('click', async () => {
+                console.log(`🎓 Intentando inscribirse al curso: ${courseTitle}`);
+                
+                // Extraer slug del courseUrl
+                const slug = courseUrl.replace(/^.*\/course\/([^\/]+).*$/, '$1');
+                
+                // Mostrar indicador de carga
+                this.showLoadingNotification('⏳ Inscribiéndote al curso...');
+                
+                // Crear payload para el backend
+                const payload = {
+                    name: courseTitle,
+                    udemyId: slug,
+                    urlImage: null, // No tenemos imagen desde esta página
+                };
+                
+                try {
+                    // Obtener token
+                    const token = this.getCookieValue('auth_token');
+                    if (!token) {
+                        this.showErrorNotification('❌ Token no encontrado. Inicia sesión primero.');
+                        return;
+                    }
+                    
+                    // Hacer petición al backend
+                    const response = await fetch(`${this.backendURL}user-courses/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        // Si ya está inscrito, ir directamente al curso
+                        if (response.status === 400 && errorData.message?.includes('already enrolled')) {
+                            this.showSuccessNotification('✅ Ya estás inscrito en este curso');
+                        } else {
+                            throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
+                        }
+                    } else {
+                        const data = await response.json();
+                        this.showSuccessNotification('✅ ¡Inscripción exitosa!');
+                        
+                        // Disparar evento para actualizar dropdown
+                        window.dispatchEvent(new CustomEvent('courseAdded', { 
+                            detail: { 
+                                course: data,
+                                slug: slug 
+                            } 
+                        }));
+                    }
+                    
+                    // Abrir el curso en Brave después de inscripción exitosa o si ya estaba inscrito
+                    setTimeout(async () => {
+                        const learnUrl = `https://www.udemy.com/course/${slug}/learn/`;
+                        
+                        if (window.electronAPI && window.openCourseInBrave) {
+                            try {
+                                console.log('🎓 Abriendo curso inscrito en Brave:', learnUrl);
+                                await window.openCourseInBrave(learnUrl);
+                            } catch (error) {
+                                console.error('❌ Error abriendo curso inscrito:', error);
+                                // Fallback: navegar en Electron
+                                window.location.href = learnUrl;
+                            }
+                        } else {
+                            // Fallback: navegar normalmente
+                            window.location.href = learnUrl;
+                        }
+                    }, 1500);
+                    
+                } catch (error) {
+                    console.error('❌ Error en inscripción:', error);
+                    this.showErrorNotification(`❌ Error: ${error.message}`);
+                }
+            });
+        }
         
         return true;
     }
@@ -1560,6 +1708,244 @@ const initial = fullname?.trim()?.charAt(0)?.toUpperCase() || 'M';
         
         this.isActive = false;
     }
+
+    // Interceptar todos los enlaces de cursos para abrir en Brave
+    setupCourseLinksInterceptor() {
+        console.log('🔗 Configurando interceptor de enlaces de cursos');
+        
+        // Interceptar clics en enlaces
+        document.addEventListener('click', async (e) => {
+            let target = e.target;
+            
+            // Buscar el enlace padre si es necesario
+            while (target && target.tagName !== 'A') {
+                target = target.parentElement;
+                if (!target || target.tagName === 'BODY') break;
+            }
+            
+            if (target && target.tagName === 'A' && target.href) {
+                const href = target.href;
+                
+                // Detectar si es un enlace de curso de Udemy
+                if (this.isCourseUrl(href)) {
+                    console.log('🎓 Enlace de curso detectado:', href);
+                    
+                    // Prevenir navegación normal
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Abrir en Brave con modo kiosko
+                    await window.openCourseInBrave(href);
+                    
+                    return false;
+                }
+            }
+        }, true); // Usar capturing para interceptar antes que otros handlers
+        
+        // También interceptar enlaces creados dinámicamente
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1) { // Element node
+                        // Verificar si el nodo agregado es un enlace de curso
+                        if (node.tagName === 'A' && this.isCourseUrl(node.href)) {
+                            this.addCourseClickHandler(node);
+                        }
+                        
+                        // Buscar enlaces de curso dentro del nodo agregado
+                        if (node.querySelectorAll) {
+                            const courseLinks = node.querySelectorAll('a[href*="/learn/"]');
+                            courseLinks.forEach(link => {
+                                if (this.isCourseUrl(link.href)) {
+                                    this.addCourseClickHandler(link);
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        console.log('✅ Interceptor de enlaces de cursos configurado');
+    }
+    
+    // Verificar si una URL es de un curso de Udemy con contenido de video (debe tener /learn/)
+    isCourseUrl(url) {
+        if (!url) return false;
+        
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname.includes('udemy.com') && 
+                   url.includes('/learn/'); // Solo URLs que contengan /learn/ para acceso a videos
+        } catch (e) {
+            return false;
+        }
+    }
+    
+    // Agregar handler de click a un enlace de curso específico
+    addCourseClickHandler(link) {
+        // Evitar agregar múltiples handlers
+        if (link.dataset.braveHandlerAdded) return;
+        
+        link.dataset.braveHandlerAdded = 'true';
+        
+        link.addEventListener('click', async (e) => {
+            console.log('🎓 Click en enlace de curso interceptado:', link.href);
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            await window.openCourseInBrave(link.href);
+            
+            return false;
+        });
+        
+        // Añadir indicador visual opcional
+        link.style.position = 'relative';
+        const indicator = document.createElement('div');
+        indicator.style.cssText = `
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            pointer-events: none;
+        `;
+        indicator.innerHTML = '🚀';
+        indicator.title = 'Se abrirá en Brave con modo kiosko';
+        link.appendChild(indicator);
+    }
+    
+    
+    // Mostrar selector de cursos
+    showCourseSelector(courseLinks) {
+        // Remover selector anterior si existe
+        const existingSelector = document.getElementById('udemigo-course-selector');
+        if (existingSelector) existingSelector.remove();
+        
+        const selector = document.createElement('div');
+        selector.id = 'udemigo-course-selector';
+        selector.style.cssText = `
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 400px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100001;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            animation: slideUp 0.3s ease;
+        `;
+        
+        // Agregar estilos de animación
+        if (!document.getElementById('udemigo-selector-styles')) {
+            const style = document.createElement('style');
+            style.id = 'udemigo-selector-styles';
+            style.textContent = `
+                @keyframes slideUp {
+                    from { transform: translateY(20px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        header.innerHTML = `
+            <span>🎓 Seleccionar Curso</span>
+            <button id="close-selector" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #666;">×</button>
+        `;
+        
+        // Lista de cursos
+        const list = document.createElement('div');
+        list.style.padding = '10px';
+        
+        // Limitar a los primeros 10 cursos para evitar spam
+        const limitedLinks = Array.from(courseLinks).slice(0, 10);
+        
+        limitedLinks.forEach((link, index) => {
+            const courseItem = document.createElement('div');
+            courseItem.style.cssText = `
+                padding: 12px;
+                margin: 5px 0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: background 0.2s ease;
+                border: 1px solid #eee;
+            `;
+            
+            // Extraer título del curso
+            let courseTitle = link.textContent.trim();
+            if (courseTitle.length > 60) {
+                courseTitle = courseTitle.substring(0, 60) + '...';
+            }
+            if (!courseTitle) {
+                courseTitle = 'Curso ' + (index + 1);
+            }
+            
+            courseItem.innerHTML = `
+                <div style="font-weight: 500; color: #333; margin-bottom: 4px;">${courseTitle}</div>
+                <div style="font-size: 12px; color: #666;">Click para abrir en Brave</div>
+            `;
+            
+            courseItem.addEventListener('mouseenter', () => {
+                courseItem.style.background = '#f5f5f5';
+            });
+            
+            courseItem.addEventListener('mouseleave', () => {
+                courseItem.style.background = 'transparent';
+            });
+            
+            courseItem.addEventListener('click', async () => {
+                selector.remove();
+                await window.openCourseInBrave(link.href);
+            });
+            
+            list.appendChild(courseItem);
+        });
+        
+        selector.appendChild(header);
+        selector.appendChild(list);
+        document.body.appendChild(selector);
+        
+        // Close button handler
+        document.getElementById('close-selector').addEventListener('click', () => {
+            selector.remove();
+        });
+        
+        // Auto-close después de 10 segundos
+        setTimeout(() => {
+            if (selector.parentNode) {
+                selector.remove();
+            }
+        }, 10000);
+    }
 }
 
 // --- Lógica de inicialización y UI para el proceso de renderizado ---
@@ -1949,7 +2335,7 @@ if (window.location.hostname.includes('udemy.com')) {
         <div class="loading-spinner">Cargando cursos...</div>
       </div>
     </button>
-    <button class="udemy-extension-btn" id="logout-btn">🚪 Cerrar sesión</button>
+    <button class="udemy-extension-btn" id="logout-btn">Cerrar sesión</button>
   `;
   
   // Crear botón "Volver" independiente
@@ -1993,32 +2379,75 @@ if (window.location.hostname.includes('udemy.com')) {
     console.log('  ✅ Variable global establecida');
   }
   
-  if (isFirstTime) {
-    // Si es primera vez desde index/login, deshabilitar visualmente el botón
-    backButton.style.opacity = '0.5';
-    backButton.style.cursor = 'not-allowed';
-    backButton.title = 'No hay páginas anteriores disponibles';
-    
-    console.log('  🚫 Botón DESHABILITADO - primera vez desde app');
-    
-    backButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('  ❌ Click bloqueado - botón deshabilitado');
-      // No hacer nada, botón deshabilitado
-    });
-  } else {
-    // Si no es primera vez, comportamiento normal
-    backButton.title = 'Volver a la página anterior';
-    
-    console.log('  ✅ Botón HABILITADO - navegación interna');
-    
-    backButton.addEventListener('click', () => {
-      console.log('  ⬅️ Navegando hacia atrás');
-      window.history.back();
-    });
-  }
+
   
+  // Variable para evitar múltiples clicks
+  let isNavigating = false;
+  
+  // Configurar evento click para backButton
+  backButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Prevenir múltiples clicks rápidos
+    if (isNavigating) {
+      console.log('🚫 Click ignorado - ya navegando');
+      return;
+    }
+    
+    // Obtener información del historial
+    const currentUrl = window.location.href;
+    const referrerUrl = document.referrer;
+    const historyLength = window.history.length;
+    
+    console.log('🔍 DEBUG - BackButton clicked:');
+    console.log('📍 URL actual:', currentUrl);
+    console.log('📍 Referrer (de donde venimos):', referrerUrl);
+    console.log('📊 Historial length:', historyLength);
+    
+    // Debug del historial (intentar obtener información disponible)
+    console.log('📚 HISTORIAL DEBUG:');
+    console.log('📚 window.history:', window.history);
+    console.log('📚 window.history.state:', window.history.state);
+    console.log('📚 window.history.scrollRestoration:', window.history.scrollRestoration);
+    
+    // Verificar si el referrer está vacío (viene desde file local) o es file://
+    const isReferrerEmpty = !referrerUrl || referrerUrl.trim() === '';
+    const isReferrerFileProtocol = referrerUrl && referrerUrl.startsWith('file://');
+    const isReferrerIndexHtml = referrerUrl && referrerUrl.includes('/index.html');
+    
+    console.log('❓ Referrer está vacío:', isReferrerEmpty);
+    console.log('🗂️ Referrer es file://:', isReferrerFileProtocol);
+    console.log('📄 Referrer contiene index.html:', isReferrerIndexHtml);
+    
+    if (isReferrerEmpty) {
+      console.log('🚫 Navegación bloqueada - referrer vacío (probablemente desde archivo local)');
+      return; // Bloquear navegación
+    }
+    
+    if (isReferrerFileProtocol && isReferrerIndexHtml) {
+      console.log('🚫 Navegación bloqueada - el referrer es index.html local');
+      console.log('🚫 No se puede volver a:', referrerUrl);
+      return; // Bloquear navegación
+    }
+    
+    if (historyLength <= 1) {
+      console.log('🚫 No hay historial para volver atrás');
+      return;
+    }
+    
+    // Marcar como navegando
+    isNavigating = true;
+    
+    console.log('⬅️ Navegando hacia atrás a:', referrerUrl || 'URL desconocida');
+    window.history.back();
+    
+    // Resetear flag después de un tiempo
+    setTimeout(() => {
+      isNavigating = false;
+    }, 1000);
+  });
+
   // Agregar ambos elementos al DOM
   document.body.appendChild(toolbar);
   document.body.appendChild(backButton);
@@ -2354,7 +2783,7 @@ if (window.location.hostname.includes('udemy.com')) {
                    class="course-image"
                    onerror="this.src='https://via.placeholder.com/60x35/f0f0f0/666?text=Curso'">
               <div class="course-info">
-                <div class="course-title">${escapeHtml(course.name)}</div>
+                <div class="course-title">🚀 ${escapeHtml(course.name)}</div>
                 <div class="course-progress">Empieza a aprender</div>
               </div>
             </div>
@@ -2445,7 +2874,7 @@ if (window.location.hostname.includes('udemy.com')) {
   }
 
   // Función global para navegar a un curso específico
-  window.goToCourse = function(courseId, event) {
+  window.goToCourse = async function(courseId, event) {
     
     // Detener propagación del evento para evitar conflictos
     if (event) {
@@ -2467,8 +2896,20 @@ if (window.location.hostname.includes('udemy.com')) {
     // Construir URL correcta del curso para navegar directamente
     const courseUrl = `https://www.udemy.com/course/${courseId}/learn/`;
     
-    // Navegar directamente al curso (no usar electronAPI que va a my-learning)
-    window.location.href = courseUrl;
+    // Abrir en Brave con modo kiosko y sesión transferida
+    if (window.electronAPI && window.openCourseInBrave) {
+      try {
+        console.log('🎓 Abriendo curso desde dropdown en Brave:', courseUrl);
+        await window.openCourseInBrave(courseUrl);
+      } catch (error) {
+        console.error('❌ Error abriendo curso desde dropdown:', error);
+        // Fallback: navegar en Electron
+        window.location.href = courseUrl;
+      }
+    } else {
+      // Fallback: navegar normalmente
+      window.location.href = courseUrl;
+    }
   };
 
   // Event listeners para los botones
@@ -2518,11 +2959,20 @@ if (window.location.hostname.includes('udemy.com')) {
   }
 
 
+
   // Agregar event listener para el botón de logout
   const logoutButton = document.getElementById('logout-btn');
   if (logoutButton) {
     logoutButton.addEventListener('click', () => {
       handleCustomLogout();
+    });
+  }
+
+  // Agregar event listener para el botón Chrome
+  const chromeButton = document.getElementById('chrome-btn');
+  if (chromeButton) {
+    chromeButton.addEventListener('click', async () => {
+      await handleChromeToggle();
     });
   }
 
@@ -2546,4 +2996,893 @@ if (window.location.hostname.includes('udemy.com')) {
       }
     }
   });
+
+  // --- Chrome Real Controller Functions ---
+  
+  let chromeActive = false;
+  let chromeContainer = null;
+
+  async function handleChromeToggle() {
+    const chromeButton = document.getElementById('chrome-btn');
+    
+    if (!chromeActive) {
+      // Lanzar Chrome
+      console.log('🚀 Lanzando Chrome real...');
+      chromeButton.textContent = '🍪 Transfiriendo sesión...';
+      chromeButton.style.background = '#ff9800';
+      
+      try {
+        const success = await window.electronAPI.invoke('chrome-launch', 'https://www.udemy.com');
+        if (success) {
+          chromeActive = true;
+          chromeButton.textContent = '🍪 Aplicando sesión...';
+          chromeButton.style.background = '#ff9800';
+          
+          // Cambiar a activo después de un tiempo
+          setTimeout(() => {
+            chromeButton.textContent = '✅ Sesión transferida';
+            chromeButton.style.background = '#4CAF50';
+          }, 6000);
+          
+          // Crear panel de control
+          createChromeControlPanel();
+          
+          // Posicionar Chrome en la región deseada
+          await positionChromeInRegion();
+          
+          console.log('✅ Chrome lanzado exitosamente');
+        } else {
+          throw new Error('Failed to launch Chrome');
+        }
+      } catch (error) {
+        console.error('❌ Error lanzando Chrome:', error);
+        chromeButton.textContent = '❌ Error';
+        chromeButton.style.background = '#f44336';
+        
+        setTimeout(() => {
+          chromeButton.textContent = '🎨 App Chrome';
+          chromeButton.style.background = '#4285f4';
+        }, 3000);
+      }
+    } else {
+      // Ocultar Chrome
+      console.log('👁️ Ocultando Chrome...');
+      try {
+        await window.electronAPI.invoke('chrome-hide');
+        chromeActive = false;
+        chromeButton.textContent = '🎨 App Chrome';
+        chromeButton.style.background = '#4285f4';
+        
+        // Remover panel de control
+        if (chromeContainer) {
+          chromeContainer.remove();
+          chromeContainer = null;
+        }
+        
+        console.log('✅ Chrome ocultado');
+      } catch (error) {
+        console.error('❌ Error ocultando Chrome:', error);
+      }
+    }
+  }
+
+  function createChromeControlPanel() {
+    // Crear contenedor de controles Chrome
+    chromeContainer = document.createElement('div');
+    chromeContainer.id = 'chrome-control-panel';
+    chromeContainer.style.cssText = `
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #4285f4;
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      z-index: 10001;
+      min-width: 250px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+
+    chromeContainer.innerHTML = `
+      <div style="margin-bottom: 15px; font-weight: bold; color: #4285f4; text-align: center; font-size: 16px;">
+        🎨 App Chrome Controller
+      </div>
+      
+      <div style="margin-bottom: 10px;">
+        <input type="text" id="chrome-url-input" placeholder="Ingresa URL..." 
+               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;" 
+               value="https://www.udemy.com">
+      </div>
+      
+      <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+        <button id="chrome-nav-btn" style="flex: 1; padding: 8px; background: #4285f4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+          🔗 Navegar
+        </button>
+        <button id="chrome-back-btn" style="padding: 8px 12px; background: #666; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+          ⬅️
+        </button>
+        <button id="chrome-forward-btn" style="padding: 8px 12px; background: #666; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+          ➡️
+        </button>
+        <button id="chrome-reload-btn" style="padding: 8px 12px; background: #666; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+          🔄
+        </button>
+      </div>
+      
+      <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <button id="chrome-show-btn" style="flex: 1; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+          👁️ Mostrar
+        </button>
+        <button id="chrome-hide-btn" style="flex: 1; padding: 8px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+          🙈 Ocultar
+        </button>
+      </div>
+
+      <div style="font-size: 11px; color: #666; text-align: center; margin-top: 10px;">
+        🍪 Sesión transferida automáticamente<br>
+        🔒 Perfil temporal - Todo se borra al cerrar<br>
+        📺 Widevine DRM completo (Netflix, Prime, etc.)<br>
+        🎨 Modo app - Sin bordes ni barras de navegación
+      </div>
+      
+      <button id="chrome-close-panel" style="position: absolute; top: 5px; right: 8px; background: none; border: none; font-size: 16px; cursor: pointer; color: #999;">
+        ✕
+      </button>
+    `;
+
+    document.body.appendChild(chromeContainer);
+    
+    // Event listeners para los controles
+    setupChromeControlEvents();
+  }
+
+  function setupChromeControlEvents() {
+    // Navegación
+    document.getElementById('chrome-nav-btn').addEventListener('click', async () => {
+      const url = document.getElementById('chrome-url-input').value;
+      if (url) {
+        console.log('🔗 Navegando Chrome a:', url);
+        await window.electronAPI.invoke('chrome-navigate', url);
+      }
+    });
+
+    // Controles de navegación
+    document.getElementById('chrome-back-btn').addEventListener('click', async () => {
+      await window.electronAPI.invoke('chrome-back');
+    });
+
+    document.getElementById('chrome-forward-btn').addEventListener('click', async () => {
+      await window.electronAPI.invoke('chrome-forward');
+    });
+
+    document.getElementById('chrome-reload-btn').addEventListener('click', async () => {
+      await window.electronAPI.invoke('chrome-reload');
+    });
+
+    // Mostrar/Ocultar
+    document.getElementById('chrome-show-btn').addEventListener('click', async () => {
+      await window.electronAPI.invoke('chrome-show');
+      await positionChromeInRegion();
+    });
+
+    document.getElementById('chrome-hide-btn').addEventListener('click', async () => {
+      await window.electronAPI.invoke('chrome-hide');
+    });
+
+    // Cerrar panel
+    document.getElementById('chrome-close-panel').addEventListener('click', () => {
+      if (chromeContainer) {
+        chromeContainer.remove();
+        chromeContainer = null;
+      }
+    });
+
+    // Enter en URL input
+    document.getElementById('chrome-url-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('chrome-nav-btn').click();
+      }
+    });
+  }
+
+  async function positionChromeInRegion() {
+    // Posicionar Chrome en una región específica de la pantalla
+    // Puedes ajustar estos valores según tus necesidades
+    const x = 100; // X position
+    const y = 150; // Y position  
+    const width = 800; // Width
+    const height = 600; // Height
+    
+    try {
+      await window.electronAPI.invoke('chrome-position', x, y, width, height);
+      console.log(`📍 Chrome posicionado en: ${x},${y} ${width}x${height}`);
+    } catch (error) {
+      console.error('❌ Error posicionando Chrome:', error);
+    }
+  }
+
+  // Cleanup cuando se cierre la página
+  window.addEventListener('beforeunload', async () => {
+    if (chromeActive) {
+      await window.electronAPI.invoke('chrome-cleanup');
+    }
+  });
 }
+
+// ===== SISTEMA DE NOTIFICACIONES AUTOUPDATER =====
+
+// Notificación flotante para actualizaciones
+function createUpdateNotification() {
+  const notification = document.createElement('div');
+  notification.id = 'update-notification';
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 350px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    z-index: 100000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Animar entrada
+  setTimeout(() => {
+    notification.style.transform = 'translateX(0)';
+  }, 100);
+  
+  return notification;
+}
+
+// Cerrar notificación
+function closeUpdateNotification() {
+  const notification = document.getElementById('update-notification');
+  if (notification) {
+    notification.style.transform = 'translateX(400px)';
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  }
+}
+
+// Notificación de actualización disponible
+function showUpdateAvailable(info) {
+  closeUpdateNotification(); // Cerrar cualquier notificación anterior
+  
+  const notification = createUpdateNotification();
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+      <div style="font-size: 24px; margin-right: 10px;">📦</div>
+      <div>
+        <div style="font-weight: bold; font-size: 16px;">Nueva actualización disponible</div>
+        <div style="opacity: 0.9; font-size: 14px;">Versión ${info.version}</div>
+      </div>
+      <button onclick="closeUpdateNotification()" style="
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        margin-left: auto;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">×</button>
+    </div>
+    
+    <div style="margin-bottom: 15px; font-size: 14px; opacity: 0.9;">
+      Se ha encontrado una nueva versión de Udemigo. ¿Quieres descargarla ahora?
+    </div>
+    
+    <div style="display: flex; gap: 10px;">
+      <button id="update-download-btn" style="
+        flex: 1;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s ease;
+      ">Descargar ahora</button>
+      <button onclick="closeUpdateNotification()" style="
+        flex: 1;
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s ease;
+      ">Más tarde</button>
+    </div>
+  `;
+  
+  // Event listener para descargar
+  const downloadBtn = notification.querySelector('#update-download-btn');
+  downloadBtn.addEventListener('click', async () => {
+    try {
+      await window.electronAPI.invoke('update-download');
+      showDownloadProgress();
+    } catch (error) {
+      console.error('Error iniciando descarga:', error);
+    }
+  });
+  
+  // Hover effects
+  const buttons = notification.querySelectorAll('button[style*="rgba(255,255,255,0.2)"]');
+  buttons.forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.background = 'rgba(255,255,255,0.3)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.background = 'rgba(255,255,255,0.2)';
+    });
+  });
+}
+
+// Notificación de progreso de descarga
+function showDownloadProgress() {
+  closeUpdateNotification();
+  
+  const notification = createUpdateNotification();
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+      <div style="font-size: 24px; margin-right: 10px;">📥</div>
+      <div style="flex: 1;">
+        <div style="font-weight: bold; font-size: 16px;">Descargando actualización</div>
+        <div id="download-status" style="opacity: 0.9; font-size: 14px;">Iniciando descarga...</div>
+      </div>
+      <button onclick="closeUpdateNotification()" style="
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">×</button>
+    </div>
+    
+    <div style="margin-bottom: 10px;">
+      <div style="background: rgba(255,255,255,0.2); height: 8px; border-radius: 4px; overflow: hidden;">
+        <div id="progress-bar" style="
+          background: linear-gradient(90deg, #4CAF50, #8BC34A);
+          height: 100%;
+          width: 0%;
+          transition: width 0.3s ease;
+          border-radius: 4px;
+        "></div>
+      </div>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; font-size: 12px; opacity: 0.8;">
+      <span id="download-percent">0%</span>
+      <span id="download-speed">0 KB/s</span>
+    </div>
+  `;
+}
+
+// Actualizar progreso de descarga
+function updateDownloadProgress(progress) {
+  const progressBar = document.getElementById('progress-bar');
+  const percentSpan = document.getElementById('download-percent');
+  const speedSpan = document.getElementById('download-speed');
+  const statusDiv = document.getElementById('download-status');
+  
+  if (progressBar && percentSpan && speedSpan && statusDiv) {
+    const percent = Math.round(progress.percent);
+    const speed = Math.round(progress.bytesPerSecond / 1024);
+    
+    progressBar.style.width = percent + '%';
+    percentSpan.textContent = percent + '%';
+    speedSpan.textContent = speed + ' KB/s';
+    statusDiv.textContent = `Descargando... ${percent}%`;
+  }
+}
+
+// Notificación de descarga completa
+function showUpdateDownloaded(info) {
+  closeUpdateNotification();
+  
+  const notification = createUpdateNotification();
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+      <div style="font-size: 24px; margin-right: 10px;">✅</div>
+      <div>
+        <div style="font-weight: bold; font-size: 16px;">Actualización descargada</div>
+        <div style="opacity: 0.9; font-size: 14px;">Versión ${info.version}</div>
+      </div>
+      <button onclick="closeUpdateNotification()" style="
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        margin-left: auto;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">×</button>
+    </div>
+    
+    <div style="margin-bottom: 15px; font-size: 14px; opacity: 0.9;">
+      La actualización se ha descargado correctamente. ¿Quieres reiniciar la aplicación ahora para aplicarla?
+    </div>
+    
+    <div style="display: flex; gap: 10px;">
+      <button id="update-restart-btn" style="
+        flex: 1;
+        background: linear-gradient(45deg, #4CAF50, #45a049);
+        border: none;
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s ease;
+      ">Reiniciar ahora</button>
+      <button onclick="closeUpdateNotification()" style="
+        flex: 1;
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s ease;
+      ">Más tarde</button>
+    </div>
+  `;
+  
+  // Event listener para reiniciar
+  const restartBtn = notification.querySelector('#update-restart-btn');
+  restartBtn.addEventListener('click', async () => {
+    try {
+      await window.electronAPI.invoke('update-restart');
+    } catch (error) {
+      console.error('Error reiniciando aplicación:', error);
+    }
+  });
+  
+  // Hover effect para botón de reiniciar
+  restartBtn.addEventListener('mouseenter', () => {
+    restartBtn.style.transform = 'translateY(-2px)';
+    restartBtn.style.boxShadow = '0 4px 15px rgba(76, 175, 80, 0.4)';
+  });
+  restartBtn.addEventListener('mouseleave', () => {
+    restartBtn.style.transform = 'translateY(0)';
+    restartBtn.style.boxShadow = 'none';
+  });
+}
+
+// ===== SISTEMA DE OVERLAY DE ACTUALIZACIÓN =====
+
+// Crear overlay de actualización que se superpone a toda la aplicación
+function createUpdateOverlay() {
+  // Remover overlay existente si existe
+  const existingOverlay = document.getElementById('udemigo-update-overlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'udemigo-update-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 2147483647;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  `;
+
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 380px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transform: translateX(420px);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: auto;
+  `;
+
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; margin-bottom: 18px;">
+      <div id="overlay-icon" style="font-size: 28px; margin-right: 12px;">📦</div>
+      <div style="flex: 1;">
+        <div id="overlay-title" style="font-weight: bold; font-size: 18px; margin-bottom: 4px;">Nueva actualización disponible</div>
+        <div id="overlay-version" style="opacity: 0.9; font-size: 15px;">Versión 2.1.2</div>
+      </div>
+    </div>
+    
+    <div id="overlay-message" style="margin-bottom: 18px; font-size: 15px; opacity: 0.95; line-height: 1.5;">
+      Se ha encontrado una nueva versión de Udemigo.<br>
+      <strong>Debes tomar una decisión para continuar.</strong>
+    </div>
+    
+    <div id="overlay-progress" style="margin: 18px 0; display: none;">
+      <div style="background: rgba(255,255,255,0.2); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 12px;">
+        <div id="overlay-progress-fill" style="
+          background: linear-gradient(90deg, #4CAF50, #8BC34A);
+          height: 100%;
+          width: 0%;
+          transition: width 0.3s ease;
+          border-radius: 5px;
+        "></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 13px; opacity: 0.85;">
+        <span id="overlay-progress-percent">0%</span>
+        <span id="overlay-progress-speed">0 KB/s</span>
+      </div>
+    </div>
+    
+    <div id="overlay-buttons" style="display: flex; gap: 12px; margin-top: 20px;">
+      <button onclick="downloadUpdateOverlay()" style="
+        flex: 1;
+        background: linear-gradient(45deg, #4CAF50, #45a049);
+        border: none;
+        color: white;
+        padding: 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 15px;
+        transition: all 0.3s ease;
+      " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(76, 175, 80, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">Descargar ahora</button>
+      <button onclick="closeUpdateOverlay()" style="
+        flex: 1;
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 15px;
+        transition: all 0.3s ease;
+      " onmouseover="this.style.background='rgba(255,255,255,0.1)'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)'">Más tarde</button>
+    </div>
+  `;
+
+  overlay.appendChild(notification);
+  document.body.appendChild(overlay);
+
+  // Animar entrada
+  requestAnimationFrame(() => {
+    overlay.style.opacity = '1';
+    requestAnimationFrame(() => {
+      notification.style.transform = 'translateX(0)';
+    });
+  });
+
+  return overlay;
+}
+
+// Cerrar overlay de actualización (solo se usa después de tomar una decisión)
+function closeUpdateOverlay() {
+  const overlay = document.getElementById('udemigo-update-overlay');
+  if (overlay) {
+    const notification = overlay.querySelector('div');
+    notification.style.transform = 'translateX(420px)';
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.remove();
+    }, 400);
+  }
+}
+
+// Mostrar actualización disponible en overlay
+function showUpdateOverlay(info) {
+  console.log('🎯 [FUNCTION] showUpdateOverlay ejecutándose con:', info);
+  
+  try {
+    const overlay = createUpdateOverlay();
+    console.log('✅ [FUNCTION] Overlay creado exitosamente');
+    
+    // Actualizar contenido
+    const versionElement = overlay.querySelector('#overlay-version');
+    if (versionElement) {
+      versionElement.textContent = `Versión ${info.version}`;
+      console.log('✅ [FUNCTION] Versión actualizada en overlay');
+    } else {
+      console.error('❌ [FUNCTION] No se encontró elemento #overlay-version');
+    }
+  } catch (error) {
+    console.error('❌ [FUNCTION] Error en showUpdateOverlay:', error);
+  }
+}
+
+// Mostrar progreso de descarga en overlay
+function showDownloadProgressOverlay() {
+  const overlay = document.getElementById('udemigo-update-overlay');
+  if (!overlay) return;
+  
+  // Actualizar contenido
+  overlay.querySelector('#overlay-icon').textContent = '📥';
+  overlay.querySelector('#overlay-title').textContent = 'Descargando actualización';
+  overlay.querySelector('#overlay-version').textContent = 'Por favor espera...';
+  overlay.querySelector('#overlay-message').textContent = 'La actualización se está descargando. Puedes seguir usando la aplicación.';
+  
+  // Mostrar progreso
+  overlay.querySelector('#overlay-progress').style.display = 'block';
+  
+  // Cambiar botones
+  overlay.querySelector('#overlay-buttons').innerHTML = `
+    <button onclick="closeUpdateOverlay()" style="
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Ocultar notificación</button>
+  `;
+}
+
+// Actualizar progreso de descarga en overlay
+function updateProgressOverlay(progress) {
+  const overlay = document.getElementById('udemigo-update-overlay');
+  if (!overlay) return;
+  
+  const percent = Math.round(progress.percent);
+  const speed = Math.round(progress.bytesPerSecond / 1024);
+  
+  overlay.querySelector('#overlay-progress-fill').style.width = percent + '%';
+  overlay.querySelector('#overlay-progress-percent').textContent = percent + '%';
+  overlay.querySelector('#overlay-progress-speed').textContent = speed + ' KB/s';
+  overlay.querySelector('#overlay-message').textContent = `Descargando actualización... ${percent}%`;
+}
+
+// Mostrar descarga completa en overlay
+function showUpdateDownloadedOverlay(info) {
+  const overlay = document.getElementById('udemigo-update-overlay');
+  if (!overlay) {
+    // Si no hay overlay, crear uno nuevo
+    createUpdateOverlay();
+  }
+  
+  // Actualizar contenido
+  overlay.querySelector('#overlay-icon').textContent = '✅';
+  overlay.querySelector('#overlay-title').textContent = 'Actualización descargada';
+  overlay.querySelector('#overlay-version').textContent = `Versión ${info.version}`;
+  overlay.querySelector('#overlay-message').textContent = 'La actualización se ha descargado correctamente. ¿Quieres reiniciar la aplicación ahora para aplicarla?';
+  
+  // Ocultar progreso
+  overlay.querySelector('#overlay-progress').style.display = 'none';
+  
+  // Cambiar botones
+  overlay.querySelector('#overlay-buttons').innerHTML = `
+    <button onclick="restartAppOverlay()" style="
+      flex: 1;
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      border: none;
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(76, 175, 80, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">Reiniciar ahora</button>
+    <button onclick="closeUpdateOverlay()" style="
+      flex: 1;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Más tarde</button>
+  `;
+}
+
+// Funciones para botones del overlay
+function downloadUpdateOverlay() {
+  if (window.electronAPI) {
+    window.electronAPI.invoke('update-download');
+    showDownloadProgressOverlay();
+  }
+}
+
+function restartAppOverlay() {
+  if (window.electronAPI) {
+    window.electronAPI.invoke('update-restart');
+  }
+}
+
+// Funciones para el overlay de actualización
+function downloadUpdateOverlay() {
+  console.log('📥 Iniciando descarga de actualización...');
+  
+  if (window.electronAPI) {
+    window.electronAPI.invoke('update-download').then(() => {
+      showDownloadProgressOverlay();
+    }).catch(error => {
+      console.error('❌ Error iniciando descarga:', error);
+    });
+  }
+}
+
+function showDownloadProgressOverlay() {
+  const overlay = document.getElementById('udemigo-update-overlay');
+  if (!overlay) return;
+  
+  console.log('📊 Mostrando progreso de descarga en overlay');
+  
+  // Actualizar contenido
+  overlay.querySelector('#overlay-icon').textContent = '📥';
+  overlay.querySelector('#overlay-title').textContent = 'Descargando actualización';
+  overlay.querySelector('#overlay-version').textContent = 'Por favor espera...';
+  overlay.querySelector('#overlay-message').textContent = 'La actualización se está descargando. No puedes usar la aplicación hasta que termine.';
+  
+  // Mostrar progreso
+  overlay.querySelector('#overlay-progress').style.display = 'block';
+  
+  // Cambiar botones - solo opción de ocultar
+  overlay.querySelector('#overlay-buttons').innerHTML = `
+    <button onclick="closeUpdateOverlay()" style="
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Ocultar notificación</button>
+  `;
+}
+
+function updateProgressOverlay(progress) {
+  const overlay = document.getElementById('udemigo-update-overlay');
+  if (!overlay) return;
+  
+  const percent = Math.round(progress.percent);
+  const speed = Math.round(progress.bytesPerSecond / 1024);
+  
+  console.log(`📊 Actualizando progreso: ${percent}% (${speed} KB/s)`);
+  
+  // Actualizar barra de progreso
+  const progressFill = overlay.querySelector('#overlay-progress-fill');
+  const progressPercent = overlay.querySelector('#overlay-progress-percent');
+  const progressSpeed = overlay.querySelector('#overlay-progress-speed');
+  
+  if (progressFill) progressFill.style.width = percent + '%';
+  if (progressPercent) progressPercent.textContent = percent + '%';
+  if (progressSpeed) progressSpeed.textContent = speed + ' KB/s';
+  
+  // Actualizar mensaje
+  overlay.querySelector('#overlay-message').textContent = `Descargando actualización... ${percent}%`;
+}
+
+function showUpdateDownloadedOverlay(info) {
+  const overlay = document.getElementById('udemigo-update-overlay');
+  if (!overlay) {
+    // Si no hay overlay, crear uno nuevo
+    createUpdateOverlay();
+  }
+  
+  console.log('✅ Mostrando actualización descargada en overlay');
+  
+  // Actualizar contenido
+  overlay.querySelector('#overlay-icon').textContent = '✅';
+  overlay.querySelector('#overlay-title').textContent = 'Actualización descargada';
+  overlay.querySelector('#overlay-version').textContent = `Versión ${info.version}`;
+  overlay.querySelector('#overlay-message').textContent = 'La actualización se ha descargado correctamente. ¿Quieres reiniciar la aplicación ahora para aplicarla?';
+  
+  // Ocultar progreso
+  overlay.querySelector('#overlay-progress').style.display = 'none';
+  
+  // Cambiar botones
+  overlay.querySelector('#overlay-buttons').innerHTML = `
+    <button onclick="restartAppOverlay()" style="
+      flex: 1;
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      border: none;
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 20px rgba(76, 175, 80, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">Reiniciar ahora</button>
+    <button onclick="closeUpdateOverlay()" style="
+      flex: 1;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+    " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Más tarde</button>
+  `;
+}
+
+function restartAppOverlay() {
+  console.log('🔄 Reiniciando aplicación...');
+  
+  if (window.electronAPI) {
+    window.electronAPI.invoke('update-restart');
+  }
+}
+
+// Configurar listeners de overlay si electronAPI está disponible
+if (window.electronAPI) {
+  console.log('🔗 Configurando listeners de overlay...');
+  
+  // Escuchar eventos de overlay
+  window.electronAPI.receive('show-update-overlay', (info) => {
+    console.log('📦 [RENDERER] Recibido evento show-update-overlay:', info);
+    console.log('📦 [RENDERER] Mostrando overlay de actualización...');
+    showUpdateOverlay(info);
+  });
+  
+  window.electronAPI.receive('update-download-progress', (progress) => {
+    console.log('📥 Progreso de descarga:', progress.percent + '%');
+    updateProgressOverlay(progress);
+  });
+  
+  window.electronAPI.receive('update-downloaded-overlay', (info) => {
+    console.log('✅ Actualización descargada:', info);
+    showUpdateDownloadedOverlay(info);
+  });
+}
+
+
+// Exponer funciones globalmente para uso desde botones
+window.closeUpdateNotification = closeUpdateNotification;
+window.closeUpdateOverlay = closeUpdateOverlay;
+window.downloadUpdateOverlay = downloadUpdateOverlay;
+window.restartAppOverlay = restartAppOverlay;

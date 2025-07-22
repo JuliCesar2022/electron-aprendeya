@@ -1,0 +1,37 @@
+📍 INSTRUCCIONES RÁPIDAS:
+
+OPCIÓN 1 - Archivo .ZIP (MÁS FÁCIL):
+1. Colocar archivo .zip de Brave aquí (en bundled-browsers/)
+2. La aplicación lo extraerá automáticamente
+3. Ejemplo: brave-browser.zip
+
+OPCIÓN 2 - Archivos sueltos:
+1. Crear carpeta "brave" aquí
+2. Copiar TODOS los archivos de Brave a esa carpeta
+3. El resultado debe ser:
+
+bundled-browsers/
+└── brave/
+    ├── brave.exe (Windows) ← ARCHIVO PRINCIPAL
+    ├── brave (Linux) ← ARCHIVO PRINCIPAL  
+    ├── chrome_100_percent.pak
+    ├── chrome_200_percent.pak
+    ├── icudtl.dat
+    ├── resources.pak
+    ├── v8_context_snapshot.bin
+    ├── locales/
+    │   ├── en-US.pak
+    │   ├── es.pak
+    │   └── [...otros idiomas]
+    ├── swiftshader/
+    │   ├── libEGL.dll (Windows)
+    │   ├── libGLESv2.dll (Windows)
+    │   └── [...otros archivos gráficos]
+    └── [...otros archivos de Brave]
+
+🔍 DÓNDE ENCONTRAR BRAVE:
+- Windows: C:\Program Files\BraveSoftware\Brave-Browser\Application\
+- Linux: /opt/brave.com/brave/
+
+✅ VERIFICAR: Ejecutar "npm start" y buscar:
+"✅ Brave encontrado (📦 EMPAQUETADO)"
