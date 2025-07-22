@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
 const { exec } = require('child_process');
+const { app } = require('electron');
 const execAsync = promisify(exec);
 
 class BraveController {
@@ -12,6 +13,621 @@ class BraveController {
         this.persistentProfilePath = null;
         this.extensionPath = null;
         this.targetCourseUrl = null; // URL del curso para modo kiosko
+        
+        // ✅ RUTA FORZADA - CAMBIAR AQUÍ TU RUTA DE BRAVE
+        this.forcedBravePath = null; // Ejemplo: 'C:\\MiCarpeta\\brave.exe' o '/mi/ruta/brave'
+        
+        // 🔍 SISTEMA DE LOGGING PARA VENTANA DE DEPURACIÓN Y ARCHIVO
+        this.debugWindow = null;
+        this.debugLogs = [];
+        this.maxLogs = 1000; // Limitar logs para evitar memoria excesiva
+        
+        // 📁 SISTEMA DE LOGGING A ARCHIVO
+        this.logFile = null;
+        this.logDirectory = null;
+        this.maxLogFiles = 5; // Mantener solo los últimos 5 archivos
+        this.maxLogSizeMB = 10; // Rotar cuando el archivo supere 10MB
+        this.setupFileLogging();
+        
+        // Auto-detectar tu ruta específica basada en lo que veo en tu proyecto
+        // CAMBIAR ESTA RUTA por la tuya exacta:
+        this.detectUserBravePath();
+    }
+    
+    // 📁 Configurar logging a archivo
+    setupFileLogging() {
+        try {
+            const os = require('os');
+            
+            // Determinar directorio de logs según el entorno
+            let logsPath;
+            
+            if (app.isPackaged) {
+                // PRODUCCIÓN: Usar carpeta de datos de la aplicación
+                const appDataPath = process.env.APPDATA || 
+                                   process.env.LOCALAPPDATA || 
+                                   path.join(os.homedir(), '.config');
+                logsPath = path.join(appDataPath, 'Udemigo', 'logs');
+            } else {
+                // DESARROLLO: Usar carpeta del proyecto
+                logsPath = path.join(__dirname, '../../logs');
+            }
+            
+            // Crear directorio si no existe
+            if (!fs.existsSync(logsPath)) {
+                fs.mkdirSync(logsPath, { recursive: true });
+            }
+            
+            this.logDirectory = logsPath;
+            
+            // Crear archivo de log con timestamp
+            const now = new Date();
+            const dateString = now.toISOString().slice(0, 19).replace(/:/g, '-');
+            const logFileName = `brave-debug-${dateString}.txt`;
+            this.logFile = path.join(logsPath, logFileName);
+            
+            // Escribir header inicial
+            const headerInfo = [
+                '='.repeat(80),
+                `UDEMIGO - BRAVE CONTROLLER DEBUG LOG`,
+                `Fecha: ${now.toISOString()}`,
+                `Versión: ${app.getVersion()}`,
+                `Plataforma: ${process.platform} ${process.arch}`,
+                `Empaquetado: ${app.isPackaged ? 'SÍ' : 'NO'}`,
+                `Directorio de logs: ${logsPath}`,
+                `PID: ${process.pid}`,
+                '='.repeat(80),
+                ''
+            ].join('\n');
+            
+            fs.writeFileSync(this.logFile, headerInfo);
+            
+            console.log('📁 Sistema de logging a archivo configurado:');
+            console.log('  📂 Directorio:', logsPath);
+            console.log('  📄 Archivo actual:', logFileName);
+            console.log('  📦 Modo:', app.isPackaged ? 'PRODUCCIÓN' : 'DESARROLLO');
+            
+            // Limpiar archivos antiguos
+            this.cleanOldLogFiles();
+            
+        } catch (error) {
+            console.error('❌ Error configurando logging a archivo:', error);
+            this.logFile = null;
+            this.logDirectory = null;
+        }
+    }
+    
+    // 🧹 Limpiar archivos de log antiguos
+    cleanOldLogFiles() {
+        try {
+            if (!this.logDirectory || !fs.existsSync(this.logDirectory)) return;
+            
+            const files = fs.readdirSync(this.logDirectory)
+                .filter(file => file.startsWith('brave-debug-') && file.endsWith('.txt'))
+                .map(file => ({
+                    name: file,
+                    path: path.join(this.logDirectory, file),
+                    stats: fs.statSync(path.join(this.logDirectory, file))
+                }))
+                .sort((a, b) => b.stats.mtime - a.stats.mtime); // Más recientes primero
+            
+            // Eliminar archivos que excedan el límite
+            const filesToDelete = files.slice(this.maxLogFiles);
+            
+            for (const file of filesToDelete) {
+                try {
+                    fs.unlinkSync(file.path);
+                    console.log(`🗑️ Log antiguo eliminado: ${file.name}`);
+                } catch (error) {
+                    console.warn(`⚠️ No se pudo eliminar log: ${file.name}`, error.message);
+                }
+            }
+            
+            if (files.length > 0) {
+                console.log(`📊 Archivos de log: ${files.length - filesToDelete.length} mantenidos, ${filesToDelete.length} eliminados`);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error limpiando logs antiguos:', error);
+        }
+    }
+    
+    // 💾 Escribir log a archivo
+    writeToLogFile(level, message) {
+        try {
+            if (!this.logFile) return;
+            
+            // Verificar tamaño del archivo para rotación
+            if (fs.existsSync(this.logFile)) {
+                const stats = fs.statSync(this.logFile);
+                const sizeMB = stats.size / (1024 * 1024);
+                
+                if (sizeMB > this.maxLogSizeMB) {
+                    // Rotar archivo
+                    this.rotateLogFile();
+                }
+            }
+            
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] [${level.toUpperCase().padEnd(5)}] ${message}\n`;
+            
+            fs.appendFileSync(this.logFile, logEntry);
+            
+        } catch (error) {
+            // No usar console.error aquí para evitar loops
+            console.warn('❌ Error escribiendo a archivo de log:', error.message);
+        }
+    }
+    
+    // 🔄 Rotar archivo de log cuando se vuelve muy grande
+    rotateLogFile() {
+        try {
+            const now = new Date();
+            const dateString = now.toISOString().slice(0, 19).replace(/:/g, '-');
+            const newLogFileName = `brave-debug-${dateString}.txt`;
+            const newLogFile = path.join(this.logDirectory, newLogFileName);
+            
+            // Escribir mensaje de rotación en el archivo actual
+            const rotationMsg = `\n${'='.repeat(50)}\nARCHIVO ROTADO - Continuando en: ${newLogFileName}\n${'='.repeat(50)}\n`;
+            fs.appendFileSync(this.logFile, rotationMsg);
+            
+            // Cambiar a nuevo archivo
+            this.logFile = newLogFile;
+            
+            // Escribir header en nuevo archivo
+            const headerInfo = [
+                '='.repeat(80),
+                `UDEMIGO - BRAVE CONTROLLER DEBUG LOG (CONTINUACIÓN)`,
+                `Fecha: ${now.toISOString()}`,
+                `Archivo rotado automáticamente por tamaño`,
+                '='.repeat(80),
+                ''
+            ].join('\n');
+            
+            fs.writeFileSync(this.logFile, headerInfo);
+            
+            console.log('🔄 Archivo de log rotado:', path.basename(newLogFile));
+            
+            // Limpiar archivos antiguos después de rotar
+            this.cleanOldLogFiles();
+            
+        } catch (error) {
+            console.error('❌ Error rotando archivo de log:', error);
+        }
+    }
+    
+    // 📝 Logger personalizado que envía a ventana de depuración Y ARCHIVO
+    debugLog(level, message, ...args) {
+        const timestamp = new Date().toISOString();
+        const fullMessage = args.length > 0 ? `${message} ${args.join(' ')}` : message;
+        
+        // Log normal a consola
+        switch(level) {
+            case 'error':
+                console.error(message, ...args);
+                break;
+            case 'warn':
+                console.warn(message, ...args);
+                break;
+            case 'info':
+            default:
+                console.log(message, ...args);
+                break;
+        }
+        
+        // ✅ ESCRIBIR A ARCHIVO TXT (SIEMPRE, incluso en producción)
+        this.writeToLogFile(level, fullMessage);
+        
+        // Agregar a logs de depuración en memoria
+        const logEntry = {
+            timestamp,
+            level,
+            message: fullMessage
+        };
+        
+        this.debugLogs.push(logEntry);
+        
+        // Mantener solo los últimos N logs en memoria
+        if (this.debugLogs.length > this.maxLogs) {
+            this.debugLogs = this.debugLogs.slice(-this.maxLogs);
+        }
+        
+        // Enviar a ventana de depuración si existe
+        if (this.debugWindow && !this.debugWindow.isDestroyed()) {
+            this.debugWindow.webContents.send('brave-debug-log', logEntry);
+        }
+    }
+    
+    // 🪟 Crear ventana de depuración
+    createDebugWindow() {
+        if (this.debugWindow && !this.debugWindow.isDestroyed()) {
+            this.debugWindow.focus();
+            return this.debugWindow;
+        }
+        
+        const { BrowserWindow } = require('electron');
+        
+        this.debugWindow = new BrowserWindow({
+            width: 1000,
+            height: 700,
+            title: 'Brave Controller - Debug Console',
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                enableRemoteModule: false,
+                preload: path.join(__dirname, '../preload/preload.js')
+            },
+            icon: path.join(__dirname, '../../assets', 'icon.png'),
+            show: false
+        });
+        
+        // Crear HTML de depuración
+        const debugHtml = this.createDebugHTML();
+        this.debugWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(debugHtml)}`);
+        
+        this.debugWindow.once('ready-to-show', () => {
+            this.debugWindow.show();
+            
+            // Enviar logs existentes
+            this.debugLogs.forEach(log => {
+                this.debugWindow.webContents.send('brave-debug-log', log);
+            });
+        });
+        
+        this.debugWindow.on('closed', () => {
+            this.debugWindow = null;
+        });
+        
+        return this.debugWindow;
+    }
+    
+    // 📄 HTML para ventana de depuración
+    createDebugHTML() {
+        return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brave Controller Debug</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #1a1a1a;
+            color: #ffffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #333;
+        }
+        
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .btn-clear {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-clear:hover {
+            background: #ff5252;
+        }
+        
+        .btn-save {
+            background: #51cf66;
+            color: white;
+        }
+        
+        .btn-save:hover {
+            background: #40c057;
+        }
+        
+        .logs-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: #222;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 5px 8px;
+            border-radius: 3px;
+            border-left: 4px solid;
+            font-size: 13px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        
+        .log-info {
+            background: rgba(33, 150, 243, 0.1);
+            border-left-color: #2196F3;
+        }
+        
+        .log-warn {
+            background: rgba(255, 152, 0, 0.1);
+            border-left-color: #FF9800;
+        }
+        
+        .log-error {
+            background: rgba(244, 67, 54, 0.1);
+            border-left-color: #F44336;
+        }
+        
+        .timestamp {
+            color: #888;
+            font-size: 11px;
+            margin-right: 8px;
+        }
+        
+        .level {
+            font-weight: bold;
+            margin-right: 8px;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+        
+        .level-info {
+            color: #2196F3;
+        }
+        
+        .level-warn {
+            color: #FF9800;
+        }
+        
+        .level-error {
+            color: #F44336;
+        }
+        
+        .message {
+            flex: 1;
+        }
+        
+        .footer {
+            background: #333;
+            padding: 10px 20px;
+            font-size: 12px;
+            color: #888;
+            border-top: 1px solid #444;
+        }
+        
+        .status {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #333;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #666;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">🔍 Brave Controller Debug Console</div>
+        <div class="controls">
+            <button class="btn btn-clear" onclick="clearLogs()">🗑️ Limpiar</button>
+            <button class="btn btn-save" onclick="saveLogs()">💾 Guardar</button>
+            <button class="btn btn-save" onclick="openLogsFolder()">📁 Ver Logs</button>
+        </div>
+    </div>
+    
+    <div class="logs-container" id="logsContainer">
+        <div class="log-entry log-info">
+            <span class="timestamp">${new Date().toISOString()}</span>
+            <span class="level level-info">INFO</span>
+            <span class="message">🔍 Debug Console iniciada - Esperando logs de Brave Controller...</span>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <div class="status">
+            <span>Logs en pantalla: <span id="logCount">0</span></span>
+            <span>Estado: <span id="status">Esperando...</span></span>
+            <span>Archivo: <span id="logFileInfo">Cargando...</span></span>
+            <span>Última actualización: <span id="lastUpdate">-</span></span>
+        </div>
+    </div>
+    
+    <script>
+        let logCount = 0;
+        const logsContainer = document.getElementById('logsContainer');
+        const logCountElement = document.getElementById('logCount');
+        const statusElement = document.getElementById('status');
+        const lastUpdateElement = document.getElementById('lastUpdate');
+        
+        // Recibir logs desde el proceso principal
+        window.electronAPI?.ipcRenderer?.on('brave-debug-log', (event, logData) => {
+            addLogEntry(logData);
+        });
+        
+        function addLogEntry(logData) {
+            const logEntry = document.createElement('div');
+            logEntry.className = \`log-entry log-\${logData.level}\`;
+            
+            const timestamp = new Date(logData.timestamp).toLocaleTimeString();
+            
+            logEntry.innerHTML = \`
+                <span class="timestamp">\${timestamp}</span>
+                <span class="level level-\${logData.level}">\${logData.level.toUpperCase()}</span>
+                <span class="message">\${escapeHtml(logData.message)}</span>
+            \`;
+            
+            logsContainer.appendChild(logEntry);
+            
+            // Auto scroll al final
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            
+            // Actualizar contadores
+            logCount++;
+            logCountElement.textContent = logCount;
+            statusElement.textContent = 'Activo';
+            lastUpdateElement.textContent = timestamp;
+            
+            // Limitar logs en DOM (mantener solo los últimos 500)
+            const maxLogsInDOM = 500;
+            while (logsContainer.children.length > maxLogsInDOM) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+        
+        function clearLogs() {
+            logsContainer.innerHTML = '';
+            logCount = 0;
+            logCountElement.textContent = '0';
+            statusElement.textContent = 'Limpiado';
+            lastUpdateElement.textContent = new Date().toLocaleTimeString();
+            
+            addLogEntry({
+                timestamp: new Date().toISOString(),
+                level: 'info',
+                message: '🧹 Logs limpiados por el usuario'
+            });
+        }
+        
+        function saveLogs() {
+            const logs = Array.from(logsContainer.children).map(entry => entry.textContent).join('\\n');
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = \`brave-debug-\${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt\`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            statusElement.textContent = 'Guardado';
+            setTimeout(() => {
+                statusElement.textContent = 'Activo';
+            }, 2000);
+        }
+        
+        function openLogsFolder() {
+            window.electronAPI?.invoke('open-brave-logs-directory').then(result => {
+                if (result.success) {
+                    statusElement.textContent = 'Carpeta abierta';
+                    setTimeout(() => {
+                        statusElement.textContent = 'Activo';
+                    }, 2000);
+                } else {
+                    alert('Error abriendo carpeta: ' + result.error);
+                }
+            });
+        }
+        
+        function updateLogFileInfo() {
+            window.electronAPI?.invoke('get-brave-logging-info').then(result => {
+                if (result.success) {
+                    const data = result.data;
+                    const fileSize = data.currentLogSize ? data.currentLogSize + ' MB' : '0 MB';
+                    const fileName = data.logFile ? data.logFile.split(/[\\\\/]/).pop() : 'No disponible';
+                    document.getElementById('logFileInfo').textContent = fileName + ' (' + fileSize + ')';
+                } else {
+                    document.getElementById('logFileInfo').textContent = 'Error obteniendo info';
+                }
+            });
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Actualizar información del archivo cada 5 segundos
+        setInterval(updateLogFileInfo, 5000);
+        
+        // Cargar información inicial
+        setTimeout(updateLogFileInfo, 1000);
+    </script>
+</body>
+</html>`;
+    }
+    
+    // Detectar la ruta específica del usuario - SOLO BRAVE EMPAQUETADO
+    detectUserBravePath() {
+        // ✅ SOLO USAR BRAVE EMPAQUETADO - NUNCA SISTEMA NI CHROME
+        // 🎯 PRIORIZAR process.resourcesPath (fuera del .asar) para producción
+        const resourcesPath = process.resourcesPath || __dirname + '/../../';
+        
+        const onlyPackagedBravePaths = [
+            // 🏆 PRIMERA PRIORIDAD: process.resourcesPath (FUERA del .asar)
+            path.join(resourcesPath, 'bundled-browsers/brave/brave/brave/brave.exe'), // Windows empaquetado
+            path.join(resourcesPath, 'bundled-browsers/brave/brave'), // Linux empaquetado
+            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave/brave.exe'), // Windows extraído
+            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave'), // Linux extraído
+            
+            // 📁 FALLBACK: Rutas de desarrollo (si no está empaquetado)
+            path.join(__dirname, '../../bundled-browsers/brave/brave/brave/brave.exe'), // Windows desarrollo
+            path.join(__dirname, '../../bundled-browsers/brave/brave'), // Linux desarrollo  
+            path.join(__dirname, '../../bundled-browsers/brave/brave-extracted/brave/brave.exe'), // Windows desarrollo extraído
+            path.join(__dirname, '../../bundled-browsers/brave/brave-extracted/brave'), // Linux desarrollo extraído
+        ];
+        
+        this.debugLog('info', '🎯 MODO PRODUCCIÓN: Solo buscando Brave empaquetado (' + onlyPackagedBravePaths.length + ' rutas)');
+        
+        for (let i = 0; i < onlyPackagedBravePaths.length; i++) {
+            const userPath = onlyPackagedBravePaths[i];
+            this.debugLog('info', `🔍 [${i + 1}/${onlyPackagedBravePaths.length}] Verificando: ${userPath}`);
+            
+            if (fs.existsSync(userPath)) {
+                this.forcedBravePath = userPath;
+                const stats = fs.statSync(userPath);
+                this.debugLog('info', '🎯 ✅ BRAVE EMPAQUETADO ENCONTRADO:', userPath);
+                this.debugLog('info', '  📏 Tamaño:', Math.round(stats.size / 1024 / 1024), 'MB');
+                this.debugLog('info', '  📅 Modificado:', stats.mtime.toISOString());
+                return;
+            } else {
+                this.debugLog('warn', `  ❌ No existe: ${userPath}`);
+            }
+        }
+        
+        this.debugLog('warn', '⚠️ NO SE ENCONTRÓ Brave empaquetado en ninguna de las rutas especificadas');
     }
 
     // Obtener ruta de Widevine CDM basada en la instalación de Brave
@@ -67,67 +683,142 @@ class BraveController {
 
     // Encontrar Brave Browser (incluyendo versión empaquetada)
     async findBrave() {
-        const paths = [
-            // ✅ PRIMERA PRIORIDAD: Brave empaquetado con la aplicación
-            path.join(__dirname, '../../bundled-browsers/brave/brave/brave/brave.exe'), // Windows
-            path.join(__dirname, '../../bundled-browsers/brave/brave'), // Linux
-            path.join(process.resourcesPath, 'bundled-browsers/brave/brave.exe'), // Empaquetado Windows
-            path.join(process.resourcesPath, 'bundled-browsers/brave/brave'), // Empaquetado Linux
+        this.debugLog('info', '🔍 ==================== INICIANDO BÚSQUEDA DE BRAVE ====================');
+        this.debugLog('info', '🖥️ Plataforma detectada:', process.platform);
+        this.debugLog('info', '📁 Directorio actual:', __dirname);
+        this.debugLog('info', '📦 Empaquetado:', app.isPackaged ? 'SÍ' : 'NO');
+        this.debugLog('info', '🔧 Resources path:', process.resourcesPath || 'NO DEFINIDO');
+        this.debugLog('info', '👤 Usuario actual:', process.env.USER || process.env.USERNAME || 'DESCONOCIDO');
+        this.debugLog('info', '🏠 LocalAppData:', process.env.LOCALAPPDATA || 'NO DEFINIDO');
+        
+        // ✅ PASO 0: VERIFICAR RUTA FORZADA PRIMERO
+        if (this.forcedBravePath) {
+            this.debugLog('info', '🎯 ================= USANDO RUTA FORZADA =================');
+            this.debugLog('info', '📍 Ruta forzada configurada:', this.forcedBravePath);
             
-            // Rutas de instalaciones normales del sistema (como fallback)
-            'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
-            'C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
-            process.env.LOCALAPPDATA + '\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
-            // WSL paths
-            '/mnt/c/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe',
-            '/mnt/c/Program Files (x86)/BraveSoftware/Brave-Browser/Application/brave.exe',
-            '/mnt/c/Users/' + (process.env.USER || 'usuario') + '/AppData/Local/BraveSoftware/Brave-Browser/Application/brave.exe'
+            try {
+                if (fs.existsSync(this.forcedBravePath)) {
+                    // Verificar detalles del ejecutable
+                    const stats = fs.statSync(this.forcedBravePath);
+                    const isFile = stats.isFile();
+                    const fileSize = stats.size;
+                    
+                    console.log('✅ BRAVE ENCONTRADO EN RUTA FORZADA:');
+                    console.log('  📄 Es archivo:', isFile ? 'SÍ' : 'NO');
+                    console.log('  📏 Tamaño:', Math.round(fileSize / 1024 / 1024), 'MB');
+                    console.log('  📅 Modificado:', stats.mtime.toISOString());
+                    console.log('  📁 Directorio:', path.dirname(this.forcedBravePath));
+                    
+                    console.log('🎯 USANDO RUTA FORZADA - SALTANDO BÚSQUEDA AUTOMÁTICA');
+                    return this.forcedBravePath;
+                } else {
+                    console.warn('⚠️ RUTA FORZADA NO EXISTE:', this.forcedBravePath);
+                    console.log('📝 Continuando con búsqueda automática...');
+                }
+            } catch (error) {
+                console.error('❌ ERROR VERIFICANDO RUTA FORZADA:', error.message);
+                console.log('📝 Continuando con búsqueda automática...');
+            }
+        } else {
+            this.debugLog('info', 'ℹ️ No hay ruta forzada configurada, usando SOLO búsqueda de Brave empaquetado');
+        }
+        
+        // ✅ SOLO ESTAS RUTAS ESPECÍFICAS - NUNCA CHROME NI SISTEMA
+        // 🎯 PRIORIZAR process.resourcesPath (fuera del .asar) para producción
+        const resourcesPath = process.resourcesPath || __dirname + '/../../';
+        
+        const paths = [
+            // 🏆 PRIMERA PRIORIDAD: process.resourcesPath (FUERA del .asar)
+            path.join(resourcesPath, 'bundled-browsers/brave/brave/brave/brave.exe'), // Windows empaquetado
+            path.join(resourcesPath, 'bundled-browsers/brave/brave'), // Linux empaquetado
+            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave/brave.exe'), // Windows extraído
+            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave'), // Linux extraído
+            
+            // 📁 FALLBACK: Rutas de desarrollo (si no está empaquetado)
+            path.join(__dirname, '../../bundled-browsers/brave/brave/brave/brave.exe'), // Windows desarrollo
+            path.join(__dirname, '../../bundled-browsers/brave/brave'), // Linux desarrollo
         ];
 
-        console.log('🔍 Buscando Brave Browser...');
+        this.debugLog('info', '🎯 MODO PRODUCCIÓN: Solo verificando las ' + paths.length + ' rutas específicas de Brave empaquetado:');
+        paths.forEach((p, i) => this.debugLog('info', `  ${i + 1}. ${p}`));
         
         // Mostrar información sobre Brave empaquetado
         this.showEmbeddedBraveInfo();
         
         // Verificar si ya existe Brave extraído o necesita extracción
-        if (!this.isBraveEmbedded()) {
-            console.log('📦 Buscando Brave extraído o archivo .7z...');
+        console.log('🔍 PASO 1: Verificando si Brave está empaquetado...');
+        const isEmbedded = this.isBraveEmbedded();
+        console.log('📦 Resultado isBraveEmbedded():', isEmbedded ? 'SÍ EMPAQUETADO' : 'NO EMPAQUETADO');
+        
+        if (!isEmbedded) {
+            console.log('📦 PASO 2: Buscando Brave extraído o archivo .7z...');
             
             // Primero verificar si ya está extraído
+            console.log('🔍 PASO 2a: Verificando si ya existe Brave extraído...');
             const existingExtracted = this.findExistingExtracted();
             if (existingExtracted) {
-                console.log('✅ Brave ya está extraído, usando:', existingExtracted);
+                console.log('✅ ÉXITO: Brave ya está extraído, usando:', existingExtracted);
+                console.log('🎯 TERMINANDO BÚSQUEDA - Brave encontrado extraído');
                 return existingExtracted;
             }
+            console.log('❌ No se encontró Brave extraído previamente');
             
             // Si no está extraído, buscar archivo .7z
+            console.log('🔍 PASO 2b: Buscando archivo .7z para extraer...');
             const sevenZipPath = this.findBrave7z();
             
             if (sevenZipPath) {
+                console.log('📦 ARCHIVO .7Z ENCONTRADO:', sevenZipPath);
                 try {
-                    console.log('🚀 Extrayendo Brave automáticamente desde .7z...');
+                    console.log('🚀 INICIANDO EXTRACCIÓN automática desde .7z...');
                     const extractedBrave = await this.extractBrave7z(sevenZipPath);
                     
                     if (extractedBrave) {
-                        console.log('✅ Brave extraído y listo para usar:', extractedBrave);
+                        console.log('✅ ÉXITO: Brave extraído y listo para usar:', extractedBrave);
+                        console.log('🎯 TERMINANDO BÚSQUEDA - Brave extraído exitosamente');
                         return extractedBrave;
+                    } else {
+                        console.error('❌ FALLO: extractBrave7z() devolvió null/undefined');
                     }
                 } catch (error) {
-                    console.error('❌ Error extrayendo .7z de Brave:', error.message);
-                    console.log('⚠️ Continuando con búsqueda normal...');
+                    console.error('❌ EXCEPCIÓN durante extracción de .7z:', error.message);
+                    console.error('📊 Stack trace:', error.stack);
+                    console.log('⚠️ CONTINUANDO con búsqueda de instalaciones del sistema...');
                 }
+            } else {
+                console.log('❌ NO SE ENCONTRÓ archivo .7z de Brave');
             }
+        } else {
+            console.log('✅ Brave está empaquetado, saltando extracción');
         }
         
-        for (const bravePath of paths) {
+        console.log('🔍 PASO 3: Verificando rutas de instalación directa...');
+        for (let i = 0; i < paths.length; i++) {
+            const bravePath = paths[i];
             try {
-                console.log('  - Verificando:', bravePath);
+                console.log(`🔎 [${i + 1}/${paths.length}] Verificando: ${bravePath}`);
+                
+                // Verificar si el directorio padre existe
+                const parentDir = path.dirname(bravePath);
+                const parentExists = fs.existsSync(parentDir);
+                console.log(`  📁 Directorio padre existe: ${parentExists ? 'SÍ' : 'NO'} (${parentDir})`);
+                
                 if (fs.existsSync(bravePath)) {
+                    // Verificar si es ejecutable
+                    const stats = fs.statSync(bravePath);
+                    const isFile = stats.isFile();
+                    const fileSize = stats.size;
+                    
+                    console.log(`  ✅ ARCHIVO ENCONTRADO:`);
+                    console.log(`    📄 Es archivo: ${isFile ? 'SÍ' : 'NO'}`);
+                    console.log(`    📏 Tamaño: ${Math.round(fileSize / 1024 / 1024)} MB`);
+                    console.log(`    📅 Modificado: ${stats.mtime.toISOString()}`);
+                    
                     // Determinar si es versión empaquetada o del sistema
                     const isBundled = bravePath.includes('bundled-browsers') || bravePath.includes('resourcesPath');
                     const braveType = isBundled ? '📦 EMPAQUETADO' : '💻 SISTEMA';
                     
-                    console.log(`✅ Brave encontrado (${braveType}):`, bravePath);
+                    console.log(`✅ BRAVE ENCONTRADO (${braveType}): ${bravePath}`);
                     
                     if (isBundled) {
                         console.log('🎉 Usando Brave distribuido con la aplicación');
@@ -135,38 +826,34 @@ class BraveController {
                         console.log('ℹ️ Usando Brave instalado en el sistema');
                     }
                     
+                    console.log('🎯 TERMINANDO BÚSQUEDA - Brave encontrado en instalación');
                     return bravePath;
+                } else {
+                    console.log(`  ❌ No existe: ${bravePath}`);
                 }
             } catch (error) {
+                console.log(`  ❌ Error verificando ${bravePath}:`, error.message);
                 continue;
             }
         }
         
-        console.warn('❌ Brave no encontrado, intentando con Chrome...');
-        // Fallback a Chrome si Brave no está disponible
-        const chromePaths = [
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe',
-            '/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe'
-        ];
+        console.error('❌❌❌ BRAVE EMPAQUETADO NO ENCONTRADO');
+        console.error('🚫 MODO PRODUCCIÓN: NO SE BUSCARÁ Chrome ni instalaciones del sistema');
+        console.log('💡 SOLUCIONES PARA PRODUCCIÓN:');
+        console.log('  1. Colocar Brave en: bundled-browsers/brave/brave/brave/brave.exe (Windows)');
+        console.log('  2. O colocar Brave en: bundled-browsers/brave/brave (Linux)');
+        console.log('  3. O extraer Brave de archivo .7z en bundled-browsers/');
+        console.log('  4. Verificar que el archivo tenga permisos de ejecución');
+        console.log('');
+        console.log('📁 Rutas verificadas sin éxito:');
+        paths.forEach((p, i) => console.log(`  ❌ ${i + 1}. ${p}`));
         
-        for (const chromePath of chromePaths) {
-            try {
-                if (fs.existsSync(chromePath)) {
-                    console.log('✅ Chrome encontrado como fallback:', chromePath);
-                    return chromePath;
-                }
-            } catch (error) {
-                continue;
-            }
-        }
-        
-        throw new Error('Ni Brave ni Chrome encontrados en el sistema');
+        throw new Error('🚫 BRAVE EMPAQUETADO REQUERIDO - No se usarán navegadores del sistema en producción');
     }
 
     // Buscar Brave ya extraído
     findExistingExtracted() {
+        console.log('🔍 ===== BUSCANDO BRAVE YA EXTRAÍDO =====');
         const possibleDirs = [
             path.join(__dirname, '../../bundled-browsers/brave/brave-extracted/'),
             path.join(__dirname, '../../bundled-browsers/brave-extracted/'),
@@ -174,21 +861,56 @@ class BraveController {
             path.join(process.resourcesPath || '', 'bundled-browsers/brave-extracted/')
         ];
 
-        for (const dir of possibleDirs) {
+        console.log('📋 Directorios de Brave extraído a verificar (' + possibleDirs.length + ' total):');
+        possibleDirs.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+
+        for (let i = 0; i < possibleDirs.length; i++) {
+            const dir = possibleDirs[i];
+            console.log(`🔎 [${i + 1}/${possibleDirs.length}] Verificando directorio: ${dir}`);
+            
             try {
-                if (!fs.existsSync(dir)) continue;
+                if (!fs.existsSync(dir)) {
+                    console.log('  ❌ Directorio no existe');
+                    continue;
+                }
+                
+                console.log('  ✅ Directorio existe, listando contenido...');
+                
+                // Listar contenido del directorio para diagnóstico
+                const dirContents = fs.readdirSync(dir);
+                console.log('  📁 Contenido (' + dirContents.length + ' items):');
+                dirContents.forEach((item, idx) => {
+                    const itemPath = path.join(dir, item);
+                    const itemStats = fs.statSync(itemPath);
+                    const type = itemStats.isDirectory() ? '📁' : '📄';
+                    const size = itemStats.isFile() ? ` (${Math.round(itemStats.size / 1024)} KB)` : '';
+                    console.log(`    ${idx + 1}. ${type} ${item}${size}`);
+                });
                 
                 // Buscar el ejecutable en el directorio extraído
+                console.log('  🔍 Buscando ejecutable en este directorio...');
                 const braveExecutable = this.findBraveExecutableInDirSync(dir);
                 if (braveExecutable) {
-                    console.log('✅ Brave extraído encontrado:', braveExecutable);
+                    console.log('  ✅ EJECUTABLE ENCONTRADO:', braveExecutable);
+                    
+                    // Verificar detalles del ejecutable
+                    const execStats = fs.statSync(braveExecutable);
+                    console.log('  📊 Info del ejecutable:');
+                    console.log('    📏 Tamaño:', Math.round(execStats.size / 1024 / 1024), 'MB');
+                    console.log('    📅 Modificado:', execStats.mtime.toISOString());
+                    
+                    console.log('🎯 BRAVE EXTRAÍDO ENCONTRADO - Usando versión existente');
                     return braveExecutable;
+                } else {
+                    console.log('  ❌ No se encontró ejecutable en este directorio');
                 }
             } catch (error) {
+                console.log(`  ❌ Error accediendo directorio: ${error.message}`);
                 continue;
             }
         }
         
+        console.log('❌ No se encontró Brave extraído en ningún directorio');
         return null;
     }
 
@@ -227,6 +949,7 @@ class BraveController {
 
     // Detectar archivos .7z de Brave en la carpeta
     findBrave7z() {
+        console.log('🔍 ===== BUSCANDO ARCHIVO .7Z DE BRAVE =====');
         const possibleDirs = [
             path.join(__dirname, '../../bundled-browsers/brave/'),
             path.join(__dirname, '../../bundled-browsers/'),
@@ -234,44 +957,116 @@ class BraveController {
             path.join(process.resourcesPath || '', 'bundled-browsers/')
         ];
 
-        for (const dir of possibleDirs) {
+        console.log('📋 Directorios donde buscar .7z (' + possibleDirs.length + ' total):');
+        possibleDirs.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+
+        for (let i = 0; i < possibleDirs.length; i++) {
+            const dir = possibleDirs[i];
+            console.log(`🔎 [${i + 1}/${possibleDirs.length}] Verificando directorio: ${dir}`);
+            
             try {
-                if (!fs.existsSync(dir)) continue;
+                if (!fs.existsSync(dir)) {
+                    console.log('  ❌ Directorio no existe');
+                    continue;
+                }
                 
+                console.log('  ✅ Directorio existe, listando archivos...');
                 const files = fs.readdirSync(dir);
-                const sevenZipFiles = files.filter(file => 
-                    file.toLowerCase().includes('brave') && 
-                    file.toLowerCase().endsWith('.7z')
-                );
+                console.log('  📁 Archivos en directorio (' + files.length + ' total):');
+                
+                // Mostrar todos los archivos para diagnóstico
+                files.forEach((file, idx) => {
+                    const filePath = path.join(dir, file);
+                    const fileStats = fs.statSync(filePath);
+                    const type = fileStats.isDirectory() ? '📁' : '📄';
+                    const size = fileStats.isFile() ? ` (${Math.round(fileStats.size / 1024 / 1024)} MB)` : '';
+                    const extension = path.extname(file).toLowerCase();
+                    const is7z = extension === '.7z' ? ' ⭐ 7Z' : '';
+                    console.log(`    ${idx + 1}. ${type} ${file}${size}${is7z}`);
+                });
+                
+                console.log('  🔍 Filtrando archivos .7z que contengan "brave"...');
+                const sevenZipFiles = files.filter(file => {
+                    const isSevenZip = file.toLowerCase().endsWith('.7z');
+                    const containsBrave = file.toLowerCase().includes('brave');
+                    console.log(`    📄 ${file}: 7z=${isSevenZip ? '✅' : '❌'}, brave=${containsBrave ? '✅' : '❌'}`);
+                    return isSevenZip && containsBrave;
+                });
+                
+                console.log('  📦 Archivos .7z encontrados:', sevenZipFiles.length);
                 
                 if (sevenZipFiles.length > 0) {
                     const sevenZipPath = path.join(dir, sevenZipFiles[0]);
-                    console.log('📦 Archivo .7z de Brave encontrado:', sevenZipPath);
+                    
+                    // Verificar detalles del archivo .7z
+                    const sevenZipStats = fs.statSync(sevenZipPath);
+                    console.log('  ✅ ARCHIVO .7Z ENCONTRADO:', sevenZipFiles[0]);
+                    console.log('  📊 Info del archivo:');
+                    console.log('    📏 Tamaño:', Math.round(sevenZipStats.size / 1024 / 1024), 'MB');
+                    console.log('    📅 Modificado:', sevenZipStats.mtime.toISOString());
+                    
+                    console.log('🎯 ARCHIVO .7Z ENCONTRADO:', sevenZipPath);
                     return sevenZipPath;
+                } else {
+                    console.log('  ❌ No se encontraron archivos .7z que contengan "brave"');
                 }
             } catch (error) {
+                console.log(`  ❌ Error accediendo directorio: ${error.message}`);
                 continue;
             }
         }
         
+        console.log('❌ No se encontró archivo .7z de Brave en ningún directorio');
         return null;
     }
 
     // Extraer Brave desde archivo .7z
     async extractBrave7z(sevenZipPath) {
-        console.log('📦 Extrayendo Brave desde .7z...');
+        console.log('📦 ==================== INICIANDO EXTRACCIÓN 7Z ====================');
+        console.log('📁 Archivo .7z:', sevenZipPath);
+        console.log('🖥️ Plataforma:', process.platform);
+        
+        // Verificar que el archivo .7z existe y obtener información
+        if (!fs.existsSync(sevenZipPath)) {
+            throw new Error(`Archivo .7z no existe: ${sevenZipPath}`);
+        }
+        
+        const sevenZipStats = fs.statSync(sevenZipPath);
+        console.log('📊 Información del archivo .7z:');
+        console.log('  📏 Tamaño:', Math.round(sevenZipStats.size / 1024 / 1024), 'MB');
+        console.log('  📅 Modificado:', sevenZipStats.mtime.toISOString());
+        console.log('  📄 Es archivo:', sevenZipStats.isFile() ? 'SÍ' : 'NO');
         
         const extractDir = path.dirname(sevenZipPath);
         const braveDir = path.join(extractDir, 'brave-extracted');
         
+        console.log('📂 Directorios:');
+        console.log('  📁 Directorio base:', extractDir);
+        console.log('  📁 Directorio destino:', braveDir);
+        
         try {
             // Crear directorio de destino si no existe
+            console.log('📁 PASO 1: Verificando/creando directorio destino...');
             if (!fs.existsSync(braveDir)) {
+                console.log('📁 Creando directorio:', braveDir);
                 fs.mkdirSync(braveDir, { recursive: true });
+                console.log('✅ Directorio creado exitosamente');
+            } else {
+                console.log('✅ Directorio ya existe:', braveDir);
+            }
+
+            // Verificar permisos del directorio
+            try {
+                fs.accessSync(braveDir, fs.constants.W_OK);
+                console.log('✅ Permisos de escritura verificados');
+            } catch (error) {
+                console.error('❌ Sin permisos de escritura en:', braveDir);
+                throw new Error(`Sin permisos de escritura en directorio: ${braveDir}`);
             }
 
             // Usar diferentes métodos de extracción según el sistema
             if (process.platform === 'win32') {
+                console.log('🔧 PASO 2: Buscando 7-Zip en Windows...');
                 // Intentar usar 7z.exe incluido o del sistema en Windows
                 const possible7zPaths = [
                     'C:\\Program Files\\7-Zip\\7z.exe',
@@ -279,59 +1074,168 @@ class BraveController {
                     '7z' // Si está en PATH
                 ];
                 
+                console.log('📋 Rutas de 7-Zip a verificar:');
+                possible7zPaths.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+                
                 let command = null;
-                for (const sevenZipExe of possible7zPaths) {
+                let found7zPath = null;
+                
+                for (let i = 0; i < possible7zPaths.length; i++) {
+                    const sevenZipExe = possible7zPaths[i];
+                    console.log(`🔎 [${i + 1}/${possible7zPaths.length}] Probando: ${sevenZipExe}`);
                     try {
                         await execAsync(`"${sevenZipExe}" > nul 2>&1`);
+                        console.log(`  ✅ ENCONTRADO y funcional: ${sevenZipExe}`);
                         command = `"${sevenZipExe}" x "${sevenZipPath}" -o"${braveDir}" -y`;
+                        found7zPath = sevenZipExe;
                         break;
                     } catch (e) {
+                        console.log(`  ❌ No disponible: ${sevenZipExe} (${e.message})`);
                         continue;
                     }
                 }
                 
                 if (!command) {
+                    console.error('❌ 7z.exe NO ENCONTRADO en ninguna ubicación');
+                    console.log('💡 SOLUCIONES:');
+                    console.log('  1. Instalar 7-Zip desde: https://www.7-zip.org/');
+                    console.log('  2. O agregar 7z.exe al PATH del sistema');
                     throw new Error('7z.exe no encontrado. Instala 7-Zip desde https://www.7-zip.org/');
                 }
                 
-                console.log('🔧 Extrayendo con comando:', command);
-                await execAsync(command);
+                console.log('✅ Usando 7-Zip encontrado:', found7zPath);
+                console.log('🚀 PASO 3: Ejecutando extracción...');
+                console.log('🔧 Comando completo:', command);
+                
+                const startTime = Date.now();
+                const result = await execAsync(command);
+                const endTime = Date.now();
+                const duration = Math.round((endTime - startTime) / 1000);
+                
+                console.log('✅ Extracción completada en', duration, 'segundos');
+                console.log('📤 Salida del comando:', result.stdout || 'Sin salida');
+                if (result.stderr) {
+                    console.log('⚠️ Errores/advertencias:', result.stderr);
+                }
             } else {
+                console.log('🔧 PASO 2: Verificando 7-Zip en Linux/WSL...');
                 // Usar 7z en Linux (requiere p7zip-full)
+                
+                // Primero verificar si 7z está disponible
+                try {
+                    await execAsync('which 7z');
+                    console.log('✅ 7z encontrado en PATH');
+                } catch (error) {
+                    console.error('❌ 7z NO encontrado en PATH');
+                    console.log('💡 SOLUCIONES:');
+                    console.log('  1. Instalar p7zip-full: sudo apt install p7zip-full');
+                    console.log('  2. O instalar 7zip: sudo apt install 7zip');
+                    throw new Error('7z no encontrado. Instala con: sudo apt install p7zip-full');
+                }
+                
                 const command = `7z x "${sevenZipPath}" -o"${braveDir}" -y`;
-                console.log('🔧 Extrayendo con comando:', command);
+                console.log('🚀 PASO 3: Ejecutando extracción en Linux...');
+                console.log('🔧 Comando completo:', command);
                 
                 try {
-                    await execAsync(command);
+                    const startTime = Date.now();
+                    const result = await execAsync(command);
+                    const endTime = Date.now();
+                    const duration = Math.round((endTime - startTime) / 1000);
+                    
+                    console.log('✅ Extracción completada en', duration, 'segundos');
+                    console.log('📤 Salida del comando:', result.stdout || 'Sin salida');
+                    if (result.stderr) {
+                        console.log('⚠️ Errores/advertencias:', result.stderr);
+                    }
                 } catch (error) {
+                    console.error('❌ Error durante extracción:', error.message);
                     if (error.message.includes('7z: command not found')) {
+                        console.log('💡 SOLUCIÓN: sudo apt install p7zip-full');
                         throw new Error('7z no encontrado. Instala con: sudo apt install p7zip-full');
                     }
                     throw error;
                 }
             }
 
-            console.log('✅ Brave extraído exitosamente desde .7z');
+            console.log('✅ EXTRACCIÓN COMPLETADA exitosamente desde .7z');
+            
+            // Verificar qué se extrajo
+            console.log('🔍 PASO 4: Verificando contenido extraído...');
+            if (fs.existsSync(braveDir)) {
+                const extractedItems = fs.readdirSync(braveDir);
+                console.log('📁 Items extraídos (' + extractedItems.length + ' total):');
+                extractedItems.forEach((item, i) => {
+                    const itemPath = path.join(braveDir, item);
+                    const itemStats = fs.statSync(itemPath);
+                    const type = itemStats.isDirectory() ? '📁' : '📄';
+                    const size = itemStats.isFile() ? ` (${Math.round(itemStats.size / 1024)} KB)` : '';
+                    console.log(`  ${i + 1}. ${type} ${item}${size}`);
+                });
+            }
             
             // Buscar el ejecutable en la estructura extraída
+            console.log('🔍 PASO 5: Buscando ejecutable de Brave en estructura extraída...');
             const braveExecutable = await this.findBraveExecutableInDir(braveDir);
             
             if (braveExecutable) {
-                console.log('✅ Ejecutable de Brave encontrado:', braveExecutable);
+                console.log('✅ EJECUTABLE DE BRAVE ENCONTRADO:', braveExecutable);
+                
+                // Verificar detalles del ejecutable
+                const execStats = fs.statSync(braveExecutable);
+                console.log('📊 Información del ejecutable:');
+                console.log('  📏 Tamaño:', Math.round(execStats.size / 1024 / 1024), 'MB');
+                console.log('  📅 Modificado:', execStats.mtime.toISOString());
+                console.log('  📄 Es archivo:', execStats.isFile() ? 'SÍ' : 'NO');
                 
                 // Hacer ejecutable en Linux
                 if (process.platform !== 'win32') {
+                    console.log('🔧 PASO 6: Estableciendo permisos de ejecución (Linux)...');
                     try {
                         await execAsync(`chmod +x "${braveExecutable}"`);
                         console.log('✅ Permisos de ejecución establecidos');
+                        
+                        // Verificar permisos
+                        const result = await execAsync(`ls -la "${braveExecutable}"`);
+                        console.log('📋 Permisos actuales:', result.stdout.trim());
                     } catch (chmodError) {
-                        console.warn('⚠️ No se pudieron establecer permisos:', chmodError.message);
+                        console.warn('⚠️ Error estableciendo permisos:', chmodError.message);
+                        console.log('💡 Puede seguir funcionando sin permisos especiales');
                     }
+                } else {
+                    console.log('ℹ️ Windows detectado - no se requieren permisos chmod');
                 }
                 
+                console.log('🎯 EXTRACCIÓN COMPLETADA - Ejecutable listo para usar');
                 return braveExecutable;
             } else {
-                throw new Error('No se encontró el ejecutable de Brave después de la extracción');
+                console.error('❌ NO SE ENCONTRÓ ejecutable de Brave después de la extracción');
+                console.log('📁 Contenido del directorio extraído para diagnóstico:');
+                
+                // Mostrar estructura completa para diagnóstico
+                const showDirStructure = (dir, level = 0) => {
+                    const indent = '  '.repeat(level);
+                    try {
+                        const items = fs.readdirSync(dir);
+                        items.forEach(item => {
+                            const itemPath = path.join(dir, item);
+                            const itemStats = fs.statSync(itemPath);
+                            const type = itemStats.isDirectory() ? '📁' : '📄';
+                            console.log(`${indent}${type} ${item}`);
+                            
+                            // Mostrar solo 2 niveles de profundidad
+                            if (itemStats.isDirectory() && level < 2) {
+                                showDirStructure(itemPath, level + 1);
+                            }
+                        });
+                    } catch (error) {
+                        console.log(`${indent}❌ Error leyendo: ${error.message}`);
+                    }
+                };
+                
+                showDirStructure(braveDir);
+                
+                throw new Error('No se encontró el ejecutable de Brave después de la extracción. Revisa la estructura de archivos arriba.');
             }
             
         } catch (error) {
@@ -1283,35 +2187,71 @@ if (window.location.href.includes('loading.html')) {
 
     // Lanzar Brave con URL específica (para cursos)
     async launchWithUrl(courseUrl, cookies = null) {
+        console.log('🚀 ================ INICIANDO BRAVE PARA CURSO ================');
+        console.log('🎓 URL del curso:', courseUrl);
+        console.log('🍪 Cookies recibidas:', cookies ? cookies.length : 0);
+        
+        if (cookies && cookies.length > 0) {
+            console.log('📋 Lista de cookies:');
+            cookies.forEach((cookie, i) => {
+                const valuePreview = cookie.value ? cookie.value.substring(0, 20) + '...' : 'vacía';
+                console.log(`  ${i + 1}. ${cookie.name}: ${valuePreview} (${cookie.domain || 'sin dominio'})`);
+            });
+        }
+        
         try {
+            console.log('🔍 PASO 1: Buscando navegador Brave...');
             const bravePath = await this.findBrave();
+            console.log('✅ Navegador encontrado:', bravePath);
             
             // Guardar URL del curso para modo kiosko
             this.targetCourseUrl = courseUrl;
             console.log('🔒 Configurando modo kiosko para curso:', courseUrl);
             
             // Usar perfil persistente protegido
+            console.log('🔍 PASO 2: Creando perfil persistente...');
             const profilePath = this.createPersistentProfile();
+            console.log('✅ Perfil creado/verificado:', profilePath);
             
             // Verificar si es primera vez y mostrar información de Widevine
+            console.log('🔍 PASO 3: Verificando configuración de perfil...');
             const isFirstTime = this.isFirstTimeProfile(profilePath);
+            console.log('🆕 Es primera vez usando este perfil:', isFirstTime ? 'SÍ' : 'NO');
             this.showWidevineInfo(isFirstTime);
 
             let startUrl = courseUrl || 'https://www.udemy.com';
+            console.log('🌐 URL inicial prevista:', startUrl);
 
             // Si tenemos cookies, crear página de carga y extensión
             if (cookies && cookies.length > 0) {
+                console.log('🔍 PASO 4: Preparando transferencia de cookies...');
+                console.log('📄 Creando página de carga...');
                 const loadingPath = await this.createLoadingPage(cookies, profilePath);
+                console.log('✅ Página de carga creada:', loadingPath);
+                
+                console.log('🔧 Creando extensión de cookies...');
                 await this.createCookieExtension(cookies, profilePath, loadingPath);
+                console.log('✅ Extensión de cookies creada');
                 
                 // Cambiar URL inicial a la página de carga
                 startUrl = 'file:///' + loadingPath.replace(/\\/g, '/');
-                console.log('📄 Iniciando con página de carga, después irá a:', courseUrl);
+                console.log('📄 URL inicial cambiada a página de carga:', startUrl);
+                console.log('🎯 Después redirigirá automáticamente a:', courseUrl);
                 
                 // Modificar la página de carga para ir a la URL del curso
+                console.log('📝 Configurando redirección automática...');
                 this.updateLoadingPageTarget(loadingPath, courseUrl);
+                console.log('✅ Redirección configurada');
+            } else {
+                console.log('ℹ️ No hay cookies para transferir, iniciando directamente');
             }
 
+            console.log('🔍 PASO 5: Preparando argumentos de lanzamiento...');
+            
+            // Obtener path de Widevine
+            const widevinePath = this.getWidevinePath(bravePath);
+            console.log('🔐 Path de Widevine CDM:', widevinePath);
+            
             const args = [
                 '--user-data-dir=' + profilePath,
                 '--no-first-run',
@@ -1319,7 +2259,7 @@ if (window.location.href.includes('loading.html')) {
                 '--disable-features=TranslateUI',
                 '--allow-running-insecure-content',
                 // Configuración de Widevine CDM - Auto-habilitar sin preguntar
-                '--widevine-cdm-path=' + this.getWidevinePath(bravePath),
+                '--widevine-cdm-path=' + widevinePath,
                 '--widevine-cdm-version=4.10.2710.0', // Versión común
                 '--enable-widevine-cdm',
                 '--enable-plugins',
@@ -1353,40 +2293,96 @@ if (window.location.href.includes('loading.html')) {
             // Agregar extensión si existe
             if (this.extensionPath) {
                 args.push('--load-extension=' + this.extensionPath);
-                console.log('🔧 Cargando extensión desde:', this.extensionPath);
+                console.log('🔧 Extensión agregada a argumentos:', this.extensionPath);
+            } else {
+                console.log('ℹ️ No hay extensión para cargar');
             }
 
-            console.log('🔐 Perfil persistente protegido - Widevine se mantiene habilitado');
-            console.log('🚀 Lanzando Brave para curso:', courseUrl);
+            console.log('📋 Argumentos completos de lanzamiento (' + args.length + ' total):');
+            args.forEach((arg, i) => {
+                // Ocultar rutas muy largas para mejor legibilidad
+                const displayArg = arg.length > 80 ? arg.substring(0, 80) + '...' : arg;
+                console.log(`  ${i + 1}. ${displayArg}`);
+            });
 
+            console.log('🔐 Perfil persistente protegido - Widevine se mantiene habilitado');
+            console.log('🚀 PASO 6: EJECUTANDO BRAVE...');
+            console.log('📄 Comando:', bravePath);
+            console.log('🎯 URL objetivo final:', courseUrl);
+
+            const startTime = Date.now();
+            
             this.braveProcess = spawn(bravePath, args, {
                 detached: false,
                 stdio: 'ignore'
             });
+            
+            const processStartTime = Date.now() - startTime;
+            console.log('⚡ Proceso spawn ejecutado en', processStartTime, 'ms');
 
             this.braveProcess.on('close', (code) => {
-                console.log('Brave cerrado con código:', code);
+                const endTime = Date.now();
+                const sessionDuration = Math.round((endTime - startTime) / 1000);
+                console.log('🔚 BRAVE CERRADO:');
+                console.log('  📊 Código de salida:', code);
+                console.log('  ⏱️ Duración de la sesión:', sessionDuration, 'segundos');
+                console.log('  🧹 Iniciando limpieza...');
+                
                 this.isActive = false;
                 this.braveProcess = null;
                 this.cleanup();
+                
+                console.log('✅ Limpieza completada');
             });
 
             this.braveProcess.on('error', (error) => {
-                console.error('Error Brave:', error);
+                console.error('❌ ERROR DE PROCESO BRAVE:');
+                console.error('  📄 Mensaje:', error.message);
+                console.error('  📄 Código:', error.code || 'Sin código');
+                console.error('  📄 Stack:', error.stack || 'Sin stack trace');
+                
                 this.isActive = false;
+                
+                // Sugerencias basadas en el tipo de error
+                if (error.code === 'ENOENT') {
+                    console.log('💡 SUGERENCIA: El archivo ejecutable no existe o no tiene permisos');
+                } else if (error.code === 'EACCES') {
+                    console.log('💡 SUGERENCIA: Sin permisos de ejecución');
+                } else {
+                    console.log('💡 SUGERENCIA: Verificar instalación de Brave/Chrome');
+                }
+            });
+
+            this.braveProcess.on('spawn', () => {
+                console.log('✅ PROCESO BRAVE INICIADO EXITOSAMENTE');
+                console.log('  🆔 PID:', this.braveProcess.pid);
+                console.log('  📁 Directorio de trabajo:', process.cwd());
             });
 
             this.isActive = true;
-            console.log('✅ Brave lanzado para el curso');
+            console.log('✅ LANZAMIENTO COMPLETADO');
             
             if (cookies && cookies.length > 0) {
-                console.log('🍪 Transferir', cookies.length, 'cookies y luego abrir curso');
+                console.log('🍪 El navegador transferirá', cookies.length, 'cookies automáticamente');
+                console.log('⏳ Después de la transferencia se abrirá:', courseUrl);
+            } else {
+                console.log('🌐 Navegador abrirá directamente:', courseUrl);
             }
+            
+            console.log('🎯 ================ BRAVE EJECUTÁNDOSE ================');
 
             return true;
 
         } catch (error) {
-            console.error('❌ Error lanzando Brave para curso:', error);
+            console.error('❌❌❌ ERROR CRÍTICO LANZANDO BRAVE:');
+            console.error('  📄 Mensaje:', error.message);
+            console.error('  📄 Stack:', error.stack || 'Sin stack trace');
+            console.error('  📊 Tipo:', error.constructor.name);
+            
+            // Reset del estado en caso de error
+            this.isActive = false;
+            this.braveProcess = null;
+            
             return false;
         }
     }
@@ -1653,8 +2649,39 @@ if (window.location.href.includes('loading.html')) {
             isActive: this.isActive,
             hasProcess: !!this.braveProcess,
             profilePath: this.persistentProfilePath,
-            extensionPath: this.extensionPath
+            extensionPath: this.extensionPath,
+            logFile: this.logFile,
+            logDirectory: this.logDirectory
         };
+    }
+    
+    // 📁 Obtener información de logging
+    getLoggingInfo() {
+        return {
+            logFile: this.logFile,
+            logDirectory: this.logDirectory,
+            maxLogFiles: this.maxLogFiles,
+            maxLogSizeMB: this.maxLogSizeMB,
+            currentLogSize: this.logFile && fs.existsSync(this.logFile) ? 
+                Math.round(fs.statSync(this.logFile).size / (1024 * 1024) * 100) / 100 : 0,
+            logCount: this.debugLogs.length,
+            isPackaged: app.isPackaged
+        };
+    }
+    
+    // 📂 Abrir directorio de logs en el explorador
+    openLogDirectory() {
+        try {
+            if (this.logDirectory && fs.existsSync(this.logDirectory)) {
+                const { shell } = require('electron');
+                shell.openPath(this.logDirectory);
+                return { success: true, path: this.logDirectory };
+            } else {
+                return { success: false, error: 'Directorio de logs no existe' };
+            }
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     }
 }
 

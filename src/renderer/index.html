@@ -378,13 +378,19 @@
                 window.appInitialized = true;
                 console.log('✅ Variable global appInitialized establecida');
                 
+                // Configurar listeners de actualizaciones PRIMERO
+                this.setupUpdateListeners();
+                
                 // El proceso principal se encarga de la extracción automáticamente
                 this.updateStatus('Configurando todo...');
                 
                 // Configurar listeners para eventos de extracción del proceso principal
                 this.setupBraveExtractionListeners();
                 
-                // Verificar si llegamos aquí por error teniendo sesión activa
+                // SIEMPRE mostrar splash screen primero para dar oportunidad a actualizaciones
+                await this.showSplashScreen();
+                
+                // DESPUÉS verificar si hay sesión activa
                 const hasValidSession = await this.checkSession();
                 
                 if (hasValidSession) {
@@ -396,9 +402,6 @@
                     this.redirectToUdemy();
                     return;
                 }
-                
-                // Mostrar splash screen
-                await this.showSplashScreen();
                 
                 // Si no hay sesión válida, mostrar opciones de login
                 this.updateStatus('No hay sesión activa, mostrando opciones de login...', 'info');
@@ -431,10 +434,10 @@
             async showSplashScreen() {
                 this.updateStatus('Verificando actualizaciones...');
                 await this.checkForUpdates();
-                await this.delay(800);
+                await this.delay(2000); // Dar más tiempo para actualizaciones
                 
                 this.updateStatus('Cargando componentes...');
-                await this.delay(600);
+                await this.delay(800);
                 
                 this.updateStatus('Verificando sesión...');
                 await this.delay(600);
@@ -444,6 +447,7 @@
                 try {
                     if (window.electronAPI) {
                         console.log('🔍 Verificando actualizaciones...');
+                        
                         const result = await window.electronAPI.invoke('check-for-updates');
                         if (result && result.updateAvailable) {
                             this.updateStatus('Actualización disponible, descargando...', 'success');
@@ -456,6 +460,238 @@
                     console.error('❌ Error verificando actualizaciones:', error);
                 }
             }
+
+            setupUpdateListeners() {
+                if (!window.electronAPI) return;
+
+                // Usar arrow functions para preservar el contexto de this automáticamente
+                window.electronAPI.receive('show-update-overlay', (info) => {
+                    console.log('📦 Actualización disponible:', info);
+                    console.log('🔍 Contexto this:', this);
+                    console.log('🔍 window.appInitializer:', window.appInitializer);
+                    this.showUpdateOverlay(info);
+                });
+
+                window.electronAPI.receive('update-download-progress', (progress) => {
+                    console.log('📥 Progreso descarga:', progress.percent + '%');
+                    this.updateDownloadProgress(progress);
+                });
+
+                window.electronAPI.receive('update-downloaded-overlay', (info) => {
+                    console.log('✅ Descarga completa:', info);
+                    this.showUpdateDownloaded(info);
+                });
+            }
+
+            showUpdateOverlay(info) {
+                console.log('🎯 showUpdateOverlay llamado con info:', info);
+                console.log('🔍 this en showUpdateOverlay:', this);
+                console.log('🔍 createUpdateOverlay disponible:', typeof this.createUpdateOverlay);
+                
+                // Usar siempre this.createUpdateOverlay() ya que el contexto debe estar correcto
+                const overlay = this.createUpdateOverlay();
+                console.log('📦 Overlay creado:', overlay);
+                console.log('📦 Overlay agregado al DOM:', document.body.contains(overlay));
+                
+                overlay.querySelector('#overlay-icon').textContent = '📦';
+                overlay.querySelector('#overlay-title').textContent = 'Nueva actualización disponible';
+                overlay.querySelector('#overlay-version').textContent = `Versión ${info.version}`;
+                overlay.querySelector('#overlay-message').textContent = 'Una nueva versión está disponible. ¿Quieres descargarla ahora?';
+                
+                // Mostrar botones de acción
+                overlay.querySelector('#overlay-actions').innerHTML = `
+                    <button onclick="window.appInitializer.downloadUpdate()" style="
+                        flex: 1;
+                        background: rgba(255,255,255,0.2);
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: white;
+                        border-radius: 8px;
+                        padding: 8px 16px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        margin-right: 6px;
+                        transition: all 0.2s ease;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">Descargar</button>
+                    <button onclick="window.appInitializer.closeUpdateOverlay()" style="
+                        background: transparent;
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: white;
+                        border-radius: 8px;
+                        padding: 8px 16px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Después</button>
+                `;
+                
+                // Animar entrada desde la derecha
+                setTimeout(() => {
+                    console.log('🎬 Iniciando animación de entrada...');
+                    const notificationCard = overlay.querySelector('#notification-card');
+                    console.log('🎬 Notification card encontrado:', notificationCard);
+                    if (notificationCard) {
+                        console.log('🎬 Transform actual:', notificationCard.style.transform);
+                        notificationCard.style.transform = 'translateX(0)';
+                        console.log('🎬 Transform después:', notificationCard.style.transform);
+                    }
+                }, 100);
+            }
+
+            updateDownloadProgress(progress) {
+                const overlay = document.getElementById('udemigo-update-overlay');
+                if (!overlay) return;
+                
+                const percent = Math.round(progress.percent);
+                const speed = Math.round(progress.bytesPerSecond / 1024);
+                
+                // Actualizar contenido para mostrar descarga
+                overlay.querySelector('#overlay-icon').textContent = '📥';
+                overlay.querySelector('#overlay-title').textContent = 'Descargando actualización';
+                overlay.querySelector('#overlay-version').textContent = 'Por favor espera...';
+                overlay.querySelector('#overlay-message').textContent = `Descargando... ${percent}% (${speed} KB/s)`;
+                
+                // Mostrar y actualizar barra de progreso
+                const progressContainer = overlay.querySelector('#overlay-progress');
+                progressContainer.style.display = 'block';
+                progressContainer.querySelector('#overlay-progress-fill').style.width = percent + '%';
+                progressContainer.querySelector('#overlay-progress-percent').textContent = percent + '%';
+                
+                // Mantener botón de ocultar durante descarga
+                overlay.querySelector('#overlay-actions').innerHTML = `
+                    <button onclick="window.appInitializer.closeUpdateOverlay()" style="
+                        background: rgba(255,255,255,0.2);
+                        color: white;
+                        border: none;
+                        padding: 12px 20px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    ">Ocultar notificación</button>
+                `;
+            }
+
+            showUpdateDownloaded(info) {
+                const overlay = document.getElementById('udemigo-update-overlay');
+                if (!overlay) return;
+                
+                // Actualizar contenido para mostrar descarga completa
+                overlay.querySelector('#overlay-icon').textContent = '✅';
+                overlay.querySelector('#overlay-title').textContent = 'Actualización descargada';
+                overlay.querySelector('#overlay-version').textContent = `Versión ${info.version}`;
+                overlay.querySelector('#overlay-message').textContent = 'La actualización se descargó correctamente. ¿Reiniciar ahora?';
+                
+                // Ocultar barra de progreso
+                overlay.querySelector('#overlay-progress').style.display = 'none';
+                
+                // Mostrar botones finales
+                overlay.querySelector('#overlay-actions').innerHTML = `
+                    <button onclick="window.appInitializer.restartApp()" style="
+                        flex: 1;
+                        background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+                        color: white;
+                        border: none;
+                        padding: 12px 20px;
+                        border-radius: 25px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        margin-right: 8px;
+                        transition: all 0.3s ease;
+                    ">Reiniciar ahora</button>
+                    <button onclick="window.appInitializer.closeUpdateOverlay()" style="
+                        background: rgba(255,255,255,0.2);
+                        color: white;
+                        border: none;
+                        padding: 12px 20px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                    ">Más tarde</button>
+                `;
+            }
+
+            createUpdateOverlay() {
+                // Remover overlay existente
+                const existing = document.getElementById('udemigo-update-overlay');
+                if (existing) existing.remove();
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'udemigo-update-overlay';
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    width: 380px;
+                    background: transparent;
+                    z-index: 10000;
+                    pointer-events: auto;
+                `;
+                
+                overlay.innerHTML = `
+                    <div id="notification-card" style="
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        padding: 20px;
+                        border-radius: 16px;
+                        width: 380px;
+                        color: white;
+                        box-shadow: 0 12px 48px rgba(0,0,0,0.4);
+                        border: 1px solid rgba(255,255,255,0.2);
+                        backdrop-filter: blur(20px);
+                        transform: translateX(400px);
+                        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                        overflow: hidden;
+                        pointer-events: auto;
+                        position: relative;
+                    ">
+                        <button onclick="window.appInitializer.closeUpdateOverlay()" style="
+                            position: absolute;
+                            top: 15px;
+                            right: 15px;
+                            background: rgba(255,255,255,0.2);
+                            border: none;
+                            color: white;
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 50%;
+                            cursor: pointer;
+                            font-size: 16px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            transition: background 0.2s;
+                        " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+                        
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <div id="overlay-icon" style="font-size: 24px; margin-right: 12px;">📦</div>
+                            <div style="flex: 1;">
+                                <div id="overlay-title" style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">Título</div>
+                                <div id="overlay-version" style="opacity: 0.9; font-size: 12px;">Versión</div>
+                            </div>
+                        </div>
+                        
+                        <div id="overlay-message" style="margin-bottom: 15px; font-size: 14px; opacity: 0.95; line-height: 1.4;">
+                            Mensaje
+                        </div>
+                        
+                        <div id="overlay-progress" style="margin-bottom: 15px; display: none;">
+                            <div style="background: rgba(255,255,255,0.2); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 6px;">
+                                <div id="overlay-progress-fill" style="background: linear-gradient(90deg, #4ecdc4, #44a08d); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                            </div>
+                            <div style="text-align: center; font-size: 12px; opacity: 0.9;">
+                                <span id="overlay-progress-percent">0%</span>
+                            </div>
+                        </div>
+                        
+                        <div id="overlay-actions" style="display: flex; gap: 10px;">
+                            <!-- Los botones se insertan dinámicamente -->
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(overlay);
+                return overlay;
+            }
+
 
 
             async checkSession() {
@@ -554,7 +790,7 @@
                     if (window.electronAPI) {
                         await window.electronAPI.invoke('set-cookies', [
                             { name: 'access_token', value: account.accessToken || '', domain: '.udemy.com', path: '/', secure: true },
-                            { name: 'dj_session_id', value: account.dj_session_id || '', domain: '.udemy.com', path: '/', secure: true, httpOnly: true },
+                            { name: 'dj_session_id', value: account.dj_session_id || '', domain: '.udemy.com', path: '/', secure: true, httpOnly: false },
                             { name: 'client_id', value: account.client_id || '', domain: '.udemy.com', path: '/', secure: true },
                             { name: 'auth_token', value: token, domain: '.udemy.com', path: '/', secure: false },
                             { name: 'user_email', value: userEmail, domain: '.udemy.com', path: '/', secure: false },
@@ -652,6 +888,66 @@
                 this.redirectToUdemy();
             }
 
+            downloadUpdate() {
+                console.log('📥 Iniciando descarga...');
+                console.log('🔍 Verificando overlay...');
+                
+                // Inmediatamente mostrar la barra de progreso en 0%
+                const overlay = document.getElementById('udemigo-update-overlay');
+                console.log('📦 Overlay encontrado:', overlay);
+                if (overlay) {
+                    console.log('✅ Actualizando contenido del overlay...');
+                    overlay.querySelector('#overlay-icon').textContent = '📥';
+                    overlay.querySelector('#overlay-title').textContent = 'Descargando actualización';
+                    overlay.querySelector('#overlay-version').textContent = 'Preparando descarga...';
+                    overlay.querySelector('#overlay-message').textContent = 'Iniciando descarga... 0%';
+                    
+                    // Mostrar y configurar barra de progreso
+                    const progressContainer = overlay.querySelector('#overlay-progress');
+                    console.log('📊 Progress container:', progressContainer);
+                    if (progressContainer) {
+                        progressContainer.style.display = 'block';
+                        const progressFill = progressContainer.querySelector('#overlay-progress-fill');
+                        const progressPercent = progressContainer.querySelector('#overlay-progress-percent');
+                        if (progressFill) progressFill.style.width = '0%';
+                        if (progressPercent) progressPercent.textContent = '0%';
+                        console.log('✅ Barra de progreso configurada');
+                    }
+                    
+                    // Mostrar botón de ocultar inmediatamente
+                    overlay.querySelector('#overlay-actions').innerHTML = `
+                        <button onclick="window.appInitializer.closeUpdateOverlay()" style="
+                            background: rgba(255,255,255,0.2);
+                            color: white;
+                            border: none;
+                            padding: 12px 20px;
+                            border-radius: 25px;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                        ">Ocultar notificación</button>
+                    `;
+                }
+                
+                if (window.electronAPI) {
+                    window.electronAPI.invoke('update-download');
+                }
+            }
+
+            restartApp() {
+                console.log('🔄 Reiniciando aplicación...');
+                if (window.electronAPI) {
+                    window.electronAPI.invoke('update-restart');
+                }
+            }
+
+            closeUpdateOverlay() {
+                const overlay = document.getElementById('udemigo-update-overlay');
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.remove(), 300);
+                }
+            }
+
             delay(ms) {
                 return new Promise(resolve => setTimeout(resolve, ms));
             }
@@ -697,7 +993,8 @@
             // Activar prevención de redirecciones
             preventRedirections();
             
-            new AppInitializer();
+            // Crear instancia global de AppInitializer para acceso desde overlay
+            window.appInitializer = new AppInitializer();
             
             // Solo desconectar socket cuando se cierre la aplicación completa
             if (window.electronAPI) {

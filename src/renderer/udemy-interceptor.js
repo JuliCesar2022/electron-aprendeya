@@ -1,3 +1,25 @@
+console.log('🚀 Udemy Interceptor cargando...', window.location.href);
+
+// Verificar si hay una ventana de actualización pendiente y mostrarla
+setTimeout(() => {
+    if (window.electronAPI) {
+        window.electronAPI.invoke('check-pending-update-overlay')
+            .then(result => {
+                if (result && result.showOverlay) {
+                    console.log('📦 Hay actualización pendiente, mostrando overlay...');
+                    // Recrear el overlay de actualización en Udemy
+                    if (window.appInitializer && typeof window.appInitializer.showUpdateOverlay === 'function') {
+                        window.appInitializer.showUpdateOverlay(result.updateInfo);
+                    } else {
+                        // Crear AppInitializer simple para Udemy
+                        window.createUdemyUpdateOverlay(result.updateInfo);
+                    }
+                }
+            })
+            .catch(err => console.log('ℹ️ No hay actualización pendiente:', err.message));
+    }
+}, 1000);
+
 // Función global para abrir cursos en Brave con modo kiosko
 window.openCourseInBrave = async function(courseUrl) {
     console.log('🎓 Abriendo curso en Brave con modo kiosko:', courseUrl);
@@ -2783,7 +2805,7 @@ if (window.location.hostname.includes('udemy.com')) {
                    class="course-image"
                    onerror="this.src='https://via.placeholder.com/60x35/f0f0f0/666?text=Curso'">
               <div class="course-info">
-                <div class="course-title">🚀 ${escapeHtml(course.name)}</div>
+                <div class="course-title">${escapeHtml(course.name)}</div>
                 <div class="course-progress">Empieza a aprender</div>
               </div>
             </div>
@@ -3886,3 +3908,160 @@ window.closeUpdateNotification = closeUpdateNotification;
 window.closeUpdateOverlay = closeUpdateOverlay;
 window.downloadUpdateOverlay = downloadUpdateOverlay;
 window.restartAppOverlay = restartAppOverlay;
+
+// Función para crear overlay de actualización en páginas de Udemy
+window.createUdemyUpdateOverlay = function(updateInfo) {
+    console.log('📦 Creando overlay de actualización en Udemy...', updateInfo);
+    
+    // Remover overlay existente
+    const existing = document.getElementById('udemigo-update-overlay');
+    if (existing) existing.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'udemigo-update-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 380px;
+        background: transparent;
+        z-index: 2147483647;
+        pointer-events: auto;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+    
+    overlay.innerHTML = `
+        <div id="notification-card" style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 16px;
+            width: 380px;
+            color: white;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(20px);
+            transform: translateX(400px);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            pointer-events: auto;
+            position: relative;
+        ">
+            <button onclick="document.getElementById('udemigo-update-overlay').remove()" style="
+                position: absolute;
+                top: 15px;
+                right: 15px;
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.2s;
+            " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+            
+            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <div style="font-size: 24px; margin-right: 12px;">📦</div>
+                <div style="flex: 1;">
+                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">Nueva actualización disponible</div>
+                    <div style="opacity: 0.9; font-size: 12px;">Versión ${updateInfo.version || 'N/A'}</div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 15px; font-size: 14px; opacity: 0.95; line-height: 1.4;">
+                Una nueva versión está disponible. ¿Quieres descargarla ahora?
+            </div>
+            
+            <div id="overlay-progress" style="margin-bottom: 15px; display: none;">
+                <div style="background: rgba(255,255,255,0.2); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 6px;">
+                    <div id="overlay-progress-fill" style="background: linear-gradient(90deg, #4ecdc4, #44a08d); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                </div>
+                <div style="text-align: center; font-size: 12px; opacity: 0.9;">
+                    <span id="overlay-progress-percent">0%</span>
+                </div>
+            </div>
+            
+            <div id="overlay-actions" style="display: flex; gap: 10px;">
+                <button onclick="window.downloadUdemyUpdate()" style="
+                    flex: 1;
+                    background: rgba(255,255,255,0.2);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    margin-right: 6px;
+                    transition: all 0.2s ease;
+                " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">Descargar</button>
+                <button onclick="document.getElementById('udemigo-update-overlay').remove()" style="
+                    background: transparent;
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Después</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    // Animar entrada
+    setTimeout(() => {
+        const notificationCard = overlay.querySelector('#notification-card');
+        if (notificationCard) {
+            notificationCard.style.transform = 'translateX(0)';
+        }
+    }, 100);
+    
+    return overlay;
+};
+
+// Función para descargar actualización desde Udemy
+window.downloadUdemyUpdate = function() {
+    console.log('📥 Iniciando descarga de actualización desde Udemy...');
+    
+    const overlay = document.getElementById('udemigo-update-overlay');
+    if (overlay) {
+        // Mostrar progreso inmediatamente
+        const progressContainer = overlay.querySelector('#overlay-progress');
+        const actionsContainer = overlay.querySelector('#overlay-actions');
+        
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+            progressContainer.querySelector('#overlay-progress-fill').style.width = '0%';
+            progressContainer.querySelector('#overlay-progress-percent').textContent = '0%';
+        }
+        
+        if (actionsContainer) {
+            actionsContainer.innerHTML = `
+                <button onclick="document.getElementById('udemigo-update-overlay').remove()" style="
+                    background: rgba(255,255,255,0.2);
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: all 0.2s ease;
+                ">Ocultar notificación</button>
+            `;
+        }
+    }
+    
+    if (window.electronAPI) {
+        window.electronAPI.invoke('update-download');
+    }
+};
+
+console.log('✅ Udemy Interceptor cargado completamente!');

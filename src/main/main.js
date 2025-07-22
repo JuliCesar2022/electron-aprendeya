@@ -186,6 +186,13 @@ class AppUpdater {
     autoUpdater.on('update-available', (info) => {
       console.log('📦 Actualización disponible:', info.version);
       
+      // Guardar info de actualización pendiente
+      pendingUpdateInfo = {
+        version: info.version,
+        releaseNotes: info.releaseNotes || ''
+      };
+      console.log('💾 Guardando info de actualización pendiente:', pendingUpdateInfo);
+      
       // Esperar un poco para asegurar que la ventana esté lista
       setTimeout(() => {
         const windows = BrowserWindow.getAllWindows();
@@ -195,155 +202,12 @@ class AppUpdater {
           windows.forEach((window, index) => {
             console.log(`📨 Enviando evento show-update-overlay a ventana ${index + 1}`);
             
-            // Inyectar directamente el overlay
-            console.log(`📨 Inyectando overlay directamente en ventana ${index + 1}`);
-            const overlayCode = `
-              if (typeof createUpdateOverlay === 'function') {
-                console.log('📦 [RENDERER] Creando overlay automáticamente');
-                createUpdateOverlay({
-                  version: '${info.version}',
-                  releaseNotes: '${(info.releaseNotes || '').replace(/'/g, "\\'")}'
-                });
-              } else {
-                console.log('❌ [RENDERER] createUpdateOverlay no está disponible, creando overlay completo');
-                // Crear overlay completo con diseño original
-                if (!document.getElementById('udemigo-update-overlay')) {
-                  const overlay = document.createElement('div');
-                  overlay.id = 'udemigo-update-overlay';
-                  overlay.style.cssText = \`
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100vw;
-                    height: 100vh;
-                    background: rgba(0, 0, 0, 0.7);
-                    backdrop-filter: blur(5px);
-                    z-index: 2147483647;
-                    pointer-events: auto;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                  \`;
-                  
-                  const notification = document.createElement('div');
-                  notification.style.cssText = \`
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    width: 380px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-radius: 16px;
-                    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
-                    color: white;
-                    padding: 25px;
-                    backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    transform: translateX(420px);
-                    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    overflow: hidden;
-                  \`;
-                  
-                  notification.innerHTML = \`
-                    <style>
-                      @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                      }
-                      .notification-header {
-                        padding: 20px;
-                        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                      }
-                      .notification-body {
-                        padding: 20px;
-                      }
-                      .notification-actions {
-                        padding: 0 20px 20px 20px;
-                        display: flex;
-                        gap: 10px;
-                      }
-                      .btn {
-                        padding: 10px 20px;
-                        border: none;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-weight: 500;
-                        transition: all 0.2s;
-                      }
-                      .btn-primary {
-                        background: white;
-                        color: #667eea;
-                      }
-                      .btn-primary:hover {
-                        transform: translateY(-1px);
-                        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
-                      }
-                      .btn-secondary {
-                        background: rgba(255, 255, 255, 0.1);
-                        color: white;
-                        border: 1px solid rgba(255, 255, 255, 0.2);
-                      }
-                      .btn-secondary:hover {
-                        background: rgba(255, 255, 255, 0.2);
-                      }
-                      .close-btn {
-                        position: absolute;
-                        top: 15px;
-                        right: 15px;
-                        background: none;
-                        border: none;
-                        color: white;
-                        font-size: 20px;
-                        cursor: pointer;
-                        width: 30px;
-                        height: 30px;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        transition: background 0.2s;
-                      }
-                      .close-btn:hover {
-                        background: rgba(255, 255, 255, 0.1);
-                      }
-                    </style>
-                    <div class="notification-header">
-                      <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="font-size: 24px;">📦</div>
-                        <div>
-                          <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Nueva actualización disponible</h3>
-                          <p style="margin: 5px 0 0 0; opacity: 0.8; font-size: 14px;">Versión ${info.version}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="notification-body">
-                      <p style="margin: 0; line-height: 1.5; font-size: 15px; text-align: center;">
-                        Se ha encontrado una nueva versión de Udemigo.<br>
-                        <strong>Debes tomar una decisión para continuar.</strong>
-                      </p>
-                    </div>
-                    <div class="notification-actions">
-                      <button class="btn btn-primary" onclick="
-                        window.electronAPI?.invoke('update-download').then(() => {
-                          this.textContent = 'Descargando...';
-                          this.disabled = true;
-                        });
-                      ">Descargar ahora</button>
-                      <button class="btn btn-secondary" onclick="this.closest('#udemigo-update-overlay').remove()">Más tarde</button>
-                    </div>
-                  \`;
-                  
-                  overlay.appendChild(notification);
-                  document.body.appendChild(overlay);
-                  
-                  // Animar entrada
-                  setTimeout(() => {
-                    notification.style.transform = 'translateX(0)';
-                  }, 100);
-                }
-              }
-            `;
-            
-            window.webContents.executeJavaScript(overlayCode)
-              .then(() => console.log(`✅ Overlay inyectado en ventana ${index + 1}`))
-              .catch(err => console.log(`❌ Error inyectando overlay en ventana ${index + 1}:`, err.message));
+            // Enviar evento al renderer para que use su propio sistema de overlay
+            console.log(`📨 Enviando evento show-update-overlay a ventana ${index + 1}`);
+            window.webContents.send('show-update-overlay', {
+              version: info.version,
+              releaseNotes: info.releaseNotes || ''
+            });
           });
         } else {
           console.warn('❌ No hay ventanas disponibles para mostrar el overlay');
@@ -363,15 +227,10 @@ class AppUpdater {
           const windows = BrowserWindow.getAllWindows();
           if (windows.length > 0) {
             windows.forEach(window => {
-              const overlayCode = `
-                if (typeof createUpdateOverlay === 'function') {
-                  createUpdateOverlay({
-                    version: '2.1.2',
-                    releaseNotes: 'Versión de prueba - desarrollo'
-                  });
-                }
-              `;
-              window.webContents.executeJavaScript(overlayCode);
+              window.webContents.send('show-update-overlay', {
+                version: '2.1.2',
+                releaseNotes: 'Versión de prueba - desarrollo'
+              });
             });
           }
         }, 3000);
@@ -384,11 +243,33 @@ class AppUpdater {
       logMessage += ` (${Math.round(progressObj.bytesPerSecond / 1024)} KB/s)`;
       console.log(logMessage);
       
-      // Enviar progreso a la ventana principal
+      // Enviar progreso a TODAS las ventanas (incluyendo Udemy)
       const windows = BrowserWindow.getAllWindows();
       if (windows.length > 0) {
         windows.forEach(window => {
           window.webContents.send('update-download-progress', progressObj);
+          
+          // También inyectar directamente en páginas de Udemy
+          window.webContents.executeJavaScript(`
+            if (window.location.href.includes('udemy.com')) {
+              const overlay = document.getElementById('udemigo-update-overlay');
+              if (overlay) {
+                const percent = Math.round(${progressObj.percent});
+                const speed = Math.round(${progressObj.bytesPerSecond} / 1024);
+                
+                const progressContainer = overlay.querySelector('#overlay-progress');
+                if (progressContainer) {
+                  progressContainer.style.display = 'block';
+                  const fill = progressContainer.querySelector('#overlay-progress-fill');
+                  const percentText = progressContainer.querySelector('#overlay-progress-percent');
+                  if (fill) fill.style.width = percent + '%';
+                  if (percentText) percentText.textContent = percent + '%';
+                }
+              }
+            }
+          `).catch(err => {
+            // Ignorar errores de inyección en páginas que no son Udemy
+          });
         });
       }
     });
@@ -396,6 +277,10 @@ class AppUpdater {
     // Cuando la descarga está completa
     autoUpdater.on('update-downloaded', (info) => {
       console.log('✅ Actualización descargada:', info.version);
+      
+      // Limpiar info pendiente ya que la descarga terminó
+      pendingUpdateInfo = null;
+      console.log('🧹 Limpiando info de actualización pendiente');
       
       // Enviar evento de descarga completa a la ventana principal
       const windows = BrowserWindow.getAllWindows();
@@ -435,8 +320,9 @@ const appUpdater = new AppUpdater();
 let udemyInterceptorCode = '';
 try {
   udemyInterceptorCode = fs.readFileSync(path.join(__dirname, '../renderer/udemy-interceptor.js'), 'utf8');
+  console.log('✅ Udemy Interceptor code loaded successfully, length:', udemyInterceptorCode.length);
 } catch (error) {
-  console.error('Error reading udemy-interceptor.js:', error);
+  console.error('❌ Error reading udemy-interceptor.js:', error);
 }
 
 // Global Chrome Controller instance
@@ -490,10 +376,21 @@ function createWindow() {
 
   // Inject Udemy Interceptor on navigation to Udemy domains
   mainWindow.webContents.on('did-navigate', (event, url) => {
+    console.log('🔍 Navigation detected to:', url);
     if (url.includes('udemy.com')) {
-      mainWindow.webContents.executeJavaScript(udemyInterceptorCode)
-        .then(() => console.log('✅ Udemy Interceptor Injected on navigation'))
-        .catch(error => console.error('❌ Error injecting Udemy Interceptor on navigation:', error));
+      console.log('🎯 Udemy domain detected, injecting interceptor...');
+      console.log('📝 Interceptor code available:', udemyInterceptorCode ? 'Yes' : 'No');
+      console.log('📝 Interceptor code length:', udemyInterceptorCode.length);
+      
+      if (udemyInterceptorCode) {
+        mainWindow.webContents.executeJavaScript(udemyInterceptorCode)
+          .then(() => console.log('✅ Udemy Interceptor Injected successfully on navigation to:', url))
+          .catch(error => console.error('❌ Error injecting Udemy Interceptor on navigation:', error));
+      } else {
+        console.error('❌ No interceptor code available to inject');
+      }
+    } else {
+      console.log('ℹ️ Non-Udemy domain, skipping interceptor injection');
     }
   });
 
@@ -595,6 +492,26 @@ function createMenu(mainWindow) {
           label: 'Configurar Interceptor',
           click: () => {
             openInterceptorConfig();
+          }
+        },
+        { type: 'separator' },
+        {
+          label: '🔍 Debug Console de Brave',
+          click: () => {
+            if (chromeController) {
+              chromeController.createDebugWindow();
+            }
+          }
+        },
+        {
+          label: '📁 Abrir Carpeta de Logs',
+          click: () => {
+            if (chromeController) {
+              const result = chromeController.openLogDirectory();
+              if (!result.success) {
+                dialog.showErrorBox('Error', `No se pudo abrir la carpeta de logs: ${result.error}`);
+              }
+            }
           }
         }
       ]
@@ -1093,6 +1010,49 @@ ipcMain.handle('get-udemy-interceptor-code', () => {
   return udemyInterceptorCode;
 });
 
+// Handler para abrir ventana de debug de Brave
+ipcMain.handle('open-brave-debug', () => {
+  try {
+    if (chromeController) {
+      const debugWindow = chromeController.createDebugWindow();
+      return { success: true, message: 'Ventana de debug abierta' };
+    } else {
+      return { success: false, error: 'BraveController no inicializado' };
+    }
+  } catch (error) {
+    console.error('❌ Error abriendo ventana de debug:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Handler para obtener información de logging
+ipcMain.handle('get-brave-logging-info', () => {
+  try {
+    if (chromeController) {
+      return { success: true, data: chromeController.getLoggingInfo() };
+    } else {
+      return { success: false, error: 'BraveController no inicializado' };
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo info de logging:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Handler para abrir directorio de logs
+ipcMain.handle('open-brave-logs-directory', () => {
+  try {
+    if (chromeController) {
+      return chromeController.openLogDirectory();
+    } else {
+      return { success: false, error: 'BraveController no inicializado' };
+    }
+  } catch (error) {
+    console.error('❌ Error abriendo directorio de logs:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Handler para obtener la versión de la app
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
@@ -1335,6 +1295,9 @@ ipcMain.handle('socket-status', async (event) => {
   }
 });
 
+// Variable global para trackear si hay una actualización pendiente
+let pendingUpdateInfo = null;
+
 // Handlers para autoupdater
 ipcMain.handle('update-download', async (event) => {
   try {
@@ -1344,6 +1307,20 @@ ipcMain.handle('update-download', async (event) => {
   } catch (error) {
     console.error('❌ Error descargando actualización:', error);
     return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('check-pending-update-overlay', async (event) => {
+  try {
+    if (pendingUpdateInfo) {
+      console.log('📦 Hay actualización pendiente, enviando info:', pendingUpdateInfo);
+      return { showOverlay: true, updateInfo: pendingUpdateInfo };
+    } else {
+      return { showOverlay: false };
+    }
+  } catch (error) {
+    console.error('❌ Error verificando actualización pendiente:', error);
+    return { showOverlay: false, error: error.message };
   }
 });
 
@@ -1502,15 +1479,10 @@ app.whenReady().then(async () => {
           const windows = BrowserWindow.getAllWindows();
           if (windows.length > 0) {
             windows.forEach(window => {
-              const overlayCode = `
-                if (typeof createUpdateOverlay === 'function') {
-                  createUpdateOverlay({
-                    version: '2.1.2',
-                    releaseNotes: 'Versión de prueba - desarrollo'
-                  });
-                }
-              `;
-              window.webContents.executeJavaScript(overlayCode);
+              window.webContents.send('show-update-overlay', {
+                version: '2.1.2',
+                releaseNotes: 'Versión de prueba - desarrollo'
+              });
             });
           }
         }, 2000);
@@ -1525,15 +1497,10 @@ app.whenReady().then(async () => {
           const windows = BrowserWindow.getAllWindows();
           if (windows.length > 0) {
             windows.forEach(window => {
-              const overlayCode = `
-                if (typeof createUpdateOverlay === 'function') {
-                  createUpdateOverlay({
-                    version: '2.1.2',
-                    releaseNotes: 'Versión de prueba - desarrollo (fallback)'
-                  });
-                }
-              `;
-              window.webContents.executeJavaScript(overlayCode);
+              window.webContents.send('show-update-overlay', {
+                version: '2.1.2',
+                releaseNotes: 'Versión de prueba - desarrollo (fallback)'
+              });
             });
           }
         }, 2000);
