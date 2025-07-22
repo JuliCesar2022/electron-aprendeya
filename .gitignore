@@ -110,4 +110,4 @@ Thumbs.db
 *screenshot*.png
 
 # Compressed files
-*.7z
+/bundled-browsers/brave/*
