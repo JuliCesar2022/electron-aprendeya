@@ -19,7 +19,7 @@
     "dist": "electron-builder --publish=never",
     "dist:win": "electron-builder --win --x64 --publish=never",
     "publish": "node -r dotenv/config node_modules/.bin/electron-builder --publish=always",
-    "publish:win": "cross-env GH_TOKEN=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 electron-builder --win --x64 --publish=always",
+    "publish:win": "cross-env GH_TOKEN=$GH_TOKEN electron-builder --win --x64 --publish=always",
     "pack": "electron-builder --dir",
     "pack:win": "electron-builder --dir --win --x64",
     "prepack": "npm install",
