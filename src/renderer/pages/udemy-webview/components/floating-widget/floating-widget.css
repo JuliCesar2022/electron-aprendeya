@@ -1,0 +1,118 @@
+/* Floating Widget Styles */
+.floating-widget {
+    position: fixed;
+    top: var(--space-xl);
+    right: var(--space-xl);
+    width: var(--widget-width);
+    height: var(--widget-height);
+    background: var(--primary-gradient);
+    border-radius: var(--radius-xl);
+    z-index: calc(var(--z-nav) - 1);
+    pointer-events: auto;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: var(--bg-blur);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--bg-white);
+    padding: var(--space-lg);
+    transition: all var(--transition-normal);
+    opacity: 0.9;
+}
+
+.floating-widget:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+}
+
+.widget-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.widget-controls {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.widget-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: var(--bg-white);
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition-fast);
+}
+
+.widget-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.widget-content {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: #4ecdc4;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.disconnected {
+    background: #ff6b6b;
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.widget-info {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+    margin-top: var(--space-sm);
+}
+
+/* Widget minimized state */
+.floating-widget.minimized {
+    height: var(--widget-min-height);
+    width: var(--widget-min-width);
+    overflow: hidden;
+}
+
+.floating-widget.minimized .widget-content {
+    display: none;
+}
+
+/* Draggable state */
+.floating-widget.dragging {
+    cursor: move;
+    user-select: none;
+}

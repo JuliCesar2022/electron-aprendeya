@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Udemigo - Mi Aprendizaje</title>
+    <link rel="stylesheet" href="./components/dialog-styles.css">
     <style>
         * {
             margin: 0;
@@ -521,6 +522,10 @@
         <button class="quick-action-btn btn-screenshot" id="take-screenshot-btn" title="Captura de Pantalla">📸</button>
     </div>
 
+    <!-- Global components -->
+    <script src="./components/dialog-manager.js"></script>
+    <script src="./components/update-manager.js"></script>
+    
     <script src="auth.js"></script>
     <script>
         // Función para prevenir navegación hacia atrás al index
@@ -536,7 +541,7 @@
                 if (hasSession) {
                     // Si hay sesión activa, ir a Udemy en lugar de permitir navegación hacia atrás
                     if (window.electronAPI) {
-                        window.electronAPI.send('go-to-udemy', 'https://www.udemy.com/');
+                        window.electronAPI.send('go-to-udemy-webview');
                     } else {
                         window.location.href = 'https://www.udemy.com/';
                     }
@@ -549,6 +554,12 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize global UpdateManager
+            if (window.UpdateManager) {
+                const updateManager = UpdateManager.createGlobalInstance();
+                console.log('✅ UpdateManager global inicializado en my-learning');
+            }
+            
             // Prevenir navegación hacia atrás al index
             preventBackToIndex();
             
@@ -568,7 +579,7 @@
             document.getElementById('back-btn-nav').addEventListener('click', () => {
                 if (window.electronAPI) {
                     // En Electron, ir a Udemy
-                    window.electronAPI.send('go-to-udemy', 'https://www.udemy.com/');
+                    window.electronAPI.send('go-to-udemy-webview');
                 } else {
                     // En navegador, ir a Udemy
                     window.location.href = 'https://www.udemy.com/';
@@ -688,14 +699,14 @@
                         console.error('❌ Error abriendo curso en Brave');
                         showNotification('Error abriendo el curso', 'error');
                         // Fallback: abrir en Electron
-                        window.electronAPI.send('go-to-udemy', url);
+                        window.electronAPI.send('webview-navigate', url);
                     }
                 } catch (error) {
                     hideLoadingMessage();
                     console.error('❌ Error:', error);
                     showNotification('Error abriendo el curso', 'error');
                     // Fallback: abrir en Electron
-                    window.electronAPI.send('go-to-udemy', url);
+                    window.electronAPI.send('webview-navigate', url);
                 }
             } else {
                 window.open(url, '_blank');
@@ -790,7 +801,7 @@
                     window.electronAPI.invoke('clear-cookies');
                     window.electronAPI.send('go-to-home');
                 } else {
-                    window.location.href = 'index.html';
+                    window.location.href = 'pages/index/index.html';
                 }
                 
             } catch (error) {

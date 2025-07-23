@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Udemigo - Iniciar Sesión</title>
+  
+  <!-- Global CSS Variables -->
+  <link rel="stylesheet" href="../../assets/css/variables.css">
+  
+  <!-- Global CSS Styles -->
+  <link rel="stylesheet" href="../../assets/css/globals.css">
+  
+  <!-- Dialog System Styles -->
+  <link rel="stylesheet" href="../../components/dialog-styles.css">
+  
+  <!-- Page Specific Styles -->
+  <link rel="stylesheet" href="./assets/css/login.css">
+</head>
+<body>
+
+<a href="#" class="back-button" id="back-button">← Volver</a>
+
+<div class="login-container">
+  <div class="logo">🔐 Login</div>
+  <div class="subtitle">Ingresa a Udemigo</div>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label class="form-label" for="email">Correo Electrónico</label>
+      <input type="email" id="email" class="form-input" placeholder="tu@email.com" required>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="password">Contraseña</label>
+      <input type="password" id="password" class="form-input" placeholder="Tu contraseña" required>
+    </div>
+
+    <button type="submit" class="login-button" id="loginBtn">Iniciar Sesión</button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      Iniciando sesión...
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+    <div class="success-message" id="successMessage"></div>
+  </form>
+
+  <div class="demo-credentials">
+    Usar credenciales de demo
+  </div>
+
+</div>
+
+<!-- Dependencies -->
+
+<!-- Auth Manager -->
+<script src="../../auth.js"></script>
+
+<!-- Global Components -->
+<script src="../../components/dialog-manager.js"></script>
+<script src="../../components/update-manager.js"></script>
+
+<!-- Login Page Components -->
+<script src="./components/login-form.js"></script>
+<script src="./components/navigation-handler.js"></script>
+
+<!-- Main Page Script -->
+<script src="./assets/js/login-page.js"></script>
+
+</body>
+</html>

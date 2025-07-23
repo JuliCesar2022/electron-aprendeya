@@ -8,10 +8,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const validSendChannels = [
       'show-notes',
       'go-to-udemy',
+      'go-to-udemy-webview',
       'go-to-login',
       'go-to-home',
       'go-to-my-learning',
-      'search-in-udemy'
+      'search-in-udemy',
+      'webview-navigate',
+      'webview-page-ready',
+      'load-webview-page'
     ];
     if (validSendChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
@@ -44,7 +48,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'chrome-cleanup',
       'update-download',
       'update-restart',
-      'check-for-updates'
+      'check-for-updates',
+      'check-pending-update-overlay',
+      'extract-brave-background',
+      'open-brave-debug',
+      'get-brave-logging-info',
+      'open-brave-logs-directory',
+      'get-app-version',
+      'fetch-user-courses'
     ];
     if (validInvokeChannels.includes(channel)) {
       return await ipcRenderer.invoke(channel, data);
@@ -68,7 +79,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'update-downloaded',
       'show-update-overlay',
       'update-download-progress',
-      'update-downloaded-overlay'
+      'update-downloaded-overlay',
+      'webview-navigate',
+      'perform-logout',
+      'brave-extraction-started',
+      'brave-extraction-completed'
     ];
     if (validReceiveChannels.includes(channel)) {
       // Eliminar listeners anteriores para evitar duplicados

@@ -1,0 +1,138 @@
+/* Course Dropdown Styles */
+.courses-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    z-index: var(--z-dropdown);
+    width: var(--dropdown-width);
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.courses-dropdown.show {
+    display: block;
+}
+
+.dropdown-header {
+    padding: var(--space-lg) var(--space-2xl) var(--space-lg);
+    border-bottom: 1px solid var(--border-gray);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.dropdown-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.dropdown-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.dropdown-action-btn {
+    background: var(--primary-blue);
+    color: var(--bg-white);
+    border: none;
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    transition: background var(--transition-fast);
+}
+
+.dropdown-action-btn:hover {
+    background: var(--primary-blue-hover);
+}
+
+.dropdown-action-btn.secondary {
+    background: var(--gray-500);
+}
+
+.dropdown-action-btn.secondary:hover {
+    background: var(--gray-600);
+}
+
+.course-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-gray);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.course-item:hover {
+    background: var(--gray-50);
+}
+
+.course-item:last-child {
+    border-bottom: none;
+}
+
+.course-image {
+    width: 64px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    margin-right: var(--space-md);
+    flex-shrink: 0;
+}
+
+.course-info {
+    flex: 1;
+    min-width: 0;
+    max-width: 280px;
+    overflow: hidden;
+}
+
+.course-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--gray-900);
+    margin-bottom: var(--space-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+    line-height: var(--line-height-tight);
+}
+
+.course-meta {
+    font-size: var(--font-size-sm);
+    color: var(--gray-500);
+    display: flex;
+    gap: var(--space-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+}
+
+/* Retry button in error state */
+.retry-btn {
+    background: var(--danger-red);
+    color: var(--bg-white);
+    border: none;
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin-top: var(--space-sm);
+    transition: background var(--transition-fast);
+}
+
+.retry-btn:hover {
+    background: var(--danger-red-hover);
+}

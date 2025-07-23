@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Udemigo - Learning Platform</title>
+    
+    <!-- Global CSS Variables -->
+    <link rel="stylesheet" href="../../assets/css/variables.css">
+    
+    <!-- Global CSS Styles -->
+    <link rel="stylesheet" href="../../assets/css/globals.css">
+    
+    <!-- Dialog System Styles -->
+    <link rel="stylesheet" href="../../components/dialog-styles.css">
+    
+    <!-- Page Specific Styles -->
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="udemy-webview-page">
+    <!-- WebView Container -->
+    <div class="webview-container">
+        <webview 
+            class="webview"
+            id="udemy-webview" 
+            src="https://www.udemy.com/"
+            webpreferences="nodeIntegration=false,contextIsolation=true,webSecurity=false,allowRunningInsecureContent=true,experimentalFeatures=true,enableRemoteModule=false"
+            allowpopups
+            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36">
+        </webview>
+    </div>
+
+    <!-- Dependencies -->
+    
+    <!-- Auth Manager -->
+    <script src="../../auth.js"></script>
+    
+    <!-- Dialog System Component -->
+    <script src="../../components/dialog-manager.js"></script>
+    <script src="../../components/update-manager.js"></script>
+    
+    <!-- Navigation Bar Component -->
+    <script src="./components/navigation-bar/navigation-bar.js"></script>
+    
+    <!-- Course Dropdown Component -->
+    <script src="./components/course-dropdown/course-dropdown.js"></script>
+    
+    <!-- Floating Widget Component -->
+    <script src="./components/floating-widget/floating-widget.js"></script>
+    
+    <!-- Main Page Script -->
+    <script src="./script.js"></script>
+</body>
+</html>

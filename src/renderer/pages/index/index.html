@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Udemigo - Iniciando...</title>
+    
+    <!-- Global Variables -->
+    <link rel="stylesheet" href="../../assets/css/variables.css">
+    <link rel="stylesheet" href="../../assets/css/globals.css">
+    
+    <!-- Page-specific styles -->
+    <link rel="stylesheet" href="assets/css/index.css">
+    
+    <!-- Dialog Manager Styles -->
+    <link rel="stylesheet" href="../../components/dialog-styles.css">
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splashScreen" class="splash-screen">
+        <div class="splash-logo">
+            <img src="../../assets/icon.png" style="width: 80px; height: 80px; border-radius: 50%;">
+        </div>
+        <div class="splash-title">Udemigo</div>
+        <div class="splash-subtitle">Tu plataforma de aprendizaje mejorada</div>
+        
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Iniciando aplicación...</div>
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+    </div>
+
+    <!-- Main Content (hidden initially) -->
+    <div id="mainContent" class="main-content">
+        <div class="main-logo">
+            <img src="../../assets/icon.png" style="width: 60px; height: 60px; border-radius: 50%; margin-right: 15px; vertical-align: middle;">
+            Udemigo
+        </div>
+        <div id="mainTitle" class="subtitle">Tu plataforma de aprendizaje mejorada</div>
+        <div id="mainDescription" class="description">
+            Accede a Udemy con herramientas adicionales para mejorar tu experiencia de aprendizaje.
+        </div>
+        
+        <button class="main-button" id="mainButton">
+            🔐 Iniciar Sesión
+        </button>
+        
+        <button class="secondary-button" id="demoButton">
+            🚀 Ir a Udemy (Demo)
+        </button>
+    </div>
+
+    <div class="version" id="version-display">v0.0.0</div>
+
+    <!-- Global dependencies -->
+    <script src="../../config.js"></script>
+    <script src="../../auth.js"></script>
+    <script src="../../socket.io.js"></script>
+    
+    <!-- Global components -->
+    <script src="../../components/dialog-manager.js"></script>
+    <script src="../../components/update-manager.js"></script>
+    
+    <!-- Page-specific components -->
+    <script src="components/socket-manager.js"></script>
+    <script src="components/app-initializer.js"></script>
+    
+    <!-- Page utilities -->
+    <script src="assets/js/utils.js"></script>
+    
+    <!-- Main page script -->
+    <script src="assets/js/main.js"></script>
+</body>
+</html>

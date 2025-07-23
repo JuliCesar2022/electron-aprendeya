@@ -1,0 +1,148 @@
+/* Global Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Body Defaults */
+body {
+    background: var(--bg-transparent);
+    overflow: hidden;
+    font-family: var(--font-family);
+}
+
+/* WebView Container Base */
+.webview-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: var(--bg-transparent);
+}
+
+.webview-container webview {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--bg-transparent);
+}
+
+/* Button Base Styles */
+.btn {
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-fast);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-lg);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn.primary {
+    background: var(--primary-blue);
+    color: var(--bg-white);
+}
+
+.btn.primary:hover {
+    background: var(--primary-blue-hover);
+}
+
+.btn.danger {
+    background: var(--danger-red);
+    color: var(--bg-white);
+}
+
+.btn.danger:hover {
+    background: var(--danger-red-hover);
+}
+
+.btn.secondary {
+    background: var(--gray-100);
+    color: var(--gray-700);
+    border: 1px solid var(--gray-300);
+}
+
+.btn.secondary:hover {
+    background: var(--gray-200);
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--gray-500);
+    font-size: var(--font-size-base);
+}
+
+/* Error Message */
+.error-message {
+    padding: var(--space-lg);
+    text-align: center;
+    color: var(--danger-red);
+    font-size: var(--font-size-base);
+}
+
+/* Empty State */
+.empty-state {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--gray-500);
+    font-size: var(--font-size-base);
+}
+
+/* Utility Classes */
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.gap-sm {
+    gap: var(--space-sm);
+}
+
+.gap-md {
+    gap: var(--space-md);
+}
+
+.gap-lg {
+    gap: var(--space-lg);
+}
+
+.text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

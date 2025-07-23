@@ -1,0 +1,293 @@
+/* ===== DIALOG SYSTEM STYLES ===== */
+.dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 50000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.dialog-overlay.show {
+    display: flex;
+}
+
+.dialog-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    transform: scale(0.7) translateY(20px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dialog-overlay.show .dialog-container {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+/* Dialog Animation Types */
+.dialog-container.slide-from-top {
+    transform: translateY(-100px);
+}
+
+.dialog-overlay.show .dialog-container.slide-from-top {
+    transform: translateY(0);
+}
+
+.dialog-container.slide-from-right {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    max-width: 400px;
+    width: 400px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: translateX(calc(100% + 20px));
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 1;
+    z-index: 50001;
+}
+
+.dialog-overlay.show .dialog-container.slide-from-right {
+    transform: translateX(0);
+}
+
+.dialog-container.message-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    max-width: 400px;
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.dialog-overlay.show .dialog-container.message-toast {
+    transform: translateX(0);
+}
+
+.dialog-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dialog-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dialog-icon.warning {
+    background: #fef3cd;
+    color: #f59e0b;
+}
+
+.dialog-icon.error {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.dialog-icon.success {
+    background: #d1fae5;
+    color: #10b981;
+}
+
+.dialog-icon.info {
+    background: #dbeafe;
+    color: #3b82f6;
+}
+
+.dialog-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+
+.dialog-content {
+    padding: 16px 24px 24px;
+}
+
+.dialog-message {
+    color: #6b7280;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Progress Bar Styles */
+.dialog-progress {
+    margin-top: 16px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.dialog-actions {
+    padding: 16px 24px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    border-top: 1px solid #e5e7eb;
+}
+
+.dialog-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 80px;
+}
+
+.dialog-btn.primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.dialog-btn.primary:hover {
+    background: #2563eb;
+}
+
+.dialog-btn.danger {
+    background: #ef4444;
+    color: white;
+}
+
+.dialog-btn.danger:hover {
+    background: #dc2626;
+}
+
+.dialog-btn.secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.dialog-btn.secondary:hover {
+    background: #e5e7eb;
+}
+
+/* Toast/Message specific styles */
+.dialog-container.message-toast .dialog-header {
+    border-bottom: none;
+    padding-bottom: 8px;
+}
+
+.dialog-container.message-toast .dialog-content {
+    padding-top: 0;
+}
+
+.dialog-container.message-toast .dialog-actions {
+    border-top: none;
+    padding-top: 0;
+}
+
+/* Slide-right specific styles */
+.dialog-container.slide-from-right .dialog-header {
+    border-bottom: none;
+    padding-bottom: 8px;
+}
+
+.dialog-container.slide-from-right .dialog-content {
+    padding-top: 0;
+}
+
+.dialog-container.slide-from-right .dialog-actions {
+    border-top: none;
+    padding-top: 0;
+}
+
+/* Animation keyframes */
+@keyframes dialogFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.7) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes dialogSlideFromTop {
+    from {
+        transform: translateY(-100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes dialogSlideFromRight {
+    from {
+        transform: translateX(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes toastSlideIn {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideFromRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}

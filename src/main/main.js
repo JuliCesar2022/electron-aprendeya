@@ -243,33 +243,11 @@ class AppUpdater {
       logMessage += ` (${Math.round(progressObj.bytesPerSecond / 1024)} KB/s)`;
       console.log(logMessage);
       
-      // Enviar progreso a TODAS las ventanas (incluyendo Udemy)
+      // Enviar progreso a TODAS las ventanas
       const windows = BrowserWindow.getAllWindows();
       if (windows.length > 0) {
         windows.forEach(window => {
           window.webContents.send('update-download-progress', progressObj);
-          
-          // También inyectar directamente en páginas de Udemy
-          window.webContents.executeJavaScript(`
-            if (window.location.href.includes('udemy.com')) {
-              const overlay = document.getElementById('udemigo-update-overlay');
-              if (overlay) {
-                const percent = Math.round(${progressObj.percent});
-                const speed = Math.round(${progressObj.bytesPerSecond} / 1024);
-                
-                const progressContainer = overlay.querySelector('#overlay-progress');
-                if (progressContainer) {
-                  progressContainer.style.display = 'block';
-                  const fill = progressContainer.querySelector('#overlay-progress-fill');
-                  const percentText = progressContainer.querySelector('#overlay-progress-percent');
-                  if (fill) fill.style.width = percent + '%';
-                  if (percentText) percentText.textContent = percent + '%';
-                }
-              }
-            }
-          `).catch(err => {
-            // Ignorar errores de inyección en páginas que no son Udemy
-          });
         });
       }
     });
@@ -319,10 +297,10 @@ const appUpdater = new AppUpdater();
 // Read the interceptor code once when the main process starts
 let udemyInterceptorCode = '';
 try {
-  udemyInterceptorCode = fs.readFileSync(path.join(__dirname, '../renderer/udemy-interceptor.js'), 'utf8');
+  udemyInterceptorCode = fs.readFileSync(path.join(__dirname, '../renderer/udemy-interceptor-simple.js'), 'utf8');
   console.log('✅ Udemy Interceptor code loaded successfully, length:', udemyInterceptorCode.length);
 } catch (error) {
-  console.error('❌ Error reading udemy-interceptor.js:', error);
+  console.error('❌ Error reading udemy-interceptor-simple.js:', error);
 }
 
 // Global Chrome Controller instance
@@ -337,11 +315,13 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    backgroundColor: '#ffffff', // Set explicit white background
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
       webSecurity: false,
+      webviewTag: true, // Enable webview tag
       preload: path.join(__dirname, '../preload/preload.js')
     },
     icon: path.join(__dirname, '../../assets', 'icon.png'),
@@ -355,44 +335,20 @@ function createWindow() {
     console.log('🔧 Modo desarrollo activado - DevTools abierto');
   }
 
-  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  mainWindow.loadFile(path.join(__dirname, '../renderer/pages/index/index.html'));
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Solo mantener enlaces de Udemy dentro de la app
-    if (url.includes('udemy.com')) {
-      // Navegar internamente a Udemy
-      mainWindow.loadURL(url);
-      return { action: 'deny' };
-    } else {
-      // Otros enlaces se abren externamente
-      shell.openExternal(url);
-      return { action: 'deny' };
-    }
+    // Todos los enlaces se abren externamente
+    shell.openExternal(url);
+    return { action: 'deny' };
   });
 
-  // Inject Udemy Interceptor on navigation to Udemy domains
-  mainWindow.webContents.on('did-navigate', (event, url) => {
-    console.log('🔍 Navigation detected to:', url);
-    if (url.includes('udemy.com')) {
-      console.log('🎯 Udemy domain detected, injecting interceptor...');
-      console.log('📝 Interceptor code available:', udemyInterceptorCode ? 'Yes' : 'No');
-      console.log('📝 Interceptor code length:', udemyInterceptorCode.length);
-      
-      if (udemyInterceptorCode) {
-        mainWindow.webContents.executeJavaScript(udemyInterceptorCode)
-          .then(() => console.log('✅ Udemy Interceptor Injected successfully on navigation to:', url))
-          .catch(error => console.error('❌ Error injecting Udemy Interceptor on navigation:', error));
-      } else {
-        console.error('❌ No interceptor code available to inject');
-      }
-    } else {
-      console.log('ℹ️ Non-Udemy domain, skipping interceptor injection');
-    }
-  });
+  // WebView handles navigation and interceptor injection now
+  console.log('ℹ️ Main window navigation interceptor disabled - using WebView');
 
   createMenu(mainWindow);
 
@@ -425,14 +381,14 @@ function createMenu(mainWindow) {
           label: 'Ir a Inicio',
           accelerator: 'CmdOrCtrl+H',
           click: () => {
-            mainWindow.loadURL('https://www.udemy.com/');
+            mainWindow.loadFile(path.join(__dirname, '../renderer/pages/udemy-webview/index.html'));
           }
         },
         {
           label: 'Ir a Login',
           accelerator: 'CmdOrCtrl+L',
           click: () => {
-            mainWindow.loadFile(path.join(__dirname, '../renderer/login.html'));
+            mainWindow.loadFile(path.join(__dirname, '../renderer/pages/login/index.html'));
           }
         },
         { type: 'separator' },
@@ -906,12 +862,8 @@ async function logout(mainWindow) {
 
   if (response === 0) {
     try {
-      // Limpiar datos en el frontend
-      mainWindow.webContents.executeJavaScript(`
-        if (window.authManager) {
-          window.authManager.logout();
-        }
-      `);
+      // Enviar evento de logout a la ventana actual para que maneje la limpieza
+      mainWindow.webContents.send('perform-logout');
       
       // Limpiar cookies del backend
       await session.defaultSession.clearStorageData({
@@ -922,7 +874,7 @@ async function logout(mainWindow) {
       console.log('🧹 Datos de sesión limpiados completamente');
       
       // Recargar página principal
-      mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+      mainWindow.loadFile(path.join(__dirname, '../renderer/pages/index/index.html'));
       
       dialog.showMessageBox(mainWindow, {
         type: 'info',
@@ -961,15 +913,43 @@ ipcMain.on('go-to-udemy', (event, url) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) { 
-    window.loadURL(url);
+    // Load WebView page instead of navigating directly
+    window.loadFile(path.join(__dirname, '../renderer/pages/udemy-webview/index.html'));
   }
+});
+
+ipcMain.on('go-to-udemy-webview', (event, url) => {
+  console.log('📡 IPC recibido: go-to-udemy-webview');
+  const webContents = event.sender;
+  const window = BrowserWindow.fromWebContents(webContents);
+  if (window) { 
+    console.log('✅ Cargando pages/udemy-webview/index.html...');
+    window.loadFile(path.join(__dirname, '../renderer/pages/udemy-webview/index.html'));
+    console.log('✅ WebView cargado');
+  } else {
+    console.error('❌ No se encontró ventana para cargar WebView');
+  }
+});
+
+// Handler for direct WebView page loading
+ipcMain.on('load-webview-page', (event) => {
+  const webContents = event.sender;
+  const window = BrowserWindow.fromWebContents(webContents);
+  if (window) { 
+    window.loadFile(path.join(__dirname, '../renderer/pages/udemy-webview/index.html'));
+  }
+});
+
+// Handler for WebView page ready notification
+ipcMain.on('webview-page-ready', (event) => {
+  console.log('✅ WebView page confirmed ready');
 });
 
 ipcMain.on('go-to-login', (event) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) {
-    window.loadFile(path.join(__dirname, '../renderer/login.html'));
+    window.loadFile(path.join(__dirname, '../renderer/pages/login/index.html'));
   }
 });
 
@@ -977,7 +957,7 @@ ipcMain.on('go-to-home', (event) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) {
-    window.loadFile(path.join(__dirname, '../renderer/index.html'));
+    window.loadFile(path.join(__dirname, '../renderer/pages/index/index.html'));
   }
 });
 
@@ -993,15 +973,28 @@ ipcMain.on('go-to-my-learning', (event) => {
 ipcMain.on('search-in-udemy', (event, query) => {
   console.log('📡 IPC recibido: search-in-udemy con query:', query);
   const webContents = event.sender;
-  const window = BrowserWindow.fromWebContents(webContents);
   
-  if (window && query) {
+  if (query) {
     const searchUrl = `https://www.udemy.com/courses/search/?src=ukw&q=${encodeURIComponent(query)}`;
-    console.log(`🔍 Cargando URL en ventana principal: ${searchUrl}`);
-    window.loadURL(searchUrl);
-    console.log('✅ URL cargada exitosamente');
+    console.log(`🔍 Enviando URL de búsqueda al WebView: ${searchUrl}`);
+    
+    // Send to renderer to navigate WebView
+    webContents.send('webview-navigate', searchUrl);
+    console.log('✅ URL enviada al WebView');
   } else {
-    console.log('❌ Error: ventana o query no disponibles');
+    console.log('❌ Error: query no disponible');
+  }
+});
+
+// New handler for WebView navigation
+ipcMain.on('webview-navigate', (event, url) => {
+  console.log('📡 IPC recibido: webview-navigate con URL:', url);
+  const webContents = event.sender;
+  
+  if (url) {
+    // Send to renderer to navigate WebView
+    webContents.send('webview-navigate', url);
+    console.log('✅ Navegación WebView enviada');
   }
 });
 
@@ -1388,6 +1381,56 @@ ipcMain.handle('extract-brave-background', async (event) => {
   } catch (error) {
     console.error('❌ Error extrayendo Brave en segundo plano:', error.message);
     return { success: false, error: error.message };
+  }
+});
+
+// Handler para obtener cursos del usuario
+ipcMain.handle('fetch-user-courses', async (event, { authToken, forceRefresh }) => {
+  try {
+    console.log('📚 Fetching user courses from backend...');
+    
+    if (!authToken) {
+      throw new Error('No auth token provided');
+    }
+    
+    // Make API call to backend
+    const response = await fetch('https://aprendeya-backend.forif.co/api/v1/user-courses/', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.message || errorData.error || `HTTP ${response.status}`;
+      } catch {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const coursesData = await response.json();
+    console.log('✅ User courses fetched successfully:', coursesData.length || 0, 'courses');
+    
+    return { 
+      success: true, 
+      data: coursesData,
+      message: 'Courses fetched successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ Error fetching user courses:', error.message);
+    return { 
+      success: false, 
+      error: error.message,
+      data: []
+    };
   }
 });
 
