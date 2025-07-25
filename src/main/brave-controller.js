@@ -2241,16 +2241,92 @@ if (window.location.href.includes('loading.html')) {
 
     // Cerrar Brave y limpiar
     async close() {
-        if (this.braveProcess && this.isActive) {
-            try {
-                this.braveProcess.kill();
+        try {
+            // Matar proceso actual si existe
+            if (this.braveProcess && this.isActive) {
+                this.debugLog('info', '🔄 Cerrando proceso Brave principal...');
+                
+                // Intentar cerrar gracefully primero
+                if (process.platform === 'win32') {
+                    this.braveProcess.kill('SIGTERM');
+                } else {
+                    this.braveProcess.kill('SIGTERM');
+                }
+                
+                // Esperar un momento para el cierre graceful
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Forzar cierre si sigue activo
+                if (this.braveProcess && !this.braveProcess.killed) {
+                    this.braveProcess.kill('SIGKILL');
+                }
+                
                 this.braveProcess = null;
                 this.isActive = false;
-            } catch (error) {
             }
+            
+            // Matar procesos huérfanos de Brave
+            await this.killOrphanBraveProcesses();
+            
+        } catch (error) {
+            this.debugLog('error', 'Error cerrando Brave:', error.message);
         }
+        
         this.cleanup();
         return true;
+    }
+
+    // Matar todos los procesos huérfanos de Brave
+    async killOrphanBraveProcesses() {
+        try {
+            this.debugLog('info', '🧹 Buscando procesos huérfanos de Brave...');
+            
+            if (process.platform === 'win32') {
+                // Windows: usar tasklist y taskkill
+                try {
+                    const { exec } = require('child_process');
+                    const { promisify } = require('util');
+                    const execAsync = promisify(exec);
+                    
+                    // Buscar procesos de Brave
+                    const { stdout } = await execAsync('tasklist /FI "IMAGENAME eq brave.exe" /FO CSV');
+                    const lines = stdout.split('\n').filter(line => line.includes('brave.exe'));
+                    
+                    this.debugLog('info', `💀 Encontrados ${lines.length} procesos de Brave en Windows`);
+                    
+                    if (lines.length > 0) {
+                        // Matar todos los procesos de Brave
+                        await execAsync('taskkill /F /IM brave.exe /T');
+                        this.debugLog('info', '✅ Procesos de Brave terminados en Windows');
+                    }
+                } catch (error) {
+                    this.debugLog('warn', 'No se encontraron procesos de Brave para terminar en Windows');
+                }
+            } else {
+                // Linux/Mac: usar ps y pkill
+                try {
+                    const { exec } = require('child_process');
+                    const { promisify } = require('util');
+                    const execAsync = promisify(exec);
+                    
+                    // Buscar procesos de Brave
+                    const { stdout } = await execAsync('ps aux | grep brave | grep -v grep | wc -l');
+                    const processCount = parseInt(stdout.trim());
+                    
+                    this.debugLog('info', `💀 Encontrados ${processCount} procesos de Brave en Linux`);
+                    
+                    if (processCount > 0) {
+                        // Matar procesos de Brave
+                        await execAsync('pkill -f brave');
+                        this.debugLog('info', '✅ Procesos de Brave terminados en Linux');
+                    }
+                } catch (error) {
+                    this.debugLog('warn', 'No se encontraron procesos de Brave para terminar en Linux');
+                }
+            }
+        } catch (error) {
+            this.debugLog('error', 'Error matando procesos huérfanos:', error.message);
+        }
     }
 
     // Limpiar datos sensibles pero mantener configuraciones de plugins

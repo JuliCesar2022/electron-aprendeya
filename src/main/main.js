@@ -267,8 +267,24 @@ try {
 } catch (error) {
 }
 
-// Global Chrome Controller instance
+// Global Chrome Controller instance (Singleton)
 let chromeController = null;
+
+// Función para obtener instancia singleton de BraveController
+function getBraveController() {
+  if (!chromeController) {
+    chromeController = new BraveController();
+    
+    // Cleanup automático cuando se cierra la app
+    app.on('will-quit', async () => {
+      if (chromeController) {
+        await chromeController.close();
+        chromeController = null;
+      }
+    });
+  }
+  return chromeController;
+}
 
 // Global notification window
 let notificationWindow = null;
@@ -286,7 +302,14 @@ function createWindow() {
       enableRemoteModule: false,
       webSecurity: false,
       webviewTag: true, // Enable webview tag
-      preload: path.join(__dirname, '../preload/preload.js')
+      preload: path.join(__dirname, '../preload/preload.js'),
+      // Optimizaciones para reducir procesos
+      backgroundThrottling: false,
+      offscreen: false,
+      sandbox: false,
+      spellcheck: false,
+      enableWebSQL: false,
+      v8CacheOptions: 'none'
     },
     icon: path.join(__dirname, '../../assets', 'icon.png'),
     titleBarStyle: 'default',
@@ -319,8 +342,8 @@ function createWindow() {
 
   createMenu(mainWindow);
 
-  // Initialize Brave Controller
-  chromeController = new BraveController();
+  // Initialize Brave Controller (singleton)
+  chromeController = getBraveController();
 
   return mainWindow;
 }
@@ -1258,6 +1281,10 @@ ipcMain.handle('clear-cookies', async (event) => {
 // Handlers IPC para el socket
 ipcMain.handle('socket-connect', async (event, udemyId) => {
   try {
+    // Inicializar socket manager solo cuando se use por primera vez
+    if (!mainSocketManager.io) {
+      mainSocketManager.initializeSocketIO();
+    }
     await mainSocketManager.conectarSocket(udemyId);
     return { success: true, message: 'Socket conectado' };
   } catch (error) {
@@ -1335,12 +1362,13 @@ ipcMain.handle('check-for-updates', async (event) => {
   }
 });
 
-// Handler para descomprimir Brave en segundo plano
+// Handler para descomprimir Brave en segundo plano (LAZY LOADING)
 ipcMain.handle('extract-brave-background', async (event) => {
   try {
+    console.log('🔧 Extrayendo Brave bajo demanda...');
     
     if (!chromeController) {
-      chromeController = new BraveController();
+      chromeController = getBraveController();
     }
     
     // Verificar si hay archivo .7z disponible
@@ -1425,107 +1453,30 @@ let hotReloadManager = null;
 app.whenReady().then(async () => {
   createWindow();
   
-  // Initialize hot reload system for development
-  if (process.env.NODE_ENV === 'development') {
-    hotReloadManager = new HotReloadManager();
-    hotReloadManager.start();
-  }
+  // Initialize hot reload system for development (SOLO SI ES NECESARIO)
+  // DESHABILITADO TEMPORALMENTE PARA REDUCIR CONSUMO DE MEMORIA
+  // if (process.env.NODE_ENV === 'development') {
+  //   hotReloadManager = new HotReloadManager();
+  //   hotReloadManager.start();
+  // }
   
-  // Inicializar el socket manager
-  mainSocketManager.initializeSocketIO();
+  // Inicializar el socket manager SOLO cuando sea necesario
+  // mainSocketManager.initializeSocketIO();
 
-  // PRIMERO: Extraer Brave automáticamente al iniciar la aplicación
-  setTimeout(async () => {
-    try {
-      if (!chromeController) {
-        chromeController = new BraveController();
-      }
-      
-      // Verificar si hay archivo .7z disponible
-      const sevenZipPath = chromeController.findBrave7z();
-      
-      if (!sevenZipPath) {
-      } else {
-        // Verificar si ya está extraído
-        const extractDir = path.dirname(sevenZipPath);
-        const braveExtractedDir = path.join(extractDir, 'brave-extracted');
-        
-        if (fs.existsSync(braveExtractedDir)) {
-        } else {
-          // Extraer el archivo .7z
-          
-          // Notificar a las ventanas que la extracción ha comenzado
-          const windows = BrowserWindow.getAllWindows();
-          windows.forEach(window => {
-            window.webContents.send('brave-extraction-started');
-          });
-          
-          const extractedBrave = await chromeController.extractBrave7z(sevenZipPath);
-          
-          if (extractedBrave) {
-            
-            // Notificar a las ventanas que la extracción terminó
-            windows.forEach(window => {
-              window.webContents.send('brave-extraction-completed', { success: true, path: extractedBrave });
-            });
-          } else {
-            
-            // Notificar error a las ventanas
-            windows.forEach(window => {
-              window.webContents.send('brave-extraction-completed', { success: false });
-            });
-          }
-        }
-      }
-      
-    } catch (error) {
-      
-      // Notificar error a las ventanas
-      const windows = BrowserWindow.getAllWindows();
-      windows.forEach(window => {
-        window.webContents.send('brave-extraction-completed', { success: false, error: error.message });
-      });
-    }
-  }, 1000); // Esperar 1 segundo para que la ventana esté lista
+  // OPTIMIZACIÓN: Inicialización pesada movida a lazy loading
+  // La extracción de Brave ahora se hace solo cuando se necesita abrir una ventana de curso
 
-  // Verificar actualizaciones al iniciar (después de 3 segundos)
-  setTimeout(async () => {
-    
-    try {
-      const result = await appUpdater.checkForUpdates();
-      
-      // Si estamos en desarrollo y no hay actualizaciones reales, mostrar prueba
-      if (!app.isPackaged && (!result || result === null)) {
-        setTimeout(() => {
-          const windows = BrowserWindow.getAllWindows();
-          if (windows.length > 0) {
-            windows.forEach(window => {
-              window.webContents.send('show-update-overlay', {
-                version: '2.1.2',
-                releaseNotes: 'Versión de prueba - desarrollo'
-              });
-            });
-          }
-        }, 2000);
+  // OPTIMIZACIÓN: Verificar actualizaciones solo si es necesario
+  // En desarrollo, deshabilitar chequeo automático de actualizaciones
+  if (app.isPackaged) {
+    setTimeout(async () => {
+      try {
+        await appUpdater.checkForUpdates();
+      } catch (error) {
+        console.log('Error verificando actualizaciones:', error.message);
       }
-    } catch (error) {
-      
-      // Si hay error en desarrollo, también mostrar prueba
-      if (!app.isPackaged) {
-        setTimeout(() => {
-          const windows = BrowserWindow.getAllWindows();
-          if (windows.length > 0) {
-            windows.forEach(window => {
-              window.webContents.send('show-update-overlay', {
-                version: '2.1.2',
-                releaseNotes: 'Versión de prueba - desarrollo (fallback)'
-              });
-            });
-          }
-        }, 2000);
-      }
-    }
-  }, 2000);
+    }, 5000); // Aumentar delay para evitar carga inicial
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1540,7 +1491,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   // Stop hot reload system
   if (hotReloadManager) {
     hotReloadManager.stop();
@@ -1551,7 +1502,8 @@ app.on('before-quit', () => {
   
   // Cleanup Brave Controller
   if (chromeController) {
-    chromeController.close();
+    await chromeController.close();
+    chromeController = null;
   }
   
   // Notificar a todas las ventanas que la aplicación se va a cerrar
