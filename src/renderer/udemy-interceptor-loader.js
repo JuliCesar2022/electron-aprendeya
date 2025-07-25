@@ -14,7 +14,6 @@ moduleScript.src = '/udemy-interceptor/index.js';
 document.head.appendChild(moduleScript);
 
 // Mensaje de compatibilidad
-console.log('🔄 Cargando sistema modular de Udemy Interceptor...');
 
 // Función para verificar si el sistema está listo
 function waitForInterceptorSystem(timeout = 10000) {
@@ -24,13 +23,11 @@ function waitForInterceptorSystem(timeout = 10000) {
         const checkSystem = () => {
             // Verificar si el sistema global está disponible
             if (window.UdemyInterceptor && window.UdemyInterceptor.getStatus) {
-                console.log('✅ Sistema modular de Udemy Interceptor cargado');
                 resolve(window.UdemyInterceptor);
                 return;
             }
             
             if (Date.now() - startTime > timeout) {
-                console.error('❌ Timeout esperando sistema modular');
                 reject(new Error('Timeout loading modular system'));
                 return;
             }
@@ -47,7 +44,6 @@ window.waitForInterceptorSystem = waitForInterceptorSystem;
 
 // Intentar cargar el sistema y reportar el estado
 waitForInterceptorSystem().then(system => {
-    console.log('🎉 Sistema Udemy Interceptor disponible globalmente');
     
     // Mantener compatibilidad con funciones legacy si es necesario
     if (!window.toggleInterceptor && system.toggle) {
@@ -59,7 +55,6 @@ waitForInterceptorSystem().then(system => {
     }
     
 }).catch(error => {
-    console.error('💥 Error cargando sistema modular:', error);
     
     // Fallback: mostrar mensaje de error
     if (typeof showInterceptorNotification === 'function') {

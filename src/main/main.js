@@ -3,6 +3,7 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const BraveController = require('./brave-controller');
+const HotReloadManager = require('./hot-reload');
 
 // Clase para manejar el socket en el proceso principal
 class MainSocketManager {
@@ -18,17 +19,12 @@ class MainSocketManager {
     try {
       // Importar socket.io-client
       this.io = require('socket.io-client');
-      console.log('✅ Socket.IO inicializado en el proceso principal');
     } catch (error) {
-      console.error('❌ Error inicializando Socket.IO:', error);
       // Instalar socket.io-client si no está disponible
-      console.log('📦 Instalando socket.io-client...');
       const { exec } = require('child_process');
       exec('npm install socket.io-client', (error, stdout, stderr) => {
         if (error) {
-          console.error('❌ Error instalando socket.io-client:', error);
         } else {
-          console.log('✅ socket.io-client instalado correctamente');
           this.io = require('socket.io-client');
         }
       });
@@ -38,18 +34,15 @@ class MainSocketManager {
   async conectarSocket(udemyId) {
     try {
       if (!this.io) {
-        console.warn('⚠️ Socket.IO no está inicializado');
         return;
       }
 
       if (!udemyId) {
-        console.warn('⚠️ No se encontró udemyId para conectar socket');
         return;
       }
 
       // Si ya está conectado con el mismo ID, no hacer nada
       if (this.socket && this.isConnected && this.currentUdemyId === udemyId) {
-        console.log('⚠️ Ya estás conectado al socket con el mismo udemyId');
         return;
       }
 
@@ -58,7 +51,6 @@ class MainSocketManager {
         this.socket.disconnect();
       }
 
-      console.log('🔌 Conectando al socket con udemyId:', udemyId);
 
       // Crear nueva conexión
       this.socket = this.io(this.backendURL, {
@@ -71,7 +63,6 @@ class MainSocketManager {
       this.currentUdemyId = udemyId;
 
       this.socket.on('connect', () => {
-        console.log('✅ Socket conectado en proceso principal con udemyId:', udemyId);
         this.isConnected = true;
         
         // Notificar a todas las ventanas que el socket está conectado
@@ -82,7 +73,6 @@ class MainSocketManager {
       });
 
       this.socket.on('disconnect', () => {
-        console.log('❌ Socket desconectado del servidor');
         this.isConnected = false;
         
         // Notificar a todas las ventanas que el socket está desconectado
@@ -93,7 +83,6 @@ class MainSocketManager {
       });
 
       this.socket.on('mensaje', (data) => {
-        console.log('📩 Mensaje recibido del servidor:', data);
         
         // Enviar mensaje a todas las ventanas
         const windows = BrowserWindow.getAllWindows();
@@ -103,7 +92,6 @@ class MainSocketManager {
       });
 
       this.socket.on('error', (error) => {
-        console.error('❌ Error en socket:', error);
         
         // Notificar error a todas las ventanas
         const windows = BrowserWindow.getAllWindows();
@@ -113,13 +101,11 @@ class MainSocketManager {
       });
 
     } catch (error) {
-      console.error('❌ Error conectando socket:', error);
     }
   }
 
   desconectarSocket() {
     if (this.socket) {
-      console.log('🔌 Desconectando socket...');
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
@@ -130,9 +116,7 @@ class MainSocketManager {
   enviarMensaje(evento, data) {
     if (this.socket && this.isConnected) {
       this.socket.emit(evento, data);
-      console.log('📤 Mensaje enviado:', evento, data);
     } else {
-      console.warn('⚠️ Socket no conectado, no se puede enviar mensaje');
     }
   }
 
@@ -161,7 +145,6 @@ class AppUpdater {
     // FORZAR actualizaciones en desarrollo para testing
     if (!app.isPackaged) {
       autoUpdater.forceDevUpdateConfig = true;
-      console.log('🧪 Modo desarrollo: forzando configuración de actualizaciones');
     }
     
     // Configurar el servidor de actualizaciones (GitHub Releases)
@@ -179,50 +162,40 @@ class AppUpdater {
   setupEventHandlers() {
     // Cuando inicia la verificación
     autoUpdater.on('checking-for-update', () => {
-      console.log('🔄 Iniciando verificación de actualizaciones...');
     });
 
     // Cuando se encuentra una actualización
     autoUpdater.on('update-available', (info) => {
-      console.log('📦 Actualización disponible:', info.version);
       
       // Guardar info de actualización pendiente
       pendingUpdateInfo = {
         version: info.version,
         releaseNotes: info.releaseNotes || ''
       };
-      console.log('💾 Guardando info de actualización pendiente:', pendingUpdateInfo);
       
       // Esperar un poco para asegurar que la ventana esté lista
       setTimeout(() => {
         const windows = BrowserWindow.getAllWindows();
-        console.log('🔍 Ventanas disponibles:', windows.length);
         
         if (windows.length > 0) {
           windows.forEach((window, index) => {
-            console.log(`📨 Enviando evento show-update-overlay a ventana ${index + 1}`);
             
             // Enviar evento al renderer para que use su propio sistema de overlay
-            console.log(`📨 Enviando evento show-update-overlay a ventana ${index + 1}`);
             window.webContents.send('show-update-overlay', {
               version: info.version,
               releaseNotes: info.releaseNotes || ''
             });
           });
         } else {
-          console.warn('❌ No hay ventanas disponibles para mostrar el overlay');
         }
       }, 1000); // Esperar 1 segundo
     });
 
     // Cuando no hay actualizaciones
     autoUpdater.on('update-not-available', (info) => {
-      console.log('✅ La aplicación está actualizada:', info.version);
-      console.log('📋 Información de versión actual:', info);
       
       // Solo para testing en desarrollo - mostrar overlay de prueba
       if (!app.isPackaged) {
-        console.log('🧪 Modo desarrollo: mostrando overlay de prueba después de 3 segundos...');
         setTimeout(() => {
           const windows = BrowserWindow.getAllWindows();
           if (windows.length > 0) {
@@ -241,7 +214,6 @@ class AppUpdater {
     autoUpdater.on('download-progress', (progressObj) => {
       let logMessage = `Descargando: ${Math.round(progressObj.percent)}%`;
       logMessage += ` (${Math.round(progressObj.bytesPerSecond / 1024)} KB/s)`;
-      console.log(logMessage);
       
       // Enviar progreso a TODAS las ventanas
       const windows = BrowserWindow.getAllWindows();
@@ -254,11 +226,9 @@ class AppUpdater {
 
     // Cuando la descarga está completa
     autoUpdater.on('update-downloaded', (info) => {
-      console.log('✅ Actualización descargada:', info.version);
       
       // Limpiar info pendiente ya que la descarga terminó
       pendingUpdateInfo = null;
-      console.log('🧹 Limpiando info de actualización pendiente');
       
       // Enviar evento de descarga completa a la ventana principal
       const windows = BrowserWindow.getAllWindows();
@@ -273,15 +243,11 @@ class AppUpdater {
 
     // Manejo de errores
     autoUpdater.on('error', (error) => {
-      console.error('❌ Error en auto-updater:', error);
-      console.error('❌ Stack trace:', error.stack);
-      console.error('❌ Error completo:', JSON.stringify(error, null, 2));
     });
   }
 
   // Verificar actualizaciones manualmente
   checkForUpdates() {
-    console.log('🔍 Verificando actualizaciones...');
     return autoUpdater.checkForUpdates();
   }
 
@@ -298,9 +264,7 @@ const appUpdater = new AppUpdater();
 let udemyInterceptorCode = '';
 try {
   udemyInterceptorCode = fs.readFileSync(path.join(__dirname, '../renderer/udemy-interceptor-simple.js'), 'utf8');
-  console.log('✅ Udemy Interceptor code loaded successfully, length:', udemyInterceptorCode.length);
 } catch (error) {
-  console.error('❌ Error reading udemy-interceptor-simple.js:', error);
 }
 
 // Global Chrome Controller instance
@@ -332,13 +296,17 @@ function createWindow() {
   // Abrir DevTools automáticamente en desarrollo
   if (isDev) {
     mainWindow.webContents.openDevTools();
-    console.log('🔧 Modo desarrollo activado - DevTools abierto');
   }
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/pages/index/index.html'));
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    
+    // Register window for hot reload
+    if (hotReloadManager) {
+      hotReloadManager.registerWindow(mainWindow, 'main');
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -348,7 +316,6 @@ function createWindow() {
   });
 
   // WebView handles navigation and interceptor injection now
-  console.log('ℹ️ Main window navigation interceptor disabled - using WebView');
 
   createMenu(mainWindow);
 
@@ -871,7 +838,6 @@ async function logout(mainWindow) {
         quotas: ['temporary', 'persistent', 'syncable']
       });
       
-      console.log('🧹 Datos de sesión limpiados completamente');
       
       // Recargar página principal
       mainWindow.loadFile(path.join(__dirname, '../renderer/pages/index/index.html'));
@@ -883,7 +849,6 @@ async function logout(mainWindow) {
       });
       
     } catch (error) {
-      console.error('❌ Error durante logout:', error);
       dialog.showErrorBox('Error', 'Hubo un problema al cerrar la sesión: ' + error.message);
     }
   }
@@ -919,15 +884,11 @@ ipcMain.on('go-to-udemy', (event, url) => {
 });
 
 ipcMain.on('go-to-udemy-webview', (event, url) => {
-  console.log('📡 IPC recibido: go-to-udemy-webview');
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) { 
-    console.log('✅ Cargando pages/udemy-webview/index.html...');
     window.loadFile(path.join(__dirname, '../renderer/pages/udemy-webview/index.html'));
-    console.log('✅ WebView cargado');
   } else {
-    console.error('❌ No se encontró ventana para cargar WebView');
   }
 });
 
@@ -942,7 +903,6 @@ ipcMain.on('load-webview-page', (event) => {
 
 // Handler for WebView page ready notification
 ipcMain.on('webview-page-ready', (event) => {
-  console.log('✅ WebView page confirmed ready');
 });
 
 ipcMain.on('go-to-login', (event) => {
@@ -971,30 +931,50 @@ ipcMain.on('go-to-my-learning', (event) => {
 });
 
 ipcMain.on('search-in-udemy', (event, query) => {
-  console.log('📡 IPC recibido: search-in-udemy con query:', query);
   const webContents = event.sender;
   
   if (query) {
     const searchUrl = `https://www.udemy.com/courses/search/?src=ukw&q=${encodeURIComponent(query)}`;
-    console.log(`🔍 Enviando URL de búsqueda al WebView: ${searchUrl}`);
     
     // Send to renderer to navigate WebView
     webContents.send('webview-navigate', searchUrl);
-    console.log('✅ URL enviada al WebView');
   } else {
-    console.log('❌ Error: query no disponible');
+  }
+});
+
+// Handler for WebView notifications
+ipcMain.on('webview-notification', (event, data) => {
+  
+  try {
+    // Crear ventana de notificación si no existe
+    if (!notificationWindow) {
+      createNotificationWindow();
+    }
+    
+    // Enviar datos de notificación a la ventana
+    if (notificationWindow && notificationWindow.webContents) {
+      notificationWindow.webContents.send('show-notification', {
+        message: data.message || 'Notificación',
+        type: data.type || 'info',
+        color: data.color || '#4CAF50'
+      });
+      
+      // Mostrar ventana si está oculta
+      if (!notificationWindow.isVisible()) {
+        notificationWindow.show();
+      }
+    }
+  } catch (error) {
   }
 });
 
 // New handler for WebView navigation
 ipcMain.on('webview-navigate', (event, url) => {
-  console.log('📡 IPC recibido: webview-navigate con URL:', url);
   const webContents = event.sender;
   
   if (url) {
     // Send to renderer to navigate WebView
     webContents.send('webview-navigate', url);
-    console.log('✅ Navegación WebView enviada');
   }
 });
 
@@ -1013,7 +993,6 @@ ipcMain.handle('open-brave-debug', () => {
       return { success: false, error: 'BraveController no inicializado' };
     }
   } catch (error) {
-    console.error('❌ Error abriendo ventana de debug:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1027,7 +1006,6 @@ ipcMain.handle('get-brave-logging-info', () => {
       return { success: false, error: 'BraveController no inicializado' };
     }
   } catch (error) {
-    console.error('❌ Error obteniendo info de logging:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1041,7 +1019,6 @@ ipcMain.handle('open-brave-logs-directory', () => {
       return { success: false, error: 'BraveController no inicializado' };
     }
   } catch (error) {
-    console.error('❌ Error abriendo directorio de logs:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1054,11 +1031,9 @@ ipcMain.handle('get-app-version', () => {
 // Brave Controller IPC Handlers
 ipcMain.handle('chrome-launch', async (event, url) => {
   if (!chromeController) {
-    console.error('Brave Controller not initialized');
     return false;
   }
   
-  console.log('🚀 Lanzando Brave con extensión de cookies...');
   
   try {
     // Obtener cookies de Electron
@@ -1077,26 +1052,29 @@ ipcMain.handle('chrome-launch', async (event, url) => {
       );
     });
     
-    console.log('🍪 Preparando extensión con', udemyCookies.length, 'cookies esenciales:');
     udemyCookies.forEach(c => {
-      console.log(`  - ${c.name}: ${c.value ? c.value.substring(0, 20) + '...' : 'empty'} (${c.domain})`);
     });
     
     return await chromeController.launch(udemyCookies);
     
   } catch (error) {
-    console.error('❌ Error obteniendo cookies:', error);
     return await chromeController.launch();
   }
 });
 
 ipcMain.handle('chrome-launch-course', async (event, courseUrl) => {
   if (!chromeController) {
-    console.error('Brave Controller not initialized');
-    return false;
+    return {
+      success: false,
+      error: 'Brave Controller no inicializado',
+      details: {
+        type: 'controller_not_initialized',
+        userMessage: 'Error interno de la aplicación',
+        suggestion: 'Reinicia la aplicación'
+      }
+    };
   }
   
-  console.log('🎓 Lanzando Brave para curso:', courseUrl);
   
   try {
     // Obtener cookies de Electron
@@ -1115,13 +1093,56 @@ ipcMain.handle('chrome-launch-course', async (event, courseUrl) => {
       );
     });
     
-    console.log('🍪 Preparando', udemyCookies.length, 'cookies esenciales para el curso');
     
-    return await chromeController.launchWithUrl(courseUrl, udemyCookies);
+    const result = await chromeController.launchWithUrl(courseUrl, udemyCookies);
+    
+    // Si el resultado es un booleano (compatibilidad con código anterior)
+    if (typeof result === 'boolean') {
+      return result ? { success: true } : { 
+        success: false, 
+        error: 'Error desconocido', 
+        details: {
+          type: 'unknown',
+          userMessage: 'Error al abrir Brave',
+          suggestion: 'Intenta nuevamente'
+        }
+      };
+    }
+    
+    // Si ya es un objeto con información de error
+    return result;
     
   } catch (error) {
-    console.error('❌ Error obteniendo cookies para curso:', error);
-    return await chromeController.launchWithUrl(courseUrl);
+    
+    // Intentar sin cookies como fallback
+    try {
+      const fallbackResult = await chromeController.launchWithUrl(courseUrl);
+      
+      if (typeof fallbackResult === 'boolean') {
+        return fallbackResult ? { success: true } : { 
+          success: false, 
+          error: 'Error al abrir Brave (sin cookies)', 
+          details: {
+            type: 'fallback_failed',
+            userMessage: 'No se pudo abrir Brave',
+            suggestion: 'Verifica que Brave esté instalado'
+          }
+        };
+      }
+      
+      return fallbackResult;
+      
+    } catch (fallbackError) {
+      return {
+        success: false,
+        error: fallbackError.message,
+        details: {
+          type: 'complete_failure',
+          userMessage: 'Error crítico al abrir Brave',
+          suggestion: 'Reinstala Brave browser'
+        }
+      };
+    }
   }
 });
 
@@ -1132,38 +1153,36 @@ ipcMain.handle('chrome-cleanup', async (event) => {
 
 // Otros handlers simplificados para compatibilidad
 ipcMain.handle('chrome-navigate', async (event, url) => {
-  console.log('Brave no soporta navegación directa, relanzando...');
   return false;
 });
 
 ipcMain.handle('chrome-back', async (event) => {
-  console.log('Usar controles nativos de Brave');
   return false;
 });
 
 ipcMain.handle('chrome-forward', async (event) => {
-  console.log('Usar controles nativos de Brave');
   return false;
 });
 
 ipcMain.handle('chrome-reload', async (event) => {
-  console.log('Usar F5 en Brave');
   return false;
 });
 
 ipcMain.handle('chrome-hide', async (event) => {
-  console.log('Usar minimizar ventana de Brave');
   return false;
 });
 
 ipcMain.handle('chrome-show', async (event) => {
-  console.log('Usar maximizar ventana de Brave');
   return false;
 });
 
 ipcMain.handle('chrome-position', async (event, x, y, width, height) => {
-  console.log('Brave maneja su propia posición');
   return false;
+});
+
+// Handler para abrir enlaces externos
+ipcMain.on('open-external', (event, url) => {
+  require('electron').shell.openExternal(url);
 });
 
 
@@ -1172,7 +1191,6 @@ ipcMain.handle('chrome-position', async (event, x, y, width, height) => {
 
 ipcMain.handle('set-cookies', async (event, cookies) => {
   try {
-    console.log('🍪 Configurando cookies para Udemy:', cookies);
     
     const promises = cookies.map(async (cookie) => {
       const cookieDetails = {
@@ -1186,35 +1204,28 @@ ipcMain.handle('set-cookies', async (event, cookies) => {
         expirationDate: Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60) // 1 año
       };
 
-      console.log(`  - Configurando cookie: ${cookie.name}=${cookie.value}`);
       
       try {
         await session.defaultSession.cookies.set(cookieDetails);
-        console.log(`  ✅ Cookie ${cookie.name} configurada exitosamente`);
       } catch (error) {
-        console.error(`  ❌ Error al configurar cookie ${cookie.name}:`, error.message);
         throw error;
       }
     });
 
     await Promise.all(promises);
-    console.log('✅ Todas las cookies configuradas exitosamente');
     
     return { success: true, message: 'Cookies configuradas exitosamente' };
     
   } catch (error) {
-    console.error('❌ Error al configurar cookies:', error);
     return { success: false, error: error.message };
   }
 });
 
 ipcMain.handle('clear-cookies', async (event) => {
   try {
-    console.log('🧹 Iniciando limpieza COMPLETA de todas las cookies y datos...');
     
     // Paso 1: Obtener TODAS las cookies existentes
     const allCookies = await session.defaultSession.cookies.get({});
-    console.log(`🔍 Encontradas ${allCookies.length} cookies en total para eliminar`);
 
     // Paso 2: Eliminar TODAS las cookies una por una
     const deletePromises = allCookies.map(async (cookie) => {
@@ -1222,9 +1233,7 @@ ipcMain.handle('clear-cookies', async (event) => {
       
       try {
         await session.defaultSession.cookies.remove(url, cookie.name);
-        console.log(`  ✅ Cookie eliminada: ${cookie.name} (${cookie.domain})`);
       } catch (error) {
-        console.error(`  ❌ Error al eliminar cookie ${cookie.name}:`, error.message);
       }
     });
 
@@ -1239,11 +1248,9 @@ ipcMain.handle('clear-cookies', async (event) => {
     // Paso 4: Limpiar cache también
     await session.defaultSession.clearCache();
 
-    console.log('✅ Limpieza COMPLETA de cookies y datos terminada');
     return { success: true, message: 'TODAS las cookies y datos eliminados exitosamente' };
     
   } catch (error) {
-    console.error('❌ Error al limpiar cookies y datos:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1254,7 +1261,6 @@ ipcMain.handle('socket-connect', async (event, udemyId) => {
     await mainSocketManager.conectarSocket(udemyId);
     return { success: true, message: 'Socket conectado' };
   } catch (error) {
-    console.error('❌ Error conectando socket:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1264,7 +1270,6 @@ ipcMain.handle('socket-disconnect', async (event) => {
     mainSocketManager.desconectarSocket();
     return { success: true, message: 'Socket desconectado' };
   } catch (error) {
-    console.error('❌ Error desconectando socket:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1274,7 +1279,6 @@ ipcMain.handle('socket-send-message', async (event, evento, data) => {
     mainSocketManager.enviarMensaje(evento, data);
     return { success: true, message: 'Mensaje enviado' };
   } catch (error) {
-    console.error('❌ Error enviando mensaje:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1283,7 +1287,6 @@ ipcMain.handle('socket-status', async (event) => {
   try {
     return { success: true, status: mainSocketManager.getStatus() };
   } catch (error) {
-    console.error('❌ Error obteniendo status del socket:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1294,11 +1297,9 @@ let pendingUpdateInfo = null;
 // Handlers para autoupdater
 ipcMain.handle('update-download', async (event) => {
   try {
-    console.log('📥 Iniciando descarga de actualización...');
     autoUpdater.downloadUpdate();
     return { success: true };
   } catch (error) {
-    console.error('❌ Error descargando actualización:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1306,24 +1307,20 @@ ipcMain.handle('update-download', async (event) => {
 ipcMain.handle('check-pending-update-overlay', async (event) => {
   try {
     if (pendingUpdateInfo) {
-      console.log('📦 Hay actualización pendiente, enviando info:', pendingUpdateInfo);
       return { showOverlay: true, updateInfo: pendingUpdateInfo };
     } else {
       return { showOverlay: false };
     }
   } catch (error) {
-    console.error('❌ Error verificando actualización pendiente:', error);
     return { showOverlay: false, error: error.message };
   }
 });
 
 ipcMain.handle('update-restart', async (event) => {
   try {
-    console.log('🔄 Reiniciando para aplicar actualización...');
     autoUpdater.quitAndInstall();
     return { success: true };
   } catch (error) {
-    console.error('❌ Error reiniciando aplicación:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1331,11 +1328,9 @@ ipcMain.handle('update-restart', async (event) => {
 
 ipcMain.handle('check-for-updates', async (event) => {
   try {
-    console.log('🔍 Verificando actualizaciones desde renderer...');
     const result = await appUpdater.checkForUpdates();
     return { success: true, updateAvailable: result };
   } catch (error) {
-    console.error('❌ Error verificando actualizaciones:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1343,10 +1338,8 @@ ipcMain.handle('check-for-updates', async (event) => {
 // Handler para descomprimir Brave en segundo plano
 ipcMain.handle('extract-brave-background', async (event) => {
   try {
-    console.log('📦 Iniciando extracción de Brave en segundo plano...');
     
     if (!chromeController) {
-      console.log('⚠️ BraveController no inicializado, creando instancia...');
       chromeController = new BraveController();
     }
     
@@ -1354,7 +1347,6 @@ ipcMain.handle('extract-brave-background', async (event) => {
     const sevenZipPath = chromeController.findBrave7z();
     
     if (!sevenZipPath) {
-      console.log('ℹ️ No se encontró archivo .7z de Brave para extraer');
       return { success: true, message: 'No hay archivo .7z para extraer', skipped: true };
     }
     
@@ -1363,23 +1355,19 @@ ipcMain.handle('extract-brave-background', async (event) => {
     const braveExtractedDir = path.join(extractDir, 'brave-extracted');
     
     if (fs.existsSync(braveExtractedDir)) {
-      console.log('✅ Brave ya está extraído, saltando extracción');
       return { success: true, message: 'Brave ya está extraído', skipped: true };
     }
     
     // Extraer el archivo .7z
-    console.log('🚀 Extrayendo Brave automáticamente...');
     const extractedBrave = await chromeController.extractBrave7z(sevenZipPath);
     
     if (extractedBrave) {
-      console.log('✅ Brave extraído exitosamente en segundo plano:', extractedBrave);
       return { success: true, message: 'Brave extraído exitosamente', path: extractedBrave };
     } else {
       throw new Error('No se pudo extraer el navegador');
     }
     
   } catch (error) {
-    console.error('❌ Error extrayendo Brave en segundo plano:', error.message);
     return { success: false, error: error.message };
   }
 });
@@ -1387,7 +1375,6 @@ ipcMain.handle('extract-brave-background', async (event) => {
 // Handler para obtener cursos del usuario
 ipcMain.handle('fetch-user-courses', async (event, { authToken, forceRefresh }) => {
   try {
-    console.log('📚 Fetching user courses from backend...');
     
     if (!authToken) {
       throw new Error('No auth token provided');
@@ -1416,7 +1403,6 @@ ipcMain.handle('fetch-user-courses', async (event, { authToken, forceRefresh }) 
     }
 
     const coursesData = await response.json();
-    console.log('✅ User courses fetched successfully:', coursesData.length || 0, 'courses');
     
     return { 
       success: true, 
@@ -1425,7 +1411,6 @@ ipcMain.handle('fetch-user-courses', async (event, { authToken, forceRefresh }) 
     };
     
   } catch (error) {
-    console.error('❌ Error fetching user courses:', error.message);
     return { 
       success: false, 
       error: error.message,
@@ -1434,18 +1419,25 @@ ipcMain.handle('fetch-user-courses', async (event, { authToken, forceRefresh }) 
   }
 });
 
+// Initialize hot reload manager
+let hotReloadManager = null;
+
 app.whenReady().then(async () => {
   createWindow();
+  
+  // Initialize hot reload system for development
+  if (process.env.NODE_ENV === 'development') {
+    hotReloadManager = new HotReloadManager();
+    hotReloadManager.start();
+  }
   
   // Inicializar el socket manager
   mainSocketManager.initializeSocketIO();
 
   // PRIMERO: Extraer Brave automáticamente al iniciar la aplicación
   setTimeout(async () => {
-    console.log('📦 [STARTUP] Iniciando extracción automática de Brave...');
     try {
       if (!chromeController) {
-        console.log('⚠️ [STARTUP] BraveController no inicializado, creando instancia...');
         chromeController = new BraveController();
       }
       
@@ -1453,17 +1445,14 @@ app.whenReady().then(async () => {
       const sevenZipPath = chromeController.findBrave7z();
       
       if (!sevenZipPath) {
-        console.log('ℹ️ [STARTUP] No se encontró archivo .7z de Brave para extraer');
       } else {
         // Verificar si ya está extraído
         const extractDir = path.dirname(sevenZipPath);
         const braveExtractedDir = path.join(extractDir, 'brave-extracted');
         
         if (fs.existsSync(braveExtractedDir)) {
-          console.log('✅ [STARTUP] Brave ya está extraído, saltando extracción');
         } else {
           // Extraer el archivo .7z
-          console.log('🚀 [STARTUP] Extrayendo Brave automáticamente desde:', sevenZipPath);
           
           // Notificar a las ventanas que la extracción ha comenzado
           const windows = BrowserWindow.getAllWindows();
@@ -1474,14 +1463,12 @@ app.whenReady().then(async () => {
           const extractedBrave = await chromeController.extractBrave7z(sevenZipPath);
           
           if (extractedBrave) {
-            console.log('✅ [STARTUP] Brave extraído exitosamente:', extractedBrave);
             
             // Notificar a las ventanas que la extracción terminó
             windows.forEach(window => {
               window.webContents.send('brave-extraction-completed', { success: true, path: extractedBrave });
             });
           } else {
-            console.error('❌ [STARTUP] Error extrayendo Brave');
             
             // Notificar error a las ventanas
             windows.forEach(window => {
@@ -1492,7 +1479,6 @@ app.whenReady().then(async () => {
       }
       
     } catch (error) {
-      console.error('❌ [STARTUP] Error en extracción automática:', error.message);
       
       // Notificar error a las ventanas
       const windows = BrowserWindow.getAllWindows();
@@ -1504,20 +1490,12 @@ app.whenReady().then(async () => {
 
   // Verificar actualizaciones al iniciar (después de 3 segundos)
   setTimeout(async () => {
-    console.log('🔍 Verificando actualizaciones automáticamente...');
-    console.log('📦 Configuración del autoupdater:');
-    console.log('  - autoDownload:', autoUpdater.autoDownload);
-    console.log('  - autoInstallOnAppQuit:', autoUpdater.autoInstallOnAppQuit);
-    console.log('  - currentVersion:', app.getVersion());
-    console.log('  - isPackaged:', app.isPackaged);
     
     try {
       const result = await appUpdater.checkForUpdates();
-      console.log('✅ Verificación de actualizaciones completada:', result);
       
       // Si estamos en desarrollo y no hay actualizaciones reales, mostrar prueba
       if (!app.isPackaged && (!result || result === null)) {
-        console.log('🧪 Modo desarrollo: no hay actualizaciones reales, mostrando overlay de prueba...');
         setTimeout(() => {
           const windows = BrowserWindow.getAllWindows();
           if (windows.length > 0) {
@@ -1531,11 +1509,9 @@ app.whenReady().then(async () => {
         }, 2000);
       }
     } catch (error) {
-      console.error('❌ Error en verificación automática:', error);
       
       // Si hay error en desarrollo, también mostrar prueba
       if (!app.isPackaged) {
-        console.log('🧪 Error en desarrollo: mostrando overlay de prueba como fallback...');
         setTimeout(() => {
           const windows = BrowserWindow.getAllWindows();
           if (windows.length > 0) {
@@ -1565,6 +1541,11 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  // Stop hot reload system
+  if (hotReloadManager) {
+    hotReloadManager.stop();
+  }
+  
   // Desconectar socket antes de cerrar
   mainSocketManager.desconectarSocket();
   

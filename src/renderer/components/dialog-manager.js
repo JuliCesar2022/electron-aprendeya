@@ -102,7 +102,6 @@ class DialogManager {
 
     show(options = {}) {
         if (!this.initialized || !this.overlay) {
-            console.error('DialogManager not properly initialized');
             return Promise.resolve(false);
         }
 

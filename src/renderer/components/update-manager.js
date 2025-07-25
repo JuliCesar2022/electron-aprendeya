@@ -36,7 +36,6 @@ class UpdateManager {
         // Restaurar diálogo si hay una actualización en curso
         this.restoreDialog();
         
-        console.log('✅ UpdateManager inicializado');
     }
 
     // Métodos de persistencia
@@ -45,9 +44,7 @@ class UpdateManager {
             localStorage.setItem(this.storageKeys.state, this.updateState);
             localStorage.setItem(this.storageKeys.info, JSON.stringify(this.updateInfo));
             localStorage.setItem(this.storageKeys.progress, this.downloadProgress.toString());
-            console.log('💾 Estado de actualización guardado:', this.updateState);
         } catch (error) {
-            console.error('❌ Error guardando estado:', error);
         }
     }
 
@@ -61,10 +58,8 @@ class UpdateManager {
                 this.updateState = savedState;
                 this.updateInfo = savedInfo ? JSON.parse(savedInfo) : null;
                 this.downloadProgress = savedProgress ? parseFloat(savedProgress) : 0;
-                console.log('🔄 Estado de actualización restaurado:', this.updateState);
             }
         } catch (error) {
-            console.error('❌ Error restaurando estado:', error);
             this.clearState();
         }
     }
@@ -73,7 +68,6 @@ class UpdateManager {
         // Solo restaurar si hay una actualización en curso
         if (this.updateState === 'idle') return;
 
-        console.log('🔄 Restaurando diálogo de actualización en estado:', this.updateState);
 
         switch (this.updateState) {
             case 'available':
@@ -96,27 +90,22 @@ class UpdateManager {
             this.updateState = 'idle';
             this.updateInfo = null;
             this.downloadProgress = 0;
-            console.log('🗑️ Estado de actualización limpiado');
         } catch (error) {
-            console.error('❌ Error limpiando estado:', error);
         }
     }
 
     setupUpdateListeners() {
         if (!window.electronAPI) {
-            console.log('⚠️ electronAPI no disponible - UpdateManager funcionará en modo limitado');
             return;
         }
 
         // Evitar configurar listeners múltiples veces
         if (this.listenersSetup) {
-            console.log('ℹ️ Listeners ya configurados, saltando setup');
             return;
         }
 
         // Evento: Actualización disponible
         window.electronAPI.receive('show-update-overlay', (info) => {
-            console.log('📦 Nueva actualización disponible:', info);
             this.updateInfo = info;
             this.updateState = 'available';
             this.saveState();
@@ -125,7 +114,6 @@ class UpdateManager {
 
         // Evento: Progreso de descarga
         window.electronAPI.receive('update-download-progress', (progress) => {
-            console.log('📥 Progreso de descarga:', progress.percent + '%');
             this.downloadProgress = progress.percent;
             this.saveState();
             this.updateDownloadProgress(progress);
@@ -133,7 +121,6 @@ class UpdateManager {
 
         // Evento: Descarga completada
         window.electronAPI.receive('update-downloaded-overlay', (info) => {
-            console.log('✅ Actualización descargada:', info);
             this.updateState = 'downloaded';
             this.saveState();
             this.showUpdateDownloaded();
@@ -146,7 +133,6 @@ class UpdateManager {
         });
 
         this.listenersSetup = true;
-        console.log('✅ Update listeners configurados');
     }
 
     showUpdateAvailable() {
@@ -267,7 +253,6 @@ class UpdateManager {
     }
 
     restartApp() {
-        console.log('🔄 Reiniciando aplicación para aplicar actualización...');
         
         // Limpiar estado antes de reiniciar
         this.clearState();
@@ -289,7 +274,6 @@ class UpdateManager {
     }
 
     postponeUpdate() {
-        console.log('⏰ Actualización postponed por el usuario');
         this.clearState();
         this.hideUpdateDialog();
         
@@ -303,7 +287,6 @@ class UpdateManager {
     }
 
     postponeRestart() {
-        console.log('⏰ Reinicio postponed por el usuario');
         this.hideUpdateDialog();
         
         // Mostrar notificación temporal
@@ -324,7 +307,6 @@ class UpdateManager {
     // Método para verificar actualizaciones manualmente
     checkForUpdates() {
         if (this.updateState !== 'idle') {
-            console.log('⚠️ Ya hay una actualización en proceso');
             return;
         }
 
@@ -358,7 +340,6 @@ class UpdateManager {
                     }
                 })
                 .catch((error) => {
-                    console.error('Error verificando actualizaciones:', error);
                     this.clearState();
                     this.dialogManager.show({
                         type: 'error',
@@ -394,7 +375,6 @@ class UpdateManager {
         } else {
             // Si ya existe, solo restaurar diálogo si es necesario
             window.updateManager.restoreDialog();
-            console.log('✅ UpdateManager ya existía, diálogo restaurado si es necesario');
         }
         return window.updateManager;
     }

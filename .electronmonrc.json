@@ -1,0 +1,20 @@
+{
+  "patterns": [
+    "src/main/**/*.js",
+    "src/preload/**/*.js",
+    "package.json"
+  ],
+  "ignore": [
+    "src/renderer/**/*",
+    "node_modules/**/*",
+    "dist/**/*",
+    "build/**/*",
+    "*.log",
+    "*.tmp"
+  ],
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "delay": 1000,
+  "verbose": false
+}

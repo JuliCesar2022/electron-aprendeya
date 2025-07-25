@@ -1,6 +1,6 @@
 {
   "name": "udemy-aprendeya",
-  "version": "2.1.3",
+  "version": "2.1.6",
   "description": "Aplicación para intercepción y mejora de la experiencia de usuario en Udemy",
   "main": "src/main/main.js",
   "homepage": "https://forif.co",
@@ -10,8 +10,10 @@
   },
   "scripts": {
     "start": "electron .",
-    "dev": "nodemon --exec \"electron .\" --watch . --ext js,html,css,json --ignore node_modules/ --ignore notes.html",
-    "dev:verbose": "nodemon --exec \"electron .\" --watch . --ext js,html,css,json --ignore node_modules/ --ignore notes.html --verbose",
+    "dev": "cross-env NODE_ENV=development electronmon .",
+    "dev:watch": "cross-env NODE_ENV=development electronmon --watch src/main --watch src/preload .",
+    "dev:legacy": "nodemon --exec \"electron .\" --watch . --ext js,html,css,json --ignore node_modules/ --ignore notes.html",
+    "dev:verbose": "cross-env NODE_ENV=development electronmon --verbose .",
     "build": "electron-builder",
     "build:win": "electron-builder --win --x64",
     "build:linux": "electron-builder --linux --x64",
@@ -19,7 +21,7 @@
     "dist": "electron-builder --publish=never",
     "dist:win": "electron-builder --win --x64 --publish=never",
     "publish": "node -r dotenv/config node_modules/.bin/electron-builder --publish=always",
-    "publish:win": "cross-env GH_TOKEN=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 electron-builder --win --x64 --publish=always",
+    "publish:win": "cross-env GH_TOKEN=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 electron-builder --win --x64 --publish=always",
     "pack": "electron-builder --dir",
     "pack:win": "electron-builder --dir --win --x64",
     "prepack": "npm install",
@@ -38,10 +40,12 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "chokidar": "^4.0.3",
     "cross-env": "^7.0.3",
     "dotenv": "^17.2.0",
     "electron": "^37.2.1",
     "electron-builder": "^26.0.12",
+    "electronmon": "^2.0.3",
     "nodemon": "^3.1.10",
     "png-to-ico": "^2.1.8"
   },
@@ -89,7 +93,9 @@
       {
         "from": "bundled-browsers",
         "to": "bundled-browsers",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asarUnpack": [

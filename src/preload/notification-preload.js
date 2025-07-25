@@ -1,6 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-console.log('🔔 Notification preload script ejecutándose...');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Funciones para controlar la notificación
@@ -34,7 +33,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 // Listeners para eventos de actualización
 ipcRenderer.on('show-update-available', (event, info) => {
-  console.log('📦 Mostrando actualización disponible:', info);
   
   // Actualizar contenido de la notificación
   document.getElementById('icon').textContent = '📦';
@@ -53,7 +51,6 @@ ipcRenderer.on('show-update-available', (event, info) => {
 });
 
 ipcRenderer.on('show-download-progress', (event) => {
-  console.log('📥 Mostrando progreso de descarga');
   
   // Actualizar contenido
   document.getElementById('icon').textContent = '📥';
@@ -83,7 +80,6 @@ ipcRenderer.on('update-progress', (event, progress) => {
 });
 
 ipcRenderer.on('show-update-downloaded', (event, info) => {
-  console.log('✅ Mostrando actualización descargada:', info);
   
   // Actualizar contenido
   document.getElementById('icon').textContent = '✅';
@@ -100,5 +96,3 @@ ipcRenderer.on('show-update-downloaded', (event, info) => {
     <button class="btn btn-secondary" onclick="closeNotification()">Más tarde</button>
   `;
 });
-
-console.log('✅ Notification electronAPI expuesto');

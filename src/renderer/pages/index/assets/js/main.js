@@ -2,6 +2,14 @@
  * Main script for index page
  */
 
+// Import hot reload client for development
+if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    const script = document.createElement('script');
+    script.src = '../../../../hot-reload-client.js';
+    script.type = 'module';
+    document.head.appendChild(script);
+}
+
 // Initialize socket manager, app initializer and update manager
 let socketManager;
 let appInitializer;
@@ -9,7 +17,6 @@ let updateManager;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Inicializando página index...');
     
     // Initialize socket manager
     socketManager = new SocketManager();
@@ -17,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize global UpdateManager
     updateManager = UpdateManager.createGlobalInstance();
-    console.log('✅ UpdateManager global inicializado');
     
     // Load version
     if (window.IndexUtils) {
@@ -33,9 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Socket disconnect handler for app closing
     if (window.electronAPI) {
         window.electronAPI.receive('app-closing', () => {
-            console.log('🔌 Aplicación cerrándose, socket se desconectará desde proceso principal');
         });
     }
     
-    console.log('✅ Página index inicializada correctamente');
 });

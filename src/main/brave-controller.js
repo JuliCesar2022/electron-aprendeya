@@ -82,16 +82,11 @@ class BraveController {
             
             fs.writeFileSync(this.logFile, headerInfo);
             
-            console.log('📁 Sistema de logging a archivo configurado:');
-            console.log('  📂 Directorio:', logsPath);
-            console.log('  📄 Archivo actual:', logFileName);
-            console.log('  📦 Modo:', app.isPackaged ? 'PRODUCCIÓN' : 'DESARROLLO');
             
             // Limpiar archivos antiguos
             this.cleanOldLogFiles();
             
         } catch (error) {
-            console.error('❌ Error configurando logging a archivo:', error);
             this.logFile = null;
             this.logDirectory = null;
         }
@@ -117,18 +112,14 @@ class BraveController {
             for (const file of filesToDelete) {
                 try {
                     fs.unlinkSync(file.path);
-                    console.log(`🗑️ Log antiguo eliminado: ${file.name}`);
                 } catch (error) {
-                    console.warn(`⚠️ No se pudo eliminar log: ${file.name}`, error.message);
                 }
             }
             
             if (files.length > 0) {
-                console.log(`📊 Archivos de log: ${files.length - filesToDelete.length} mantenidos, ${filesToDelete.length} eliminados`);
             }
             
         } catch (error) {
-            console.error('❌ Error limpiando logs antiguos:', error);
         }
     }
     
@@ -154,8 +145,6 @@ class BraveController {
             fs.appendFileSync(this.logFile, logEntry);
             
         } catch (error) {
-            // No usar console.error aquí para evitar loops
-            console.warn('❌ Error escribiendo a archivo de log:', error.message);
         }
     }
     
@@ -186,13 +175,11 @@ class BraveController {
             
             fs.writeFileSync(this.logFile, headerInfo);
             
-            console.log('🔄 Archivo de log rotado:', path.basename(newLogFile));
             
             // Limpiar archivos antiguos después de rotar
             this.cleanOldLogFiles();
             
         } catch (error) {
-            console.error('❌ Error rotando archivo de log:', error);
         }
     }
     
@@ -204,14 +191,11 @@ class BraveController {
         // Log normal a consola
         switch(level) {
             case 'error':
-                console.error(message, ...args);
                 break;
             case 'warn':
-                console.warn(message, ...args);
                 break;
             case 'info':
             default:
-                console.log(message, ...args);
                 break;
         }
         
@@ -647,13 +631,11 @@ class BraveController {
                 
                 for (const widePath of possiblePaths) {
                     if (fs.existsSync(widePath)) {
-                        console.log('✅ Widevine CDM encontrado:', widePath);
                         return widePath;
                     }
                 }
                 
                 // Fallback path para Windows
-                console.log('⚠️ Usando path por defecto de Widevine para Windows');
                 return 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\widevine_cdm\\_platform_specific\\win_x64\\widevinecdm.dll';
             } else {
                 // Linux/WSL paths
@@ -666,17 +648,14 @@ class BraveController {
                 
                 for (const widePath of possiblePaths) {
                     if (fs.existsSync(widePath)) {
-                        console.log('✅ Widevine CDM encontrado:', widePath);
                         return widePath;
                     }
                 }
                 
                 // Fallback path para Linux
-                console.log('⚠️ Usando path por defecto de Widevine para Linux');
                 return '/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so';
             }
         } catch (error) {
-            console.error('❌ Error detectando Widevine:', error);
             return null;
         }
     }
@@ -703,21 +682,11 @@ class BraveController {
                     const isFile = stats.isFile();
                     const fileSize = stats.size;
                     
-                    console.log('✅ BRAVE ENCONTRADO EN RUTA FORZADA:');
-                    console.log('  📄 Es archivo:', isFile ? 'SÍ' : 'NO');
-                    console.log('  📏 Tamaño:', Math.round(fileSize / 1024 / 1024), 'MB');
-                    console.log('  📅 Modificado:', stats.mtime.toISOString());
-                    console.log('  📁 Directorio:', path.dirname(this.forcedBravePath));
                     
-                    console.log('🎯 USANDO RUTA FORZADA - SALTANDO BÚSQUEDA AUTOMÁTICA');
                     return this.forcedBravePath;
                 } else {
-                    console.warn('⚠️ RUTA FORZADA NO EXISTE:', this.forcedBravePath);
-                    console.log('📝 Continuando con búsqueda automática...');
                 }
             } catch (error) {
-                console.error('❌ ERROR VERIFICANDO RUTA FORZADA:', error.message);
-                console.log('📝 Continuando con búsqueda automática...');
             }
         } else {
             this.debugLog('info', 'ℹ️ No hay ruta forzada configurada, usando SOLO búsqueda de Brave empaquetado');
@@ -746,62 +715,41 @@ class BraveController {
         this.showEmbeddedBraveInfo();
         
         // Verificar si ya existe Brave extraído o necesita extracción
-        console.log('🔍 PASO 1: Verificando si Brave está empaquetado...');
         const isEmbedded = this.isBraveEmbedded();
-        console.log('📦 Resultado isBraveEmbedded():', isEmbedded ? 'SÍ EMPAQUETADO' : 'NO EMPAQUETADO');
         
         if (!isEmbedded) {
-            console.log('📦 PASO 2: Buscando Brave extraído o archivo .7z...');
             
             // Primero verificar si ya está extraído
-            console.log('🔍 PASO 2a: Verificando si ya existe Brave extraído...');
             const existingExtracted = this.findExistingExtracted();
             if (existingExtracted) {
-                console.log('✅ ÉXITO: Brave ya está extraído, usando:', existingExtracted);
-                console.log('🎯 TERMINANDO BÚSQUEDA - Brave encontrado extraído');
                 return existingExtracted;
             }
-            console.log('❌ No se encontró Brave extraído previamente');
             
             // Si no está extraído, buscar archivo .7z
-            console.log('🔍 PASO 2b: Buscando archivo .7z para extraer...');
             const sevenZipPath = this.findBrave7z();
             
             if (sevenZipPath) {
-                console.log('📦 ARCHIVO .7Z ENCONTRADO:', sevenZipPath);
                 try {
-                    console.log('🚀 INICIANDO EXTRACCIÓN automática desde .7z...');
                     const extractedBrave = await this.extractBrave7z(sevenZipPath);
                     
                     if (extractedBrave) {
-                        console.log('✅ ÉXITO: Brave extraído y listo para usar:', extractedBrave);
-                        console.log('🎯 TERMINANDO BÚSQUEDA - Brave extraído exitosamente');
                         return extractedBrave;
                     } else {
-                        console.error('❌ FALLO: extractBrave7z() devolvió null/undefined');
                     }
                 } catch (error) {
-                    console.error('❌ EXCEPCIÓN durante extracción de .7z:', error.message);
-                    console.error('📊 Stack trace:', error.stack);
-                    console.log('⚠️ CONTINUANDO con búsqueda de instalaciones del sistema...');
                 }
             } else {
-                console.log('❌ NO SE ENCONTRÓ archivo .7z de Brave');
             }
         } else {
-            console.log('✅ Brave está empaquetado, saltando extracción');
         }
         
-        console.log('🔍 PASO 3: Verificando rutas de instalación directa...');
         for (let i = 0; i < paths.length; i++) {
             const bravePath = paths[i];
             try {
-                console.log(`🔎 [${i + 1}/${paths.length}] Verificando: ${bravePath}`);
                 
                 // Verificar si el directorio padre existe
                 const parentDir = path.dirname(bravePath);
                 const parentExists = fs.existsSync(parentDir);
-                console.log(`  📁 Directorio padre existe: ${parentExists ? 'SÍ' : 'NO'} (${parentDir})`);
                 
                 if (fs.existsSync(bravePath)) {
                     // Verificar si es ejecutable
@@ -809,51 +757,30 @@ class BraveController {
                     const isFile = stats.isFile();
                     const fileSize = stats.size;
                     
-                    console.log(`  ✅ ARCHIVO ENCONTRADO:`);
-                    console.log(`    📄 Es archivo: ${isFile ? 'SÍ' : 'NO'}`);
-                    console.log(`    📏 Tamaño: ${Math.round(fileSize / 1024 / 1024)} MB`);
-                    console.log(`    📅 Modificado: ${stats.mtime.toISOString()}`);
                     
                     // Determinar si es versión empaquetada o del sistema
                     const isBundled = bravePath.includes('bundled-browsers') || bravePath.includes('resourcesPath');
                     const braveType = isBundled ? '📦 EMPAQUETADO' : '💻 SISTEMA';
                     
-                    console.log(`✅ BRAVE ENCONTRADO (${braveType}): ${bravePath}`);
                     
                     if (isBundled) {
-                        console.log('🎉 Usando Brave distribuido con la aplicación');
                     } else {
-                        console.log('ℹ️ Usando Brave instalado en el sistema');
                     }
                     
-                    console.log('🎯 TERMINANDO BÚSQUEDA - Brave encontrado en instalación');
                     return bravePath;
                 } else {
-                    console.log(`  ❌ No existe: ${bravePath}`);
                 }
             } catch (error) {
-                console.log(`  ❌ Error verificando ${bravePath}:`, error.message);
                 continue;
             }
         }
         
-        console.error('❌❌❌ BRAVE EMPAQUETADO NO ENCONTRADO');
-        console.error('🚫 MODO PRODUCCIÓN: NO SE BUSCARÁ Chrome ni instalaciones del sistema');
-        console.log('💡 SOLUCIONES PARA PRODUCCIÓN:');
-        console.log('  1. Colocar Brave en: bundled-browsers/brave/brave/brave/brave.exe (Windows)');
-        console.log('  2. O colocar Brave en: bundled-browsers/brave/brave (Linux)');
-        console.log('  3. O extraer Brave de archivo .7z en bundled-browsers/');
-        console.log('  4. Verificar que el archivo tenga permisos de ejecución');
-        console.log('');
-        console.log('📁 Rutas verificadas sin éxito:');
-        paths.forEach((p, i) => console.log(`  ❌ ${i + 1}. ${p}`));
         
         throw new Error('🚫 BRAVE EMPAQUETADO REQUERIDO - No se usarán navegadores del sistema en producción');
     }
 
     // Buscar Brave ya extraído
     findExistingExtracted() {
-        console.log('🔍 ===== BUSCANDO BRAVE YA EXTRAÍDO =====');
         const possibleDirs = [
             path.join(__dirname, '../../bundled-browsers/brave/brave-extracted/'),
             path.join(__dirname, '../../bundled-browsers/brave-extracted/'),
@@ -861,56 +788,40 @@ class BraveController {
             path.join(process.resourcesPath || '', 'bundled-browsers/brave-extracted/')
         ];
 
-        console.log('📋 Directorios de Brave extraído a verificar (' + possibleDirs.length + ' total):');
-        possibleDirs.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
 
         for (let i = 0; i < possibleDirs.length; i++) {
             const dir = possibleDirs[i];
-            console.log(`🔎 [${i + 1}/${possibleDirs.length}] Verificando directorio: ${dir}`);
             
             try {
                 if (!fs.existsSync(dir)) {
-                    console.log('  ❌ Directorio no existe');
                     continue;
                 }
                 
-                console.log('  ✅ Directorio existe, listando contenido...');
                 
                 // Listar contenido del directorio para diagnóstico
                 const dirContents = fs.readdirSync(dir);
-                console.log('  📁 Contenido (' + dirContents.length + ' items):');
                 dirContents.forEach((item, idx) => {
                     const itemPath = path.join(dir, item);
                     const itemStats = fs.statSync(itemPath);
                     const type = itemStats.isDirectory() ? '📁' : '📄';
                     const size = itemStats.isFile() ? ` (${Math.round(itemStats.size / 1024)} KB)` : '';
-                    console.log(`    ${idx + 1}. ${type} ${item}${size}`);
                 });
                 
                 // Buscar el ejecutable en el directorio extraído
-                console.log('  🔍 Buscando ejecutable en este directorio...');
                 const braveExecutable = this.findBraveExecutableInDirSync(dir);
                 if (braveExecutable) {
-                    console.log('  ✅ EJECUTABLE ENCONTRADO:', braveExecutable);
                     
                     // Verificar detalles del ejecutable
                     const execStats = fs.statSync(braveExecutable);
-                    console.log('  📊 Info del ejecutable:');
-                    console.log('    📏 Tamaño:', Math.round(execStats.size / 1024 / 1024), 'MB');
-                    console.log('    📅 Modificado:', execStats.mtime.toISOString());
                     
-                    console.log('🎯 BRAVE EXTRAÍDO ENCONTRADO - Usando versión existente');
                     return braveExecutable;
                 } else {
-                    console.log('  ❌ No se encontró ejecutable en este directorio');
                 }
             } catch (error) {
-                console.log(`  ❌ Error accediendo directorio: ${error.message}`);
                 continue;
             }
         }
         
-        console.log('❌ No se encontró Brave extraído en ningún directorio');
         return null;
     }
 
@@ -949,7 +860,6 @@ class BraveController {
 
     // Detectar archivos .7z de Brave en la carpeta
     findBrave7z() {
-        console.log('🔍 ===== BUSCANDO ARCHIVO .7Z DE BRAVE =====');
         const possibleDirs = [
             path.join(__dirname, '../../bundled-browsers/brave/'),
             path.join(__dirname, '../../bundled-browsers/'),
@@ -957,22 +867,16 @@ class BraveController {
             path.join(process.resourcesPath || '', 'bundled-browsers/')
         ];
 
-        console.log('📋 Directorios donde buscar .7z (' + possibleDirs.length + ' total):');
-        possibleDirs.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
 
         for (let i = 0; i < possibleDirs.length; i++) {
             const dir = possibleDirs[i];
-            console.log(`🔎 [${i + 1}/${possibleDirs.length}] Verificando directorio: ${dir}`);
             
             try {
                 if (!fs.existsSync(dir)) {
-                    console.log('  ❌ Directorio no existe');
                     continue;
                 }
                 
-                console.log('  ✅ Directorio existe, listando archivos...');
                 const files = fs.readdirSync(dir);
-                console.log('  📁 Archivos en directorio (' + files.length + ' total):');
                 
                 // Mostrar todos los archivos para diagnóstico
                 files.forEach((file, idx) => {
@@ -982,49 +886,34 @@ class BraveController {
                     const size = fileStats.isFile() ? ` (${Math.round(fileStats.size / 1024 / 1024)} MB)` : '';
                     const extension = path.extname(file).toLowerCase();
                     const is7z = extension === '.7z' ? ' ⭐ 7Z' : '';
-                    console.log(`    ${idx + 1}. ${type} ${file}${size}${is7z}`);
                 });
                 
-                console.log('  🔍 Filtrando archivos .7z que contengan "brave"...');
                 const sevenZipFiles = files.filter(file => {
                     const isSevenZip = file.toLowerCase().endsWith('.7z');
                     const containsBrave = file.toLowerCase().includes('brave');
-                    console.log(`    📄 ${file}: 7z=${isSevenZip ? '✅' : '❌'}, brave=${containsBrave ? '✅' : '❌'}`);
                     return isSevenZip && containsBrave;
                 });
                 
-                console.log('  📦 Archivos .7z encontrados:', sevenZipFiles.length);
                 
                 if (sevenZipFiles.length > 0) {
                     const sevenZipPath = path.join(dir, sevenZipFiles[0]);
                     
                     // Verificar detalles del archivo .7z
                     const sevenZipStats = fs.statSync(sevenZipPath);
-                    console.log('  ✅ ARCHIVO .7Z ENCONTRADO:', sevenZipFiles[0]);
-                    console.log('  📊 Info del archivo:');
-                    console.log('    📏 Tamaño:', Math.round(sevenZipStats.size / 1024 / 1024), 'MB');
-                    console.log('    📅 Modificado:', sevenZipStats.mtime.toISOString());
                     
-                    console.log('🎯 ARCHIVO .7Z ENCONTRADO:', sevenZipPath);
                     return sevenZipPath;
                 } else {
-                    console.log('  ❌ No se encontraron archivos .7z que contengan "brave"');
                 }
             } catch (error) {
-                console.log(`  ❌ Error accediendo directorio: ${error.message}`);
                 continue;
             }
         }
         
-        console.log('❌ No se encontró archivo .7z de Brave en ningún directorio');
         return null;
     }
 
     // Extraer Brave desde archivo .7z
     async extractBrave7z(sevenZipPath) {
-        console.log('📦 ==================== INICIANDO EXTRACCIÓN 7Z ====================');
-        console.log('📁 Archivo .7z:', sevenZipPath);
-        console.log('🖥️ Plataforma:', process.platform);
         
         // Verificar que el archivo .7z existe y obtener información
         if (!fs.existsSync(sevenZipPath)) {
@@ -1032,41 +921,27 @@ class BraveController {
         }
         
         const sevenZipStats = fs.statSync(sevenZipPath);
-        console.log('📊 Información del archivo .7z:');
-        console.log('  📏 Tamaño:', Math.round(sevenZipStats.size / 1024 / 1024), 'MB');
-        console.log('  📅 Modificado:', sevenZipStats.mtime.toISOString());
-        console.log('  📄 Es archivo:', sevenZipStats.isFile() ? 'SÍ' : 'NO');
         
         const extractDir = path.dirname(sevenZipPath);
         const braveDir = path.join(extractDir, 'brave-extracted');
         
-        console.log('📂 Directorios:');
-        console.log('  📁 Directorio base:', extractDir);
-        console.log('  📁 Directorio destino:', braveDir);
         
         try {
             // Crear directorio de destino si no existe
-            console.log('📁 PASO 1: Verificando/creando directorio destino...');
             if (!fs.existsSync(braveDir)) {
-                console.log('📁 Creando directorio:', braveDir);
                 fs.mkdirSync(braveDir, { recursive: true });
-                console.log('✅ Directorio creado exitosamente');
             } else {
-                console.log('✅ Directorio ya existe:', braveDir);
             }
 
             // Verificar permisos del directorio
             try {
                 fs.accessSync(braveDir, fs.constants.W_OK);
-                console.log('✅ Permisos de escritura verificados');
             } catch (error) {
-                console.error('❌ Sin permisos de escritura en:', braveDir);
                 throw new Error(`Sin permisos de escritura en directorio: ${braveDir}`);
             }
 
             // Usar diferentes métodos de extracción según el sistema
             if (process.platform === 'win32') {
-                console.log('🔧 PASO 2: Buscando 7-Zip en Windows...');
                 // Intentar usar 7z.exe incluido o del sistema en Windows
                 const possible7zPaths = [
                     'C:\\Program Files\\7-Zip\\7z.exe',
@@ -1074,68 +949,45 @@ class BraveController {
                     '7z' // Si está en PATH
                 ];
                 
-                console.log('📋 Rutas de 7-Zip a verificar:');
-                possible7zPaths.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
                 
                 let command = null;
                 let found7zPath = null;
                 
                 for (let i = 0; i < possible7zPaths.length; i++) {
                     const sevenZipExe = possible7zPaths[i];
-                    console.log(`🔎 [${i + 1}/${possible7zPaths.length}] Probando: ${sevenZipExe}`);
                     try {
                         await execAsync(`"${sevenZipExe}" > nul 2>&1`);
-                        console.log(`  ✅ ENCONTRADO y funcional: ${sevenZipExe}`);
                         command = `"${sevenZipExe}" x "${sevenZipPath}" -o"${braveDir}" -y`;
                         found7zPath = sevenZipExe;
                         break;
                     } catch (e) {
-                        console.log(`  ❌ No disponible: ${sevenZipExe} (${e.message})`);
                         continue;
                     }
                 }
                 
                 if (!command) {
-                    console.error('❌ 7z.exe NO ENCONTRADO en ninguna ubicación');
-                    console.log('💡 SOLUCIONES:');
-                    console.log('  1. Instalar 7-Zip desde: https://www.7-zip.org/');
-                    console.log('  2. O agregar 7z.exe al PATH del sistema');
                     throw new Error('7z.exe no encontrado. Instala 7-Zip desde https://www.7-zip.org/');
                 }
                 
-                console.log('✅ Usando 7-Zip encontrado:', found7zPath);
-                console.log('🚀 PASO 3: Ejecutando extracción...');
-                console.log('🔧 Comando completo:', command);
                 
                 const startTime = Date.now();
                 const result = await execAsync(command);
                 const endTime = Date.now();
                 const duration = Math.round((endTime - startTime) / 1000);
                 
-                console.log('✅ Extracción completada en', duration, 'segundos');
-                console.log('📤 Salida del comando:', result.stdout || 'Sin salida');
                 if (result.stderr) {
-                    console.log('⚠️ Errores/advertencias:', result.stderr);
                 }
             } else {
-                console.log('🔧 PASO 2: Verificando 7-Zip en Linux/WSL...');
                 // Usar 7z en Linux (requiere p7zip-full)
                 
                 // Primero verificar si 7z está disponible
                 try {
                     await execAsync('which 7z');
-                    console.log('✅ 7z encontrado en PATH');
                 } catch (error) {
-                    console.error('❌ 7z NO encontrado en PATH');
-                    console.log('💡 SOLUCIONES:');
-                    console.log('  1. Instalar p7zip-full: sudo apt install p7zip-full');
-                    console.log('  2. O instalar 7zip: sudo apt install 7zip');
                     throw new Error('7z no encontrado. Instala con: sudo apt install p7zip-full');
                 }
                 
                 const command = `7z x "${sevenZipPath}" -o"${braveDir}" -y`;
-                console.log('🚀 PASO 3: Ejecutando extracción en Linux...');
-                console.log('🔧 Comando completo:', command);
                 
                 try {
                     const startTime = Date.now();
@@ -1143,74 +995,50 @@ class BraveController {
                     const endTime = Date.now();
                     const duration = Math.round((endTime - startTime) / 1000);
                     
-                    console.log('✅ Extracción completada en', duration, 'segundos');
-                    console.log('📤 Salida del comando:', result.stdout || 'Sin salida');
                     if (result.stderr) {
-                        console.log('⚠️ Errores/advertencias:', result.stderr);
                     }
                 } catch (error) {
-                    console.error('❌ Error durante extracción:', error.message);
                     if (error.message.includes('7z: command not found')) {
-                        console.log('💡 SOLUCIÓN: sudo apt install p7zip-full');
                         throw new Error('7z no encontrado. Instala con: sudo apt install p7zip-full');
                     }
                     throw error;
                 }
             }
 
-            console.log('✅ EXTRACCIÓN COMPLETADA exitosamente desde .7z');
             
             // Verificar qué se extrajo
-            console.log('🔍 PASO 4: Verificando contenido extraído...');
             if (fs.existsSync(braveDir)) {
                 const extractedItems = fs.readdirSync(braveDir);
-                console.log('📁 Items extraídos (' + extractedItems.length + ' total):');
                 extractedItems.forEach((item, i) => {
                     const itemPath = path.join(braveDir, item);
                     const itemStats = fs.statSync(itemPath);
                     const type = itemStats.isDirectory() ? '📁' : '📄';
                     const size = itemStats.isFile() ? ` (${Math.round(itemStats.size / 1024)} KB)` : '';
-                    console.log(`  ${i + 1}. ${type} ${item}${size}`);
                 });
             }
             
             // Buscar el ejecutable en la estructura extraída
-            console.log('🔍 PASO 5: Buscando ejecutable de Brave en estructura extraída...');
             const braveExecutable = await this.findBraveExecutableInDir(braveDir);
             
             if (braveExecutable) {
-                console.log('✅ EJECUTABLE DE BRAVE ENCONTRADO:', braveExecutable);
                 
                 // Verificar detalles del ejecutable
                 const execStats = fs.statSync(braveExecutable);
-                console.log('📊 Información del ejecutable:');
-                console.log('  📏 Tamaño:', Math.round(execStats.size / 1024 / 1024), 'MB');
-                console.log('  📅 Modificado:', execStats.mtime.toISOString());
-                console.log('  📄 Es archivo:', execStats.isFile() ? 'SÍ' : 'NO');
                 
                 // Hacer ejecutable en Linux
                 if (process.platform !== 'win32') {
-                    console.log('🔧 PASO 6: Estableciendo permisos de ejecución (Linux)...');
                     try {
                         await execAsync(`chmod +x "${braveExecutable}"`);
-                        console.log('✅ Permisos de ejecución establecidos');
                         
                         // Verificar permisos
                         const result = await execAsync(`ls -la "${braveExecutable}"`);
-                        console.log('📋 Permisos actuales:', result.stdout.trim());
                     } catch (chmodError) {
-                        console.warn('⚠️ Error estableciendo permisos:', chmodError.message);
-                        console.log('💡 Puede seguir funcionando sin permisos especiales');
                     }
                 } else {
-                    console.log('ℹ️ Windows detectado - no se requieren permisos chmod');
                 }
                 
-                console.log('🎯 EXTRACCIÓN COMPLETADA - Ejecutable listo para usar');
                 return braveExecutable;
             } else {
-                console.error('❌ NO SE ENCONTRÓ ejecutable de Brave después de la extracción');
-                console.log('📁 Contenido del directorio extraído para diagnóstico:');
                 
                 // Mostrar estructura completa para diagnóstico
                 const showDirStructure = (dir, level = 0) => {
@@ -1221,7 +1049,6 @@ class BraveController {
                             const itemPath = path.join(dir, item);
                             const itemStats = fs.statSync(itemPath);
                             const type = itemStats.isDirectory() ? '📁' : '📄';
-                            console.log(`${indent}${type} ${item}`);
                             
                             // Mostrar solo 2 niveles de profundidad
                             if (itemStats.isDirectory() && level < 2) {
@@ -1229,7 +1056,6 @@ class BraveController {
                             }
                         });
                     } catch (error) {
-                        console.log(`${indent}❌ Error leyendo: ${error.message}`);
                     }
                 };
                 
@@ -1239,15 +1065,11 @@ class BraveController {
             }
             
         } catch (error) {
-            console.error('❌ Error extrayendo Brave desde .7z:', error.message);
             
             // Sugerir soluciones según el error
             if (error.message.includes('7z') || error.message.includes('7-Zip')) {
-                console.error('💡 Sugerencia: Instala 7-Zip:');
                 if (process.platform === 'win32') {
-                    console.error('   Windows: https://www.7-zip.org/');
                 } else {
-                    console.error('   Linux: sudo apt install p7zip-full');
                 }
             }
             
@@ -1282,7 +1104,6 @@ class BraveController {
             
             return null;
         } catch (error) {
-            console.error('❌ Error buscando ejecutable:', error.message);
             return null;
         }
     }
@@ -1308,33 +1129,12 @@ class BraveController {
     // Mostrar mensaje informativo sobre Brave empaquetado
     showEmbeddedBraveInfo() {
         if (this.isBraveEmbedded()) {
-            console.log('📦 =====================================');
-            console.log('🎉 BRAVE EMPAQUETADO DETECTADO');
-            console.log('📦 =====================================');
-            console.log('✅ No es necesario instalar Brave por separado');
-            console.log('✅ La aplicación incluye su propia versión');
-            console.log('📦 =====================================');
         } else {
             // Verificar si hay un .7z
             const has7z = this.findBrave7z() !== null;
             
             if (has7z) {
-                console.log('📦 =====================================');
-                console.log('🔄 ARCHIVO .7Z DE BRAVE DETECTADO');
-                console.log('📦 =====================================');
-                console.log('✅ Se extraerá automáticamente en la primera ejecución');
-                console.log('⏳ Procesando archivo .7z...');
-                console.log('📦 =====================================');
             } else {
-                console.log('⚠️ =====================================');
-                console.log('📥 BRAVE NO EMPAQUETADO');
-                console.log('⚠️ =====================================');
-                console.log('💡 Para incluir Brave en la aplicación:');
-                console.log('   📖 Ver: INSTRUCCIONES-BRAVE-MANUAL.md');
-                console.log('   📂 Copiar archivos a: bundled-browsers/brave/');
-                console.log('   📦 O colocar .7z en: bundled-browsers/');
-                console.log('⚠️ Buscando Brave del sistema como fallback...');
-                console.log('⚠️ =====================================');
             }
         }
     }
@@ -1354,19 +1154,16 @@ class BraveController {
             // Crear directorio si no existe
             if (!fs.existsSync(profilePath)) {
                 fs.mkdirSync(profilePath, { recursive: true });
-                console.log('✅ Perfil persistente creado:', profilePath);
                 
                 // Crear archivo de configuración inicial
                 this.setupProfileSecurity(profilePath);
             } else {
-                console.log('✅ Usando perfil persistente existente:', profilePath);
             }
             
             this.persistentProfilePath = profilePath;
             return profilePath;
             
         } catch (error) {
-            console.error('❌ Error creando perfil persistente:', error);
             
             // Fallback a perfil temporal si falla
             const os = require('os');
@@ -1374,7 +1171,6 @@ class BraveController {
             fs.mkdirSync(fallbackPath, { recursive: true });
             this.persistentProfilePath = fallbackPath;
             
-            console.log('⚠️ Usando perfil temporal como fallback:', fallbackPath);
             return fallbackPath;
         }
     }
@@ -1436,10 +1232,8 @@ class BraveController {
             };
 
             fs.writeFileSync(prefsPath, JSON.stringify(preferences, null, 2));
-            console.log('🔒 Configuración de seguridad del perfil establecida');
             
         } catch (error) {
-            console.error('❌ Error configurando seguridad del perfil:', error);
         }
     }
 
@@ -1455,22 +1249,12 @@ class BraveController {
     // Mostrar información sobre configuración de Widevine
     showWidevineInfo(isFirstTime) {
         if (isFirstTime) {
-            console.log('📢 ==========================================');
-            console.log('🔐 PRIMERA VEZ - CONFIGURACIÓN DE WIDEVINE');
-            console.log('📢 ==========================================');
-            console.log('📝 En Brave, cuando reproduzca el primer video:');
-            console.log('   1️⃣ Aparecerá un mensaje sobre contenido protegido');
-            console.log('   2️⃣ Haga clic en "Instalar y Habilitar" Widevine');
-            console.log('   3️⃣ ¡Eso es todo! Se recordará para futuras sesiones');
-            console.log('🎯 Esto solo sucede UNA VEZ - después será automático');
-            console.log('📢 ==========================================');
         } else {
-            console.log('✅ Perfil existente - Widevine ya debería estar configurado');
         }
     }
 
     // Crear página de carga
-    async createLoadingPage(cookies, profilePath) {
+    async createLoadingPage(cookies, profilePath, targetUrl = 'https://www.udemy.com') {
         const loadingHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1610,14 +1394,12 @@ class BraveController {
             document.getElementById('progressFill').style.width = percentage + '%';
             document.getElementById('statusMessage').textContent = message;
             
-            console.log('🔄 Progreso:', count, 'de', totalCount, '-', message);
         }
         
         function completeTransfer() {
             if (transferComplete) return;
             transferComplete = true;
             
-            console.log('✅ Transferencia completada');
             
             document.getElementById('progressFill').style.width = '100%';
             document.getElementById('currentCount').textContent = totalCount;
@@ -1634,8 +1416,14 @@ class BraveController {
                 
                 if (countdown < 0) {
                     clearInterval(countdownInterval);
-                    console.log('🔄 Redirigiendo a Udemy...');
-                    window.location.href = 'https://www.udemy.com';
+                    
+                    // Mostrar en la página también
+                    document.getElementById('statusMessage').innerHTML = 
+                        'Redirigiendo a:<br><small style="font-size:10px;word-break:break-all;">${targetUrl}</small>';
+                    
+                    setTimeout(() => {
+                        window.location.href = '${targetUrl}';
+                    }, 1000);
                 }
             }, 1000);
         }
@@ -1655,7 +1443,6 @@ class BraveController {
         // Timeout de seguridad (si no se completa en 15 segundos)
         setTimeout(() => {
             if (!transferComplete) {
-                console.log('⏰ Timeout alcanzado, completando transferencia...');
                 completeTransfer();
             }
         }, 8000);
@@ -1665,13 +1452,11 @@ class BraveController {
 
         const loadingPath = path.join(profilePath, 'loading.html');
         fs.writeFileSync(loadingPath, loadingHtml);
-        console.log('📄 Página de carga creada:', loadingPath);
         return loadingPath;
     }
 
     // Crear extensión para transferir cookies
     async createCookieExtension(cookies, profilePath, loadingPath) {
-        console.log('🔧 Creando extensión para transferir', cookies.length, 'cookies...');
         
         const extensionDir = path.join(profilePath, 'cookie-extension');
         if (!fs.existsSync(extensionDir)) {
@@ -1714,7 +1499,6 @@ class BraveController {
 
         // Crear background.js (service worker)
         const backgroundScript = `
-console.log('🍪 Udemigo Cookie Extension - Background iniciado');
 
 // Datos de cookies desde Electron
 const cookiesData = ${JSON.stringify(cookies)};
@@ -1738,7 +1522,6 @@ function notifyProgress(count, message) {
             }
         });
     });
-    console.log('📡 Progreso enviado:', count, '-', message);
 }
 
 // Función para notificar que se completó
@@ -1754,19 +1537,16 @@ function notifyComplete() {
             }
         });
     });
-    console.log('📡 Transferencia completada notificada');
 }
 
 // Función para establecer cookies usando Chrome API
 async function setCookies() {
     // Evitar ejecución múltiple
     if (cookiesAlreadySet || isSettingCookies) {
-        console.log('⏭️ Cookies ya establecidas o en proceso, omitiendo...');
         return;
     }
     
     isSettingCookies = true;
-    console.log('🚀 Estableciendo', cookiesData.length, 'cookies (SOLO UNA VEZ)...');
     
     notifyProgress(0, 'Cargando curso...');
     
@@ -1787,7 +1567,6 @@ async function setCookies() {
             };
 
             await chrome.cookies.set(cookieDetails);
-            console.log('✅ Cookie establecida:', cookieData.name);
             successCount++;
             
             // Notificar progreso simplificado
@@ -1797,12 +1576,10 @@ async function setCookies() {
             await new Promise(resolve => setTimeout(resolve, 100));
             
         } catch (error) {
-            console.error('❌ Error estableciendo cookie', cookieData.name, ':', error);
             notifyProgress(successCount, 'Cargando curso...');
         }
     }
     
-    console.log('🎯 FINAL: ' + successCount + ' de ' + cookiesData.length + ' cookies establecidas');
     
     // Marcar como completado
     cookiesAlreadySet = true;
@@ -1820,7 +1597,6 @@ async function setCookies() {
         notifyComplete();
     }, 1000);
     
-    console.log('✅ Transferencia de cookies COMPLETADA - No se ejecutará de nuevo');
 }
 
 // Verificar si las cookies ya fueron establecidas
@@ -1830,14 +1606,12 @@ chrome.storage.local.get(['udemigo_cookies_set', 'udemigo_cookies_timestamp'], f
     const hoursSinceSet = (Date.now() - timestamp) / (1000 * 60 * 60);
     
     if (wasSet && hoursSinceSet < 1) {
-        console.log('⏭️ Cookies ya fueron establecidas hace', Math.round(hoursSinceSet * 60), 'minutos');
         cookiesAlreadySet = true;
         // Si ya están establecidas, notificar completado inmediatamente
         setTimeout(() => {
             notifyComplete();
         }, 2000);
     } else {
-        console.log('🔄 Procediendo con establecimiento inicial de cookies');
         setTimeout(setCookies, 1000);
     }
 });
@@ -1845,7 +1619,6 @@ chrome.storage.local.get(['udemigo_cookies_set', 'udemigo_cookies_timestamp'], f
 // Solo establecer cookies en la instalación inicial
 chrome.runtime.onInstalled.addListener(function(details) {
     if (details.reason === 'install') {
-        console.log('📦 Extensión instalada por primera vez');
         setTimeout(setCookies, 1000);
     }
 });
@@ -1853,7 +1626,6 @@ chrome.runtime.onInstalled.addListener(function(details) {
 // Escuchar mensajes para abrir enlaces externos
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.type === 'OPEN_EXTERNAL') {
-        console.log('🌐 Abriendo enlace externo:', request.url);
         
         // Usar chrome.tabs.create con una nueva ventana para abrir en navegador por defecto
         chrome.tabs.create({
@@ -1861,9 +1633,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             active: true
         }, function(tab) {
             if (chrome.runtime.lastError) {
-                console.error('❌ Error abriendo enlace externo:', chrome.runtime.lastError);
             } else {
-                console.log('✅ Enlace externo abierto en nueva pestaña:', tab.id);
             }
             sendResponse({success: true});
         });
@@ -1877,15 +1647,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
         // Crear content.js con modo kiosko
         const contentScript = `
-console.log('🍪 Udemigo Cookie Extension - Content script cargado');
 
 // Verificar si es la página de carga
 if (window.location.href.includes('loading.html')) {
-    console.log('📄 En página de carga - Configurando listeners de progreso');
     
     // Escuchar mensajes del background script
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-        console.log('📡 Mensaje recibido:', request);
         
         if (request.type === 'COOKIE_PROGRESS') {
             // Actualizar progreso en la página
@@ -1905,18 +1672,15 @@ if (window.location.href.includes('loading.html')) {
         }
     });
     
-    console.log('✅ Listeners de progreso configurados');
 
 } else if (window.location.href.includes('udemy.com')) {
     // Solo en páginas de Udemy
-    console.log('🌐 En página de Udemy - Modo kiosko activado');
     
     // URL del curso específico (se pasa desde la extensión)
     const targetCourseUrl = '${this.targetCourseUrl || ''}';
     
     // MODO KIOSKO: Bloquear navegación fuera del curso
     function setupKioskMode() {
-        console.log('🔒 Configurando modo kiosko para:', targetCourseUrl);
         
         // Función para verificar si una URL es de Udemy
         function isUdemyUrl(url) {
@@ -1943,21 +1707,18 @@ if (window.location.href.includes('loading.html')) {
                        url.includes('/practice/') ||
                        url.includes('/assignment/');
             } catch (e) {
-                console.warn('Error validando URL:', e);
                 return false;
             }
         }
         
         // Función para abrir URL externa en navegador por defecto
         function openExternalUrl(url) {
-            console.log('🌐 Abriendo enlace externo en navegador por defecto:', url);
             
             // Usar fetch para notificar al background script
             chrome.runtime.sendMessage({
                 type: 'OPEN_EXTERNAL',
                 url: url
             }, function(response) {
-                console.log('📤 Solicitud de enlace externo enviada');
             });
             
             showKioskNotification('Enlace abierto en navegador externo');
@@ -1978,7 +1739,6 @@ if (window.location.href.includes('loading.html')) {
                 if (href) {
                     // Si es un enlace externo (no de Udemy), abrirlo en navegador por defecto
                     if (!isUdemyUrl(href)) {
-                        console.log('🌐 Enlace externo detectado:', href);
                         e.preventDefault();
                         e.stopPropagation();
                         openExternalUrl(href);
@@ -1986,7 +1746,6 @@ if (window.location.href.includes('loading.html')) {
                     }
                     // Si es de Udemy pero no válido para el curso, bloquearlo
                     else if (!isValidCourseUrl(href)) {
-                        console.log('🚫 Bloqueando navegación a otra parte de Udemy:', href);
                         e.preventDefault();
                         e.stopPropagation();
                         showKioskNotification('Solo puedes navegar dentro de este curso');
@@ -1994,7 +1753,6 @@ if (window.location.href.includes('loading.html')) {
                     }
                     // Si es válido para el curso, permitir navegación normal
                     else {
-                        console.log('✅ Permitiendo navegación dentro del curso:', href);
                     }
                 }
             }
@@ -2006,13 +1764,11 @@ if (window.location.href.includes('loading.html')) {
             if (url) {
                 // Si es enlace externo, abrirlo en navegador por defecto
                 if (!isUdemyUrl(url)) {
-                    console.log('🌐 window.open externo detectado:', url);
                     openExternalUrl(url);
                     return null;
                 }
                 // Si es de Udemy pero no válido para el curso, bloquearlo
                 else if (!isValidCourseUrl(url)) {
-                    console.log('🚫 Bloqueando window.open a otra parte de Udemy:', url);
                     showKioskNotification('Solo puedes navegar dentro de este curso');
                     return null;
                 }
@@ -2030,13 +1786,11 @@ if (window.location.href.includes('loading.html')) {
                 if (url) {
                     // Si es enlace externo, abrirlo en navegador por defecto
                     if (!isUdemyUrl(url)) {
-                        console.log('🌐 window.location externo detectado:', url);
                         openExternalUrl(url);
                         return;
                     }
                     // Si es de Udemy pero no válido para el curso, bloquearlo
                     else if (!isValidCourseUrl(url)) {
-                        console.log('🚫 Bloqueando window.location a otra parte de Udemy:', url);
                         showKioskNotification('Solo puedes navegar dentro de este curso');
                         return;
                     }
@@ -2054,7 +1808,6 @@ if (window.location.href.includes('loading.html')) {
                 // Solo bloquear si es de Udemy pero no válido para el curso
                 // Los enlaces externos no usan normalmente history API
                 if (isUdemyUrl(url) && !isValidCourseUrl(url)) {
-                    console.log('🚫 Bloqueando history.pushState a otra parte de Udemy:', url);
                     showKioskNotification('Solo puedes navegar dentro de este curso');
                     return;
                 }
@@ -2066,7 +1819,6 @@ if (window.location.href.includes('loading.html')) {
             if (url) {
                 // Solo bloquear si es de Udemy pero no válido para el curso
                 if (isUdemyUrl(url) && !isValidCourseUrl(url)) {
-                    console.log('🚫 Bloqueando history.replaceState a otra parte de Udemy:', url);
                     showKioskNotification('Solo puedes navegar dentro de este curso');
                     return;
                 }
@@ -2074,7 +1826,6 @@ if (window.location.href.includes('loading.html')) {
             return originalReplaceState.call(this, state, title, url);
         };
         
-        console.log('✅ Modo kiosko configurado correctamente');
     }
     
     // Función para mostrar notificaciones de kiosko
@@ -2128,7 +1879,6 @@ if (window.location.href.includes('loading.html')) {
     
     // Verificar si ya se ejecutó en esta página
     if (window.udemigoCookiesProcessed) {
-        console.log('⏭️ Cookies ya procesadas, configurando solo modo kiosko...');
         setupKioskMode();
     } else {
         // Marcar como procesado inmediatamente
@@ -2139,7 +1889,6 @@ if (window.location.href.includes('loading.html')) {
 
         // Función para establecer cookies via document.cookie (fallback)
         function setCookiesViaDocument() {
-            console.log('📋 Fallback: estableciendo cookies via document.cookie...');
             
             let successCount = 0;
             
@@ -2155,18 +1904,14 @@ if (window.location.href.includes('loading.html')) {
                     
                     // Verificar si se estableció
                     if (document.cookie.includes(cookie.name + '=')) {
-                        console.log('✅ Cookie fallback establecida:', cookie.name);
                         successCount++;
                     } else {
-                        console.warn('❌ Cookie fallback NO establecida:', cookie.name);
                     }
                     
                 } catch (error) {
-                    console.error('Error estableciendo cookie fallback', cookie.name, ':', error);
                 }
             }
             
-            console.log('🎯 FINAL Fallback: ' + successCount + ' de ' + cookiesData.length + ' establecidas');
             
             // Después de establecer cookies, configurar modo kiosko
             setupKioskMode();
@@ -2180,77 +1925,106 @@ if (window.location.href.includes('loading.html')) {
 
         fs.writeFileSync(path.join(extensionDir, 'content.js'), contentScript);
 
-        console.log('✅ Extensión creada en:', extensionDir);
         this.extensionPath = extensionDir;
         return extensionDir;
     }
 
-    // Lanzar Brave con URL específica (para cursos)
-    async launchWithUrl(courseUrl, cookies = null) {
-        console.log('🚀 ================ INICIANDO BRAVE PARA CURSO ================');
-        console.log('🎓 URL del curso:', courseUrl);
-        console.log('🍪 Cookies recibidas:', cookies ? cookies.length : 0);
-        
-        if (cookies && cookies.length > 0) {
-            console.log('📋 Lista de cookies:');
-            cookies.forEach((cookie, i) => {
-                const valuePreview = cookie.value ? cookie.value.substring(0, 20) + '...' : 'vacía';
-                console.log(`  ${i + 1}. ${cookie.name}: ${valuePreview} (${cookie.domain || 'sin dominio'})`);
-            });
+    normalizeUrlString(url) {
+        // Si ya es string, verificar que es válido
+        if (typeof url === 'string') {
+            if (url.startsWith('http')) {
+                return url;
+            }
+            // Si es string pero no es URL completa, intentar construir
+            if (url.startsWith('/')) {
+                return 'https://www.udemy.com' + url;
+            }
+            return url;
         }
         
+        // Si es objeto, intentar extraer URL
+        if (typeof url === 'object' && url !== null) {
+            // Opciones de propiedades donde puede estar la URL
+            if (url.url && typeof url.url === 'string') return url.url;
+            if (url.courseUrl && typeof url.courseUrl === 'string') return url.courseUrl;
+            if (url.href && typeof url.href === 'string') return url.href;
+            if (url.toString && typeof url.toString === 'function') {
+                const stringified = url.toString();
+                if (stringified !== '[object Object]') return stringified;
+            }
+        }
+        
+        // Fallback
+        return 'https://www.udemy.com';
+    }
+
+    getBraveErrorDetails(error) {
+        const details = {
+            type: 'unknown',
+            userMessage: 'Error desconocido al abrir Brave',
+            suggestion: 'Intenta nuevamente más tarde'
+        };
+        
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('enoent') || errorMsg.includes('not found')) {
+            details.type = 'brave_not_found';
+            details.userMessage = 'Brave browser no encontrado';
+            details.suggestion = 'Instala Brave browser o verifica la ruta de instalación';
+        } else if (errorMsg.includes('eacces') || errorMsg.includes('permission')) {
+            details.type = 'permission_denied';
+            details.userMessage = 'Sin permisos para ejecutar Brave';
+            details.suggestion = 'Verifica los permisos del archivo o ejecuta como administrador';
+        } else if (errorMsg.includes('emfile') || errorMsg.includes('too many files')) {
+            details.type = 'too_many_files';
+            details.userMessage = 'Demasiados archivos abiertos';
+            details.suggestion = 'Cierra otras aplicaciones e intenta nuevamente';
+        } else if (errorMsg.includes('spawn') || errorMsg.includes('exec')) {
+            details.type = 'spawn_failed';
+            details.userMessage = 'Error al ejecutar Brave';
+            details.suggestion = 'Verifica que Brave esté instalado correctamente';
+        }
+        
+        return details;
+    }
+
+    // Lanzar Brave con URL específica (para cursos)
+    async launchWithUrl(courseUrl, cookies = null) {
+        
+        // Normalizar URL usando lógica simplificada
+        const normalizedUrl = this.normalizeUrlString(courseUrl);
+        
         try {
-            console.log('🔍 PASO 1: Buscando navegador Brave...');
             const bravePath = await this.findBrave();
-            console.log('✅ Navegador encontrado:', bravePath);
             
             // Guardar URL del curso para modo kiosko
-            this.targetCourseUrl = courseUrl;
-            console.log('🔒 Configurando modo kiosko para curso:', courseUrl);
+            this.targetCourseUrl = normalizedUrl;
             
             // Usar perfil persistente protegido
-            console.log('🔍 PASO 2: Creando perfil persistente...');
             const profilePath = this.createPersistentProfile();
-            console.log('✅ Perfil creado/verificado:', profilePath);
             
             // Verificar si es primera vez y mostrar información de Widevine
-            console.log('🔍 PASO 3: Verificando configuración de perfil...');
             const isFirstTime = this.isFirstTimeProfile(profilePath);
-            console.log('🆕 Es primera vez usando este perfil:', isFirstTime ? 'SÍ' : 'NO');
             this.showWidevineInfo(isFirstTime);
 
-            let startUrl = courseUrl || 'https://www.udemy.com';
-            console.log('🌐 URL inicial prevista:', startUrl);
+            let startUrl = normalizedUrl || 'https://www.udemy.com';
 
             // Si tenemos cookies, crear página de carga y extensión
             if (cookies && cookies.length > 0) {
-                console.log('🔍 PASO 4: Preparando transferencia de cookies...');
-                console.log('📄 Creando página de carga...');
-                const loadingPath = await this.createLoadingPage(cookies, profilePath);
-                console.log('✅ Página de carga creada:', loadingPath);
+                const loadingPath = await this.createLoadingPage(cookies, profilePath, normalizedUrl);
                 
-                console.log('🔧 Creando extensión de cookies...');
                 await this.createCookieExtension(cookies, profilePath, loadingPath);
-                console.log('✅ Extensión de cookies creada');
                 
-                // Cambiar URL inicial a la página de carga
-                startUrl = 'file:///' + loadingPath.replace(/\\/g, '/');
-                console.log('📄 URL inicial cambiada a página de carga:', startUrl);
-                console.log('🎯 Después redirigirá automáticamente a:', courseUrl);
+                // Arreglar la construcción de la URL para evitar [object Object]
+                const normalizedPath = loadingPath.replace(/\\/g, '/');
+                startUrl = `file:///${normalizedPath}`;
                 
-                // Modificar la página de carga para ir a la URL del curso
-                console.log('📝 Configurando redirección automática...');
-                this.updateLoadingPageTarget(loadingPath, courseUrl);
-                console.log('✅ Redirección configurada');
             } else {
-                console.log('ℹ️ No hay cookies para transferir, iniciando directamente');
             }
 
-            console.log('🔍 PASO 5: Preparando argumentos de lanzamiento...');
             
             // Obtener path de Widevine
             const widevinePath = this.getWidevinePath(bravePath);
-            console.log('🔐 Path de Widevine CDM:', widevinePath);
             
             const args = [
                 '--user-data-dir=' + profilePath,
@@ -2293,22 +2067,14 @@ if (window.location.href.includes('loading.html')) {
             // Agregar extensión si existe
             if (this.extensionPath) {
                 args.push('--load-extension=' + this.extensionPath);
-                console.log('🔧 Extensión agregada a argumentos:', this.extensionPath);
             } else {
-                console.log('ℹ️ No hay extensión para cargar');
             }
 
-            console.log('📋 Argumentos completos de lanzamiento (' + args.length + ' total):');
             args.forEach((arg, i) => {
                 // Ocultar rutas muy largas para mejor legibilidad
                 const displayArg = arg.length > 80 ? arg.substring(0, 80) + '...' : arg;
-                console.log(`  ${i + 1}. ${displayArg}`);
             });
 
-            console.log('🔐 Perfil persistente protegido - Widevine se mantiene habilitado');
-            console.log('🚀 PASO 6: EJECUTANDO BRAVE...');
-            console.log('📄 Comando:', bravePath);
-            console.log('🎯 URL objetivo final:', courseUrl);
 
             const startTime = Date.now();
             
@@ -2318,88 +2084,71 @@ if (window.location.href.includes('loading.html')) {
             });
             
             const processStartTime = Date.now() - startTime;
-            console.log('⚡ Proceso spawn ejecutado en', processStartTime, 'ms');
 
             this.braveProcess.on('close', (code) => {
                 const endTime = Date.now();
                 const sessionDuration = Math.round((endTime - startTime) / 1000);
-                console.log('🔚 BRAVE CERRADO:');
-                console.log('  📊 Código de salida:', code);
-                console.log('  ⏱️ Duración de la sesión:', sessionDuration, 'segundos');
-                console.log('  🧹 Iniciando limpieza...');
                 
                 this.isActive = false;
                 this.braveProcess = null;
                 this.cleanup();
                 
-                console.log('✅ Limpieza completada');
             });
 
             this.braveProcess.on('error', (error) => {
-                console.error('❌ ERROR DE PROCESO BRAVE:');
-                console.error('  📄 Mensaje:', error.message);
-                console.error('  📄 Código:', error.code || 'Sin código');
-                console.error('  📄 Stack:', error.stack || 'Sin stack trace');
                 
                 this.isActive = false;
                 
                 // Sugerencias basadas en el tipo de error
                 if (error.code === 'ENOENT') {
-                    console.log('💡 SUGERENCIA: El archivo ejecutable no existe o no tiene permisos');
                 } else if (error.code === 'EACCES') {
-                    console.log('💡 SUGERENCIA: Sin permisos de ejecución');
                 } else {
-                    console.log('💡 SUGERENCIA: Verificar instalación de Brave/Chrome');
                 }
             });
 
             this.braveProcess.on('spawn', () => {
-                console.log('✅ PROCESO BRAVE INICIADO EXITOSAMENTE');
-                console.log('  🆔 PID:', this.braveProcess.pid);
-                console.log('  📁 Directorio de trabajo:', process.cwd());
             });
 
             this.isActive = true;
-            console.log('✅ LANZAMIENTO COMPLETADO');
             
             if (cookies && cookies.length > 0) {
-                console.log('🍪 El navegador transferirá', cookies.length, 'cookies automáticamente');
-                console.log('⏳ Después de la transferencia se abrirá:', courseUrl);
             } else {
-                console.log('🌐 Navegador abrirá directamente:', courseUrl);
             }
             
-            console.log('🎯 ================ BRAVE EJECUTÁNDOSE ================');
 
             return true;
 
         } catch (error) {
-            console.error('❌❌❌ ERROR CRÍTICO LANZANDO BRAVE:');
-            console.error('  📄 Mensaje:', error.message);
-            console.error('  📄 Stack:', error.stack || 'Sin stack trace');
-            console.error('  📊 Tipo:', error.constructor.name);
             
             // Reset del estado en caso de error
             this.isActive = false;
             this.braveProcess = null;
             
-            return false;
+            // Propagar error con información específica
+            const errorInfo = {
+                success: false,
+                error: error.message,
+                details: this.getBraveErrorDetails(error)
+            };
+            
+            return errorInfo;
         }
     }
 
     // Actualizar destino de la página de carga
     updateLoadingPageTarget(loadingPath, targetUrl) {
         try {
+            
             let content = fs.readFileSync(loadingPath, 'utf8');
-            // Cambiar la URL de destino en el JavaScript
-            content = content.replace(
-                "window.location.href = 'https://www.udemy.com';",
-                `window.location.href = '${targetUrl}';`
-            );
-            fs.writeFileSync(loadingPath, content);
-            console.log('📝 Página de carga actualizada para ir a:', targetUrl);
+            
+            // Buscar la línea original
+            const originalLine = "window.location.href = 'https://www.udemy.com';";
+            if (content.includes(originalLine)) {
+                content = content.replace(originalLine, `window.location.href = '${targetUrl}';`);
+                fs.writeFileSync(loadingPath, content);
+            } else {
+            }
         } catch (error) {
-            console.error('❌ Error actualizando página de carga:', error);
         }
     }
 
@@ -2419,12 +2168,11 @@ if (window.location.href.includes('loading.html')) {
 
             // Si tenemos cookies, crear página de carga y extensión
             if (cookies && cookies.length > 0) {
-                const loadingPath = await this.createLoadingPage(cookies, profilePath);
+                const loadingPath = await this.createLoadingPage(cookies, profilePath, 'https://www.udemy.com');
                 await this.createCookieExtension(cookies, profilePath, loadingPath);
                 
                 // Cambiar URL inicial a la página de carga
                 startUrl = 'file:///' + loadingPath.replace(/\\/g, '/');
-                console.log('📄 Iniciando con página de carga:', startUrl);
             }
 
             const args = [
@@ -2459,13 +2207,10 @@ if (window.location.href.includes('loading.html')) {
             // Agregar extensión si existe
             if (this.extensionPath) {
                 args.push('--load-extension=' + this.extensionPath);
-                console.log('🔧 Cargando extensión desde:', this.extensionPath);
             }
 
             // NOTA: La URL ya está incluida en --app=startUrl, no agregar de nuevo
 
-            console.log('🔐 Perfil persistente protegido - Widevine se mantiene habilitado');
-            console.log('🚀 Lanzando Brave con argumentos:', args);
 
             this.braveProcess = spawn(bravePath, args, {
                 detached: false,
@@ -2473,29 +2218,23 @@ if (window.location.href.includes('loading.html')) {
             });
 
             this.braveProcess.on('close', (code) => {
-                console.log('Brave cerrado con código:', code);
                 this.isActive = false;
                 this.braveProcess = null;
                 this.cleanup();
             });
 
             this.braveProcess.on('error', (error) => {
-                console.error('Error Brave:', error);
                 this.isActive = false;
             });
 
             this.isActive = true;
-            console.log('✅ Brave lanzado exitosamente');
             
             if (cookies && cookies.length > 0) {
-                console.log('🍪 Mostrando página de carga mientras se transfieren', cookies.length, 'cookies');
-                console.log('⏱️ Después se redirigirá automáticamente a Udemy');
             }
 
             return true;
 
         } catch (error) {
-            console.error('❌ Error lanzando Brave:', error);
             return false;
         }
     }
@@ -2507,9 +2246,7 @@ if (window.location.href.includes('loading.html')) {
                 this.braveProcess.kill();
                 this.braveProcess = null;
                 this.isActive = false;
-                console.log('✅ Brave cerrado');
             } catch (error) {
-                console.error('❌ Error cerrando Brave:', error);
             }
         }
         this.cleanup();
@@ -2520,12 +2257,10 @@ if (window.location.href.includes('loading.html')) {
     cleanup() {
         try {
             if (this.persistentProfilePath && fs.existsSync(this.persistentProfilePath)) {
-                console.log('🧹 Limpiando datos sensibles del perfil persistente...');
                 
                 // Limpiar solo datos sensibles, mantener configuraciones
                 this.cleanSensitiveData(this.persistentProfilePath);
                 
-                console.log('✅ Datos sensibles limpiados, configuraciones de plugins conservadas');
             }
             
             // Limpiar extensión temporal si existe
@@ -2536,10 +2271,8 @@ if (window.location.href.includes('loading.html')) {
                 } else {
                     exec(`rm -rf "${this.extensionPath}"`, () => {});
                 }
-                console.log('🧹 Extensión temporal limpiada');
             }
         } catch (error) {
-            console.warn('⚠️ Error durante limpieza:', error);
         }
     }
 
@@ -2580,9 +2313,7 @@ if (window.location.href.includes('loading.html')) {
                 if (fs.existsSync(filePath)) {
                     try {
                         fs.unlinkSync(filePath);
-                        console.log(`  ✅ Eliminado: ${file}`);
                     } catch (err) {
-                        console.log(`  ⚠️ No se pudo eliminar: ${file}`);
                     }
                 }
             });
@@ -2598,18 +2329,14 @@ if (window.location.href.includes('loading.html')) {
                         } else {
                             exec(`rm -rf "${dirPath}"`, () => {});
                         }
-                        console.log(`  ✅ Directorio eliminado: ${dir}`);
                     } catch (err) {
-                        console.log(`  ⚠️ No se pudo eliminar directorio: ${dir}`);
                     }
                 }
             });
 
             // IMPORTANTE: Mantener 'Preferences' y 'Local State' que contienen configuraciones de plugins
-            console.log('🔒 Configuraciones de plugins y Widevine conservadas');
             
         } catch (error) {
-            console.error('❌ Error limpiando datos sensibles:', error);
         }
     }
 
@@ -2617,28 +2344,22 @@ if (window.location.href.includes('loading.html')) {
     resetProfile() {
         try {
             if (this.persistentProfilePath && fs.existsSync(this.persistentProfilePath)) {
-                console.log('🔄 Reseteando perfil persistente completamente...');
                 
                 const { exec } = require('child_process');
                 if (process.platform === 'win32') {
                     exec(`rmdir /s /q "${this.persistentProfilePath}"`, () => {
-                        console.log('✅ Perfil persistente eliminado completamente');
                     });
                 } else {
                     exec(`rm -rf "${this.persistentProfilePath}"`, () => {
-                        console.log('✅ Perfil persistente eliminado completamente');
                     });
                 }
                 
                 this.persistentProfilePath = null;
-                console.log('⚠️ En el próximo lanzamiento se creará un perfil nuevo');
                 return true;
             } else {
-                console.log('ℹ️ No hay perfil persistente para resetear');
                 return false;
             }
         } catch (error) {
-            console.error('❌ Error reseteando perfil:', error);
             return false;
         }
     }
@@ -2682,6 +2403,78 @@ if (window.location.href.includes('loading.html')) {
         } catch (error) {
             return { success: false, error: error.message };
         }
+    }
+    
+    // Crear extensión simple para transferir cookies sin página de carga
+    async createCookieExtensionDirect(cookies, profilePath, targetUrl) {
+        const extensionPath = path.join(profilePath, 'CookieExtension');
+        
+        // Crear directório de extensión
+        if (!fs.existsSync(extensionPath)) {
+            fs.mkdirSync(extensionPath, { recursive: true });
+        }
+        
+        // Manifest para la extensión
+        const manifest = {
+            manifest_version: 3,
+            name: "Udemigo Cookie Transfer",
+            version: "1.0",
+            permissions: ["cookies", "storage", "webNavigation"],
+            host_permissions: ["https://*.udemy.com/*"],
+            background: {
+                service_worker: "background.js"
+            }
+        };
+        
+        fs.writeFileSync(path.join(extensionPath, 'manifest.json'), JSON.stringify(manifest, null, 2));
+        
+        // Background script que transfiere cookies
+        const backgroundScript = `
+
+// Datos de cookies
+const cookiesData = ${JSON.stringify(cookies)};
+const targetUrl = '${targetUrl}';
+
+// Transferir cookies cuando la extensión se carga
+chrome.runtime.onStartup.addListener(setCookies);
+chrome.runtime.onInstalled.addListener(setCookies);
+
+// También transferir al navegar a Udemy
+chrome.webNavigation.onBeforeNavigate.addListener(function(details) {
+    if (details.url.includes('udemy.com') && details.frameId === 0) {
+        setCookies();
+    }
+}, {url: [{hostContains: 'udemy.com'}]});
+
+async function setCookies() {
+    
+    for (const cookieData of cookiesData) {
+        try {
+            const cookieDetails = {
+                url: 'https://www.udemy.com',
+                name: cookieData.name,
+                value: cookieData.value,
+                domain: cookieData.domain || '.udemy.com',
+                path: cookieData.path || '/',
+                secure: true,
+                httpOnly: cookieData.httpOnly || false,
+                expirationDate: Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60)
+            };
+
+            await chrome.cookies.set(cookieDetails);
+            
+        } catch (error) {
+        }
+    }
+    
+}
+`;
+        
+        fs.writeFileSync(path.join(extensionPath, 'background.js'), backgroundScript);
+        
+        this.extensionPath = extensionPath;
+        
+        return extensionPath;
     }
 }
 

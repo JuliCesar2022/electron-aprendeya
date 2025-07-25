@@ -109,12 +109,6 @@ export function logEnvironmentInfo() {
     const info = getEnvironmentInfo();
     
     console.group('🔍 Environment Detection');
-    console.log('Context:', info.context);
-    console.log('Domain:', info.domain);
-    console.log('Is Udemy:', info.isUdemyDomain);
-    console.log('Has Electron API:', info.hasElectronAPI);
-    console.log('Is Safe:', isSafeEnvironment());
-    console.log('Full Info:', info);
     console.groupEnd();
 }
 

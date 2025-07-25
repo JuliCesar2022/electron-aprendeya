@@ -1,6 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-console.log('🔧 Preload script ejecutándose...');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Funciones para enviar mensajes al proceso principal (unidireccional)
@@ -15,12 +14,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'search-in-udemy',
       'webview-navigate',
       'webview-page-ready',
-      'load-webview-page'
+      'load-webview-page',
+      'webview-notification',
+      'course-action'
     ];
     if (validSendChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     } else {
-      console.warn(`Intento de enviar a canal no permitido: ${channel}`);
     }
   },
 
@@ -60,7 +60,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (validInvokeChannels.includes(channel)) {
       return await ipcRenderer.invoke(channel, data);
     } else {
-      console.warn(`Intento de invocar canal no permitido: ${channel}`);
       return Promise.reject(new Error(`Canal no permitido: ${channel}`));
     }
   },
@@ -83,19 +82,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'webview-navigate',
       'perform-logout',
       'brave-extraction-started',
-      'brave-extraction-completed'
+      'brave-extraction-completed',
+      'webview-notification'
     ];
     if (validReceiveChannels.includes(channel)) {
       // Eliminar listeners anteriores para evitar duplicados
       ipcRenderer.removeAllListeners(channel);
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     } else {
-      console.warn(`Intento de escuchar canal no permitido: ${channel}`);
     }
   }
 });
 
-console.log('✅ electronAPI expuesto al main world');
 
 // Las cookies de cuenta óptima ahora se configuran desde index.html
 // Este archivo se mantiene para otras funcionalidades del preload

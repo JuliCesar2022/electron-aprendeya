@@ -21,7 +21,6 @@ class LoginForm {
     init() {
         this.setupDOMReferences();
         this.setupEventListeners();
-        console.log('✅ LoginForm component initialized');
     }
     
     setupDOMReferences() {
@@ -71,7 +70,6 @@ class LoginForm {
             this.onLoginSuccess(token);
             
         } catch (error) {
-            console.error('❌ Login error:', error);
             this.showMessage('error', error.message || 'Error inesperado');
             this.onLoginError(error);
         } finally {

@@ -12,7 +12,6 @@ class LoginPage {
     }
     
     init() {
-        console.log('🚀 Initializing Login Page...');
         
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
@@ -38,23 +37,19 @@ class LoginPage {
             onLoginError: (error) => this.handleLoginError(error)
         });
         
-        console.log('✅ Login Page initialized successfully');
     }
     
     initializeDialogSystem() {
         this.dialogManager = DialogManager.createGlobalInstance();
-        console.log('✅ Dialog System initialized');
     }
     
     initializeUpdateManager() {
         if (window.UpdateManager) {
             this.updateManager = UpdateManager.createGlobalInstance();
-            console.log('✅ UpdateManager global inicializado en login');
         }
     }
     
     handleLoginSuccess(token) {
-        console.log('✅ Login successful, redirecting to Udemy...');
         
         // Show success dialog
         this.dialogManager.toast({
@@ -69,7 +64,6 @@ class LoginPage {
     }
     
     handleLoginError(error) {
-        console.error('❌ Login failed:', error);
         
         // Show error dialog
         this.dialogManager.alert({

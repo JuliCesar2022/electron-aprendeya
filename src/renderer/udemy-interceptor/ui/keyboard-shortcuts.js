@@ -29,7 +29,6 @@ export class KeyboardShortcuts {
                 if (this.interceptorCore) {
                     this.interceptorCore.toggle();
                 } else {
-                    console.log('⚠️ Interceptor core no disponible');
                 }
             },
             preventDefault: true
@@ -42,7 +41,6 @@ export class KeyboardShortcuts {
                 if (this.interceptorCore && this.interceptorCore.modificationEngine) {
                     this.interceptorCore.modificationEngine.listModifications();
                 } else {
-                    console.log('⚠️ Motor de modificaciones no disponible');
                 }
             },
             preventDefault: true
@@ -54,9 +52,7 @@ export class KeyboardShortcuts {
             action: () => {
                 if (this.interceptorCore && this.interceptorCore.domObserver) {
                     this.interceptorCore.domObserver.forceExecution();
-                    console.log('⚡ Modificaciones aplicadas forzadamente');
                 } else {
-                    console.log('⚠️ DOM Observer no disponible');
                 }
             },
             preventDefault: true
@@ -93,7 +89,6 @@ export class KeyboardShortcuts {
             this.handleKeydown(event);
         });
         
-        console.log('⌨️ Atajos de teclado configurados');
     }
     
     /**
@@ -111,9 +106,7 @@ export class KeyboardShortcuts {
             
             try {
                 shortcut.action();
-                console.log(`⌨️ Atajo ejecutado: ${shortcutKey}`);
             } catch (error) {
-                console.error(`❌ Error ejecutando atajo ${shortcutKey}:`, error);
             }
         }
     }
@@ -152,7 +145,6 @@ export class KeyboardShortcuts {
      */
     addShortcut(shortcutKey, config) {
         if (!config.action || typeof config.action !== 'function') {
-            console.error('❌ Configuración de atajo inválida: falta acción');
             return false;
         }
         
@@ -164,7 +156,6 @@ export class KeyboardShortcuts {
         };
         
         this.shortcuts.set(shortcutKey.toLowerCase(), shortcutConfig);
-        console.log(`✅ Atajo añadido: ${shortcutKey} - ${shortcutConfig.description}`);
         
         return true;
     }
@@ -176,7 +167,6 @@ export class KeyboardShortcuts {
     removeShortcut(shortcutKey) {
         const existed = this.shortcuts.delete(shortcutKey.toLowerCase());
         if (existed) {
-            console.log(`🗑️ Atajo eliminado: ${shortcutKey}`);
         }
         return existed;
     }
@@ -190,7 +180,6 @@ export class KeyboardShortcuts {
         const shortcut = this.shortcuts.get(shortcutKey.toLowerCase());
         if (shortcut) {
             shortcut.enabled = enabled;
-            console.log(`🔄 Atajo ${shortcutKey}: ${enabled ? 'habilitado' : 'deshabilitado'}`);
             return true;
         }
         return false;
@@ -202,7 +191,6 @@ export class KeyboardShortcuts {
      */
     setEnabled(enabled) {
         this.isEnabled = enabled;
-        console.log(`⌨️ Atajos de teclado ${enabled ? 'habilitados' : 'deshabilitados'}`);
     }
     
     /**
@@ -212,28 +200,17 @@ export class KeyboardShortcuts {
         console.group('📊 Estadísticas del Interceptor');
         
         if (this.interceptorCore) {
-            console.log('Estado:', this.interceptorCore.isActive ? 'Activo' : 'Inactivo');
             
             if (this.interceptorCore.modificationEngine) {
                 const stats = this.interceptorCore.modificationEngine.getStats();
-                console.log('Modificaciones totales:', stats.totalModifications);
-                console.log('Modificaciones habilitadas:', stats.enabledModifications);
-                console.log('Motor habilitado:', stats.isEngineEnabled);
             }
             
             if (this.interceptorCore.domObserver) {
                 const status = this.interceptorCore.domObserver.getStatus();
-                console.log('Observer activo:', status.isActive);
-                console.log('Tiempo activo:', `${status.uptime}s`);
-                console.log('Mutaciones detectadas:', status.totalMutations);
-                console.log('Modificaciones aplicadas:', status.modificationsApplied);
             }
         } else {
-            console.log('❌ Interceptor core no disponible');
         }
         
-        console.log('Atajos habilitados:', this.isEnabled);
-        console.log('Total atajos:', this.shortcuts.size);
         
         console.groupEnd();
     }
@@ -245,18 +222,12 @@ export class KeyboardShortcuts {
         console.group('⌨️ Atajos de Teclado Disponibles');
         
         if (this.shortcuts.size === 0) {
-            console.log('No hay atajos configurados');
         } else {
             for (const [key, config] of this.shortcuts) {
                 const status = config.enabled ? '✅' : '❌';
-                console.log(`${status} ${key.toUpperCase()}: ${config.description}`);
             }
         }
         
-        console.log('\n💡 Tips:');
-        console.log('• Los atajos funcionan en cualquier página de Udemy');
-        console.log('• Ctrl equivale a Cmd en Mac');
-        console.log('• Los atajos se pueden deshabilitar individualmente');
         
         console.groupEnd();
     }
@@ -300,11 +271,9 @@ export class KeyboardShortcuts {
      * Resetea todos los atajos a los valores por defecto
      */
     resetToDefaults() {
-        console.log('🔄 Reseteando atajos a valores por defecto...');
         
         this.shortcuts.clear();
         this.initializeDefaultShortcuts();
         
-        console.log('✅ Atajos reseteados');
     }
 }

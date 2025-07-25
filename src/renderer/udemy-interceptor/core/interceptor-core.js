@@ -9,6 +9,7 @@ import { ModificationEngine } from './modification-engine.js';
 import { DOMObserver } from './dom-observer.js';
 import { KeyboardShortcuts } from '../ui/keyboard-shortcuts.js';
 import { showInterceptorNotification } from '../integrations/dialog-integration.js';
+import { getNavigationIntegration } from '../integrations/navigation-integration.js';
 import { getEnvironmentInfo, isSafeEnvironment, logEnvironmentInfo } from '../utils/environment-detector.js';
 
 /**
@@ -25,6 +26,7 @@ export class InterceptorCore {
             enableKeyboardShortcuts: options.enableKeyboardShortcuts !== false, // Default true
             enableDOMObserver: options.enableDOMObserver !== false, // Default true
             enableModifications: options.enableModifications !== false, // Default true
+            enableNavigation: options.enableNavigation !== false, // Default true
             debugMode: options.debugMode === true // Default false
         };
         
@@ -32,6 +34,7 @@ export class InterceptorCore {
         this.modificationEngine = null;
         this.domObserver = null;
         this.keyboardShortcuts = null;
+        this.navigationIntegration = null;
         
         // Estado y estadísticas
         this.stats = {
@@ -52,11 +55,9 @@ export class InterceptorCore {
      */
     async initialize() {
         if (this.isInitialized) {
-            console.log('⚠️ Interceptor ya está inicializado');
             return;
         }
         
-        console.log('🚀 Inicializando Interceptor Core...');
         
         try {
             // Verificar entorno
@@ -66,7 +67,6 @@ export class InterceptorCore {
             }
             
             if (!isSafeEnvironment()) {
-                console.warn('⚠️ Entorno no seguro para el interceptor');
                 showInterceptorNotification('Interceptor no disponible en este entorno', 'warning');
                 return;
             }
@@ -78,7 +78,6 @@ export class InterceptorCore {
             this.setupEventListeners();
             
             this.isInitialized = true;
-            console.log('✅ Interceptor Core inicializado exitosamente');
             
             // Auto-start si está habilitado
             if (this.config.autoStart) {
@@ -86,7 +85,6 @@ export class InterceptorCore {
             }
             
         } catch (error) {
-            console.error('❌ Error inicializando Interceptor Core:', error);
             showInterceptorNotification('Error inicializando interceptor', 'error');
         }
     }
@@ -95,27 +93,27 @@ export class InterceptorCore {
      * Inicializa todos los módulos del interceptor
      */
     async initializeModules() {
-        console.log('📦 Inicializando módulos...');
         
         // 1. Motor de modificaciones
         if (this.config.enableModifications) {
             this.modificationEngine = new ModificationEngine();
-            console.log('✅ ModificationEngine inicializado');
         }
         
         // 2. Observador DOM
         if (this.config.enableDOMObserver && this.modificationEngine) {
             this.domObserver = new DOMObserver(this.modificationEngine);
-            console.log('✅ DOMObserver inicializado');
         }
         
         // 3. Atajos de teclado
         if (this.config.enableKeyboardShortcuts) {
             this.keyboardShortcuts = new KeyboardShortcuts(this);
-            console.log('✅ KeyboardShortcuts inicializado');
         }
         
-        console.log('📦 Todos los módulos inicializados');
+        // 4. Interceptor de navegación
+        if (this.config.enableNavigation) {
+            this.navigationIntegration = getNavigationIntegration();
+        }
+        
     }
     
     /**
@@ -125,7 +123,6 @@ export class InterceptorCore {
         // Listener para cambios de página
         const handlePageChange = () => {
             if (this.isActive) {
-                console.log('📄 Cambio de página detectado, reaplicando modificaciones...');
                 setTimeout(() => {
                     if (this.domObserver) {
                         this.domObserver.forceExecution();
@@ -155,7 +152,6 @@ export class InterceptorCore {
         // Listener para visibilidad de página
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && this.isActive) {
-                console.log('👁️ Página visible, verificando modificaciones...');
                 setTimeout(() => {
                     if (this.domObserver) {
                         this.domObserver.forceExecution();
@@ -173,21 +169,23 @@ export class InterceptorCore {
      */
     start() {
         if (!this.isInitialized) {
-            console.error('❌ Interceptor no está inicializado');
             return false;
         }
         
         if (this.isActive) {
-            console.log('⚠️ Interceptor ya está activo');
             return true;
         }
         
-        console.log('▶️ Iniciando Interceptor...');
         
         try {
             // Iniciar observador DOM
             if (this.domObserver) {
                 this.domObserver.start();
+            }
+            
+            // Activar interceptor de navegación
+            if (this.navigationIntegration) {
+                this.navigationIntegration.activate();
             }
             
             // Aplicar modificaciones iniciales
@@ -200,13 +198,11 @@ export class InterceptorCore {
             this.stats.totalActivations++;
             this.stats.lastActivity = Date.now();
             
-            console.log('✅ Interceptor iniciado exitosamente');
             showInterceptorNotification('Interceptor activado', 'success', 2000);
             
             return true;
             
         } catch (error) {
-            console.error('❌ Error iniciando interceptor:', error);
             showInterceptorNotification('Error iniciando interceptor', 'error');
             return false;
         }
@@ -217,11 +213,9 @@ export class InterceptorCore {
      */
     stop() {
         if (!this.isActive) {
-            console.log('⚠️ Interceptor ya está detenido');
             return true;
         }
         
-        console.log('⏹️ Deteniendo Interceptor...');
         
         try {
             // Detener observador DOM
@@ -229,16 +223,19 @@ export class InterceptorCore {
                 this.domObserver.stop();
             }
             
+            // Desactivar interceptor de navegación
+            if (this.navigationIntegration) {
+                this.navigationIntegration.deactivate();
+            }
+            
             this.isActive = false;
             this.stats.lastActivity = Date.now();
             
-            console.log('✅ Interceptor detenido exitosamente');
             showInterceptorNotification('Interceptor desactivado', 'info', 2000);
             
             return true;
             
         } catch (error) {
-            console.error('❌ Error deteniendo interceptor:', error);
             return false;
         }
     }
@@ -258,7 +255,6 @@ export class InterceptorCore {
      * Reinicia el interceptor completamente
      */
     restart() {
-        console.log('🔄 Reiniciando Interceptor...');
         
         this.stop();
         
@@ -275,11 +271,11 @@ export class InterceptorCore {
         const oldConfig = { ...this.config };
         this.config = { ...this.config, ...newConfig };
         
-        console.log('⚙️ Configuración actualizada:', newConfig);
         
         // Reinicializar módulos si es necesario
         if (this.config.enableDOMObserver !== oldConfig.enableDOMObserver ||
-            this.config.enableModifications !== oldConfig.enableModifications) {
+            this.config.enableModifications !== oldConfig.enableModifications ||
+            this.config.enableNavigation !== oldConfig.enableNavigation) {
             
             if (this.isActive) {
                 this.restart();
@@ -292,11 +288,9 @@ export class InterceptorCore {
      */
     forceModifications() {
         if (!this.isActive) {
-            console.log('⚠️ Interceptor no está activo');
             return 0;
         }
         
-        console.log('⚡ Forzando aplicación de modificaciones...');
         
         let totalModified = 0;
         
@@ -330,12 +324,14 @@ export class InterceptorCore {
             modules: {
                 modificationEngine: !!this.modificationEngine,
                 domObserver: !!this.domObserver,
-                keyboardShortcuts: !!this.keyboardShortcuts
+                keyboardShortcuts: !!this.keyboardShortcuts,
+                navigationIntegration: !!this.navigationIntegration
             },
             moduleStatus: {
                 modificationEngine: this.modificationEngine?.getStats() || null,
                 domObserver: this.domObserver?.getStatus() || null,
-                keyboardShortcuts: this.keyboardShortcuts?.getStats() || null
+                keyboardShortcuts: this.keyboardShortcuts?.getStats() || null,
+                navigationIntegration: this.navigationIntegration?.getStats() || null
             }
         };
     }
@@ -347,22 +343,12 @@ export class InterceptorCore {
         const status = this.getStatus();
         
         console.group('🎯 Interceptor Core Status');
-        console.log('Inicializado:', status.isInitialized);
-        console.log('Activo:', status.isActive);
-        console.log('Tiempo activo:', `${status.uptime}s`);
-        console.log('Total activaciones:', status.stats.totalActivations);
-        console.log('Total modificaciones:', status.stats.totalModifications);
-        console.log('Última actividad:', new Date(status.stats.lastActivity).toLocaleTimeString());
         
         console.group('📦 Módulos');
-        console.log('ModificationEngine:', status.modules.modificationEngine ? '✅' : '❌');
-        console.log('DOMObserver:', status.modules.domObserver ? '✅' : '❌');
-        console.log('KeyboardShortcuts:', status.modules.keyboardShortcuts ? '✅' : '❌');
         console.groupEnd();
         
         console.group('⚙️ Configuración');
         for (const [key, value] of Object.entries(status.config)) {
-            console.log(`${key}:`, value);
         }
         console.groupEnd();
         
@@ -373,7 +359,6 @@ export class InterceptorCore {
      * Limpia recursos y event listeners
      */
     destroy() {
-        console.log('🗑️ Destruyendo Interceptor Core...');
         
         // Detener si está activo
         if (this.isActive) {
@@ -398,14 +383,12 @@ export class InterceptorCore {
         this.keyboardShortcuts = null;
         
         this.isInitialized = false;
-        console.log('✅ Interceptor Core destruido');
     }
 }
 
 // Función helper para crear una instancia global
 export function createInterceptorInstance(options = {}) {
     if (window.udemyInterceptorCore) {
-        console.log('⚠️ Ya existe una instancia del interceptor');
         return window.udemyInterceptorCore;
     }
     

@@ -31,7 +31,7 @@ class CourseDropdown {
     init() {
         this.createDropdown();
         this.setupEventListeners();
-        console.log('✅ CourseDropdown initialized');
+    
     }
 
     createDropdown() {
@@ -40,7 +40,6 @@ class CourseDropdown {
         this.container = document.getElementById(this.options.containerId);
         
         if (!this.triggerElement || !this.container) {
-            console.error('❌ CourseDropdown: Required elements not found');
             return;
         }
 
@@ -81,11 +80,9 @@ class CourseDropdown {
     }
 
     async show(forceRefresh = false) {
-        console.log('📚 Showing courses dropdown...');
         
         // Check if user is authenticated first
         if (!this.isUserAuthenticated()) {
-            console.warn('⚠️ User not authenticated');
             this.render(null, false, 'Por favor inicia sesión para ver tus cursos');
             this.dropdownElement.classList.add('show');
             this.isVisible = true;
@@ -108,7 +105,6 @@ class CourseDropdown {
     }
 
     hide() {
-        console.log('📚 Hiding courses dropdown...');
         this.dropdownElement.classList.remove('show');
         this.isVisible = false;
     }
@@ -118,7 +114,6 @@ class CourseDropdown {
         
         // Return cached data if still valid and not forcing refresh
         if (!forceRefresh && this.coursesCache && (now - this.cacheTimestamp < this.options.cacheDuration)) {
-            console.log('📚 Using cached courses data');
             return this.coursesCache;
         }
 
@@ -128,8 +123,6 @@ class CourseDropdown {
             throw new Error('No auth token found in app storage. Please log in again.');
         }
 
-        console.log('📚 Fetching user courses from backend...');
-        console.log('🔑 Using auth token from app localStorage');
 
         // Make API call through main process
         const response = await window.electronAPI.invoke(this.options.apiEndpoint, {
@@ -137,12 +130,7 @@ class CourseDropdown {
             forceRefresh: forceRefresh
         });
 
-        console.log('📡 API Response received:', {
-            success: response?.success,
-            hasData: !!response?.data,
-            dataType: typeof response?.data,
-            isArray: Array.isArray(response?.data),
-        });
+      
 
         if (response && response.success) {
             // Ensure response.data is always an array
@@ -158,7 +146,6 @@ class CourseDropdown {
             
             this.coursesCache = coursesData;
             this.cacheTimestamp = now;
-            console.log('✅ Courses fetched successfully:', this.coursesCache.length);
             return this.coursesCache;
         } else {
             throw new Error(response?.error || 'Failed to fetch courses');
@@ -170,7 +157,6 @@ class CourseDropdown {
 
         // Ensure courses is always an array when provided
         if (courses && !Array.isArray(courses)) {
-            console.warn('⚠️ Courses data is not an array:', typeof courses, courses);
             if (typeof courses === 'object') {
                 courses = courses.courses || courses.results || courses.data || [];
             } else {
@@ -255,7 +241,6 @@ class CourseDropdown {
     }
 
     navigateToCourse(courseId, courseUrl) {
-        console.log('🎯 Navigating to course:', courseId, courseUrl);
         this.hide();
         
         if (this.options.onCourseClick) {
@@ -269,11 +254,7 @@ class CourseDropdown {
         const isAuthenticated = window.authManager ? 
             window.authManager.isAuthenticated() : 
             !!authToken;
-        
-        console.log('🔐 Authentication check:', {
-            hasToken: !!authToken,
-            isAuthenticated: isAuthenticated
-        });
+       
         
         return isAuthenticated && !!authToken;
     }
@@ -294,7 +275,6 @@ class CourseDropdown {
     }
 
     invalidateCache() {
-        console.log('🗑️ Invalidating courses cache...');
         this.coursesCache = null;
         this.cacheTimestamp = 0;
     }

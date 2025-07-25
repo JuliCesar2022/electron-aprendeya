@@ -65,7 +65,6 @@ export class ModificationEngine {
         // Validar campos requeridos
         for (const field of requiredFields) {
             if (!config[field]) {
-                console.error(`❌ Campo requerido faltante: ${field}`);
                 return false;
             }
         }
@@ -81,7 +80,6 @@ export class ModificationEngine {
         
         this.modifications.set(config.id, config);
         
-        console.log(`✅ Modificación añadida: ${config.id} - ${config.description || 'Sin descripción'}`);
         return true;
     }
     
@@ -92,7 +90,6 @@ export class ModificationEngine {
     removeModification(id) {
         if (this.modifications.has(id)) {
             this.modifications.delete(id);
-            console.log(`🗑️ Modificación eliminada: ${id}`);
             return true;
         }
         return false;
@@ -107,7 +104,6 @@ export class ModificationEngine {
         const config = this.modifications.get(id);
         if (config) {
             config.enabled = enabled;
-            console.log(`🔄 Modificación ${id}: ${enabled ? 'habilitada' : 'deshabilitada'}`);
             return true;
         }
         return false;
@@ -157,14 +153,12 @@ export class ModificationEngine {
                     this.markElementAsModified(element, config.id);
                     modified++;
                     
-                    console.log(`🔄 [${config.id}] "${currentText}" → "${newContent}"`);
                 }
             });
             
             return modified;
             
         } catch (error) {
-            console.error(`❌ Error aplicando modificación ${config.id}:`, error);
             return 0;
         }
     }
@@ -175,7 +169,6 @@ export class ModificationEngine {
      */
     applyAllModifications() {
         if (!this.isEnabled) {
-            console.log('⚠️ Motor de modificaciones deshabilitado');
             return 0;
         }
         
@@ -191,7 +184,6 @@ export class ModificationEngine {
         }
         
         if (totalModified > 0) {
-            console.log(`✅ Aplicadas ${totalModified} modificaciones en total`);
         }
         
         return totalModified;
@@ -202,7 +194,6 @@ export class ModificationEngine {
      */
     checkAndUpdateCourseModifications() {
         if (window.lastCacheUpdate && (Date.now() - window.lastCacheUpdate) > 120000) {
-            console.log('🔄 Cache de cursos expirado, actualizando modificaciones...');
             // Esta función se podría expandir para actualizar modificaciones dinámicas
         }
     }
@@ -233,7 +224,6 @@ export class ModificationEngine {
                 element.innerText = text;
             }
         } catch (error) {
-            console.error('❌ Error estableciendo texto:', error);
         }
     }
     
@@ -289,16 +279,11 @@ export class ModificationEngine {
         console.group('📝 Modificaciones Registradas');
         
         if (this.modifications.size === 0) {
-            console.log('No hay modificaciones registradas');
         } else {
             for (const [id, config] of this.modifications) {
-                console.log(`${config.enabled ? '✅' : '❌'} ${id}: ${config.description || 'Sin descripción'}`);
-                console.log(`   Selector: ${config.selector}`);
-                console.log(`   Patrón: ${config.originalPattern}`);
             }
         }
         
-        console.log(`Motor ${this.isEnabled ? 'habilitado' : 'deshabilitado'}`);
         console.groupEnd();
     }
     
@@ -308,7 +293,6 @@ export class ModificationEngine {
      */
     setEnabled(enabled) {
         this.isEnabled = enabled;
-        console.log(`🔄 Motor de modificaciones ${enabled ? 'habilitado' : 'deshabilitado'}`);
     }
     
     /**
@@ -355,7 +339,6 @@ export class ModificationEngine {
         const fullname = this.getCookieValue('user_fullname');
         
         if (fullname && fullname !== 'null' && fullname !== '') {
-            console.log('👤 Usuario detectado:', fullname);
             this.setupUserModifications(fullname);
             return true;
         }
@@ -364,15 +347,12 @@ export class ModificationEngine {
         try {
             const localFullname = localStorage.getItem('user_fullname');
             if (localFullname && localFullname !== 'null' && localFullname !== '') {
-                console.log('👤 Usuario detectado desde localStorage:', localFullname);
                 this.setupUserModifications(localFullname);
                 return true;
             }
         } catch (error) {
-            console.warn('⚠️ Error accediendo localStorage:', error);
         }
         
-        console.warn('⚠️ No se pudo detectar información de usuario');
         return false;
     }
     
@@ -381,7 +361,6 @@ export class ModificationEngine {
      * @param {string} fullname - Nombre completo del usuario
      */
     setupUserModifications(fullname) {
-        console.log('🔧 Configurando modificaciones para usuario:', fullname);
         
         // Saludo principal en header de usuario
         this.addModification({
@@ -439,6 +418,5 @@ export class ModificationEngine {
             priority: 'high'
         });
         
-        console.log(`✅ Configuradas ${this.modifications.size} modificaciones para ${fullname} con inicial "${initial}"`);
     }
 }

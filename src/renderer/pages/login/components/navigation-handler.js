@@ -5,7 +5,6 @@ class NavigationHandler {
     constructor() {
         this.setupEventListeners();
         this.setupKeyboardShortcuts();
-        console.log('✅ NavigationHandler component initialized');
     }
     
     setupEventListeners() {
@@ -28,25 +27,21 @@ class NavigationHandler {
     }
     
     goToHome() {
-        console.log('🏠 Navigating to home page...');
         
         if (window.electronAPI) {
             window.electronAPI.send('go-to-home');
         } else {
             // Fallback for browser testing
-            console.log('🔄 Fallback navigation to index page');
             window.location.href = '../index/index.html';
         }
     }
     
     goToUdemy() {
-        console.log('🎓 Navigating to Udemy WebView...');
         
         if (window.electronAPI) {
             window.electronAPI.send('go-to-udemy-webview');
         } else {
             // Fallback for browser testing
-            console.log('🔄 Fallback navigation to Udemy');
             window.location.href = 'https://www.udemy.com/';
         }
     }

@@ -47,7 +47,6 @@ class AuthManager {
 
   logout() {
     Object.values(this.storageKeys).forEach(localStorage.removeItem.bind(localStorage));
-    console.log("🚪 Sesión cerrada");
   }
 
   isTokenExpired() {

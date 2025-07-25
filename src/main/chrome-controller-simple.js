@@ -20,7 +20,6 @@ class SimpleChromeController {
         for (const chromePath of paths) {
             try {
                 if (fs.existsSync(chromePath)) {
-                    console.log('✅ Chrome encontrado:', chromePath);
                     return chromePath;
                 }
             } catch (error) {
@@ -39,7 +38,6 @@ class SimpleChromeController {
         fs.mkdirSync(profilePath, { recursive: true });
         
         if (cookies && cookies.length > 0) {
-            console.log('🍪 Creando perfil con', cookies.length, 'cookies...');
             
             // Crear archivo de cookies en formato Chrome
             const cookiesPath = path.join(profilePath, 'Default');
@@ -50,7 +48,6 @@ class SimpleChromeController {
             const scriptPath = path.join(profilePath, 'startup.js');
             fs.writeFileSync(scriptPath, startupScript);
             
-            console.log('✅ Perfil creado con cookies en:', profilePath);
         }
         
         return profilePath;
@@ -58,7 +55,6 @@ class SimpleChromeController {
 
     // Generar script simple para cookies
     generateCookieScript(cookies) {
-        let script = '// Script de cookies\nconsole.log("Inyectando cookies...");\n';
         
         for (const cookie of cookies) {
             const name = cookie.name || '';
@@ -68,16 +64,13 @@ class SimpleChromeController {
             script += `
 try {
     document.cookie = "${name}=${value}; domain=${domain}; path=/; expires=" + new Date(Date.now() + 365*24*60*60*1000).toUTCString();
-    console.log("Cookie establecida: ${name}");
 } catch(e) {
-    console.error("Error con cookie ${name}:", e);
 }
 `;
         }
         
         script += `
 setTimeout(() => {
-    console.log("Cookies aplicadas. Navegando a Udemy...");
     if (window.location.hostname !== "www.udemy.com") {
         window.location.href = "https://www.udemy.com";
     }
@@ -103,7 +96,6 @@ setTimeout(() => {
                 'https://www.udemy.com'
             ];
 
-            console.log('🚀 Lanzando Chrome con argumentos:', args);
 
             this.chromeProcess = spawn(chromePath, args, {
                 detached: false,
@@ -111,18 +103,15 @@ setTimeout(() => {
             });
 
             this.chromeProcess.on('close', (code) => {
-                console.log('Chrome cerrado con código:', code);
                 this.isActive = false;
                 this.chromeProcess = null;
             });
 
             this.chromeProcess.on('error', (error) => {
-                console.error('Error Chrome:', error);
                 this.isActive = false;
             });
 
             this.isActive = true;
-            console.log('✅ Chrome lanzado exitosamente');
 
             // Después de 5 segundos, inyectar cookies via JavaScript
             if (cookies && cookies.length > 0) {
@@ -134,14 +123,12 @@ setTimeout(() => {
             return true;
 
         } catch (error) {
-            console.error('❌ Error lanzando Chrome:', error);
             return false;
         }
     }
 
     // Método simple para inyectar cookies
     async injectCookiesSimple(cookies) {
-        console.log('🍪 Intentando inyectar', cookies.length, 'cookies...');
         
         // Crear HTML temporal con las cookies
         const os = require('os');
@@ -151,7 +138,6 @@ setTimeout(() => {
         for (const cookie of cookies) {
             cookieCode += `
                 document.cookie = "${cookie.name}=${cookie.value}; domain=${cookie.domain || '.udemy.com'}; path=/; expires=" + new Date(Date.now() + 365*24*60*60*1000).toUTCString();
-                console.log("Cookie establecida: ${cookie.name}");
             `;
         }
 
@@ -164,11 +150,9 @@ setTimeout(() => {
     <h1>Transferindo cookies a Chrome...</h1>
     <p>Esto debería tomar solo unos segundos...</p>
     <script>
-        console.log("🍪 Iniciando transferencia de cookies...");
         ${cookieCode}
         
         setTimeout(() => {
-            console.log("✅ Cookies transferidas. Navegando a Udemy...");
             window.location.href = "https://www.udemy.com";
         }, 2000);
     </script>
@@ -176,7 +160,6 @@ setTimeout(() => {
 </html>`;
 
         fs.writeFileSync(htmlPath, html);
-        console.log('📄 Archivo HTML de cookies creado:', htmlPath);
         
         // Abrir el HTML en Chrome existente (si es posible)
         // Esto es un fallback simple
@@ -190,10 +173,8 @@ setTimeout(() => {
                 this.chromeProcess.kill();
                 this.chromeProcess = null;
                 this.isActive = false;
-                console.log('✅ Chrome cerrado');
                 return true;
             } catch (error) {
-                console.error('❌ Error cerrando Chrome:', error);
                 return false;
             }
         }

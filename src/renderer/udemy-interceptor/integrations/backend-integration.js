@@ -31,11 +31,9 @@ export class BackendIntegration {
      */
     async initialize() {
         if (!hasElectronAPI()) {
-            console.log('ℹ️ Backend integration no disponible - modo browser');
             return;
         }
         
-        console.log('🔗 Inicializando integración con backend...');
         
         // Verificar conectividad
         await this.checkConnection();
@@ -63,15 +61,12 @@ export class BackendIntegration {
             this.isOnline = response === 'pong';
             
             if (this.isOnline) {
-                console.log('✅ Conexión con backend establecida');
             } else {
-                console.log('❌ Sin conexión con backend');
             }
             
             return this.isOnline;
             
         } catch (error) {
-            console.error('❌ Error verificando conexión con backend:', error);
             this.isOnline = false;
             return false;
         }
@@ -88,7 +83,6 @@ export class BackendIntegration {
         // Listener para cambios de conectividad
         window.electronAPI.receive('backend-status-changed', (status) => {
             this.isOnline = status.online;
-            console.log(`🔗 Estado del backend: ${status.online ? 'conectado' : 'desconectado'}`);
             
             if (status.online && this.config.autoSync) {
                 this.syncData();
@@ -97,7 +91,6 @@ export class BackendIntegration {
         
         // Listener para actualizaciones de configuración
         window.electronAPI.receive('config-updated', (newConfig) => {
-            console.log('⚙️ Configuración actualizada desde backend');
             this.handleConfigUpdate(newConfig);
         });
     }
@@ -116,7 +109,6 @@ export class BackendIntegration {
             }
         }, this.config.syncIntervalMs);
         
-        console.log(`⏰ Auto-sync iniciado cada ${this.config.syncIntervalMs / 1000}s`);
     }
     
     /**
@@ -126,7 +118,6 @@ export class BackendIntegration {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
-            console.log('⏰ Auto-sync detenido');
         }
     }
     
@@ -140,7 +131,6 @@ export class BackendIntegration {
         }
         
         try {
-            console.log('🔄 Sincronizando datos con backend...');
             
             // Obtener datos locales para sincronizar
             const localData = this.collectLocalData();
@@ -150,7 +140,6 @@ export class BackendIntegration {
             
             if (syncResult.success) {
                 this.lastSync = Date.now();
-                console.log('✅ Sincronización completada exitosamente');
                 
                 // Procesar datos recibidos del backend
                 if (syncResult.data) {
@@ -159,12 +148,10 @@ export class BackendIntegration {
                 
                 return true;
             } else {
-                console.error('❌ Error en sincronización:', syncResult.error);
                 return false;
             }
             
         } catch (error) {
-            console.error('❌ Error sincronizando datos:', error);
             return false;
         }
     }
@@ -259,7 +246,6 @@ export class BackendIntegration {
             };
             
         } catch (error) {
-            console.error('❌ Error extrayendo información del curso:', error);
             return null;
         }
     }
@@ -294,7 +280,6 @@ export class BackendIntegration {
      * @param {Object} command - Comando a ejecutar
      */
     executeBackendCommand(command) {
-        console.log('⚡ Ejecutando comando del backend:', command.type);
         
         switch (command.type) {
             case 'restart-interceptor':
@@ -322,7 +307,6 @@ export class BackendIntegration {
                 break;
                 
             default:
-                console.warn('⚠️ Comando desconocido del backend:', command.type);
         }
     }
     
@@ -346,7 +330,6 @@ export class BackendIntegration {
             return result.success;
             
         } catch (error) {
-            console.error('❌ Error enviando estadísticas:', error);
             return false;
         }
     }
@@ -375,13 +358,11 @@ export class BackendIntegration {
             const result = await window.electronAPI.invoke('report-error', errorReport);
             
             if (result.success) {
-                console.log('📊 Error reportado al backend');
             }
             
             return result.success;
             
         } catch (reportError) {
-            console.error('❌ Error reportando error al backend:', reportError);
             return false;
         }
     }
@@ -400,7 +381,6 @@ export class BackendIntegration {
             return config;
             
         } catch (error) {
-            console.error('❌ Error obteniendo configuración:', error);
             return null;
         }
     }
@@ -426,11 +406,6 @@ export class BackendIntegration {
         const status = this.getStatus();
         
         console.group('🔗 Backend Integration Status');
-        console.log('Online:', status.isOnline);
-        console.log('Has Electron API:', status.hasElectronAPI);
-        console.log('Auto-sync:', status.autoSyncEnabled);
-        console.log('Última sync:', status.lastSync ? new Date(status.lastSync).toLocaleTimeString() : 'Nunca');
-        console.log('Configuración:', status.config);
         console.groupEnd();
     }
     
@@ -438,13 +413,11 @@ export class BackendIntegration {
      * Limpia recursos y detiene procesos
      */
     destroy() {
-        console.log('🗑️ Destruyendo Backend Integration...');
         
         this.stopAutoSync();
         this.isOnline = false;
         this.lastSync = null;
         
-        console.log('✅ Backend Integration destruido');
     }
 }
 

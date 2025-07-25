@@ -20,7 +20,6 @@ export function showInterceptorNotification(message, type = 'info', autoClose = 
             autoClose
         });
     } else {
-        console.log(`[Interceptor ${type.toUpperCase()}] ${message}`);
     }
 }
 
@@ -43,7 +42,6 @@ export function showInterceptorLoader(message, persistent = false) {
             ]
         });
     } else {
-        console.log(`[Interceptor LOADING] ${message}`);
     }
 }
 

@@ -14,11 +14,9 @@ import { hasElectronAPI } from '../utils/environment-detector.js';
  * @returns {Promise<boolean>} True si se abrió exitosamente
  */
 export async function openCourseInBrave(courseUrl) {
-    console.log('🎓 Abriendo curso en Brave con modo kiosko:', courseUrl);
     
     // Verificar disponibilidad de APIs
     if (!hasElectronAPI()) {
-        console.log('ℹ️ Funcionalidad Brave no disponible en este contexto');
         showInterceptorNotification('Funcionalidad no disponible en WebView', 'warning');
         return false;
     }
@@ -33,7 +31,6 @@ export async function openCourseInBrave(courseUrl) {
         hideInterceptorLoader();
         
         if (success) {
-            console.log('✅ Curso abierto exitosamente en Brave');
             showInterceptorNotification('Curso abierto en Brave Browser', 'success');
             return true;
         } else {
@@ -42,7 +39,6 @@ export async function openCourseInBrave(courseUrl) {
         
     } catch (error) {
         hideInterceptorLoader();
-        console.error('❌ Error abriendo curso en Brave:', error);
         showInterceptorNotification(`Error: ${error.message}`, 'error');
         return false;
     }
@@ -58,13 +54,11 @@ export async function transferSessionToBrave() {
     }
     
     try {
-        console.log('🍪 Transfiriendo sesión a Brave...');
         
         // Obtener cookies importantes
         const cookies = extractSessionCookies();
         
         if (cookies.length === 0) {
-            console.log('⚠️ No se encontraron cookies de sesión');
             return false;
         }
         
@@ -72,15 +66,12 @@ export async function transferSessionToBrave() {
         const success = await window.electronAPI.invoke('transfer-cookies-to-brave', cookies);
         
         if (success) {
-            console.log('✅ Sesión transferida exitosamente a Brave');
             return true;
         } else {
-            console.log('❌ Error transfiriendo sesión a Brave');
             return false;
         }
         
     } catch (error) {
-        console.error('❌ Error en transferencia de sesión:', error);
         return false;
     }
 }
@@ -118,7 +109,6 @@ export function extractSessionCookies() {
         }
     });
     
-    console.log(`🍪 Extraídas ${cookies.length} cookies de sesión`);
     return cookies;
 }
 
@@ -137,7 +127,6 @@ function getCookieValue(name) {
         }
         return null;
     } catch (error) {
-        console.error(`❌ Error obteniendo cookie ${name}:`, error);
         return null;
     }
 }
@@ -155,7 +144,6 @@ export async function isBraveAvailable() {
         const available = await window.electronAPI.invoke('check-brave-availability');
         return available;
     } catch (error) {
-        console.error('❌ Error verificando disponibilidad de Brave:', error);
         return false;
     }
 }
@@ -170,7 +158,6 @@ export async function configureBraveForUdemy() {
     }
     
     try {
-        console.log('⚙️ Configurando Brave para Udemy...');
         
         const config = {
             // Configuraciones de video
@@ -194,15 +181,12 @@ export async function configureBraveForUdemy() {
         const success = await window.electronAPI.invoke('configure-brave', config);
         
         if (success) {
-            console.log('✅ Brave configurado exitosamente');
             return true;
         } else {
-            console.log('❌ Error configurando Brave');
             return false;
         }
         
     } catch (error) {
-        console.error('❌ Error en configuración de Brave:', error);
         return false;
     }
 }
@@ -217,21 +201,17 @@ export async function closeBraveInstances() {
     }
     
     try {
-        console.log('🛑 Cerrando instancias de Brave...');
         
         const success = await window.electronAPI.invoke('close-brave-instances');
         
         if (success) {
-            console.log('✅ Instancias de Brave cerradas');
             showInterceptorNotification('Brave Browser cerrado', 'info');
             return true;
         } else {
-            console.log('⚠️ No se encontraron instancias de Brave');
             return false;
         }
         
     } catch (error) {
-        console.error('❌ Error cerrando Brave:', error);
         return false;
     }
 }
@@ -249,7 +229,6 @@ export async function getBraveInstancesInfo() {
         const info = await window.electronAPI.invoke('get-brave-instances');
         return info || { count: 0, instances: [] };
     } catch (error) {
-        console.error('❌ Error obteniendo info de Brave:', error);
         return { count: 0, instances: [] };
     }
 }
@@ -274,7 +253,6 @@ export async function openUrlInBrave(url, options = {}) {
         
         const finalOptions = { ...defaultOptions, ...options };
         
-        console.log('🌐 Abriendo URL en Brave:', url);
         
         if (finalOptions.transferCookies) {
             await transferSessionToBrave();
@@ -288,7 +266,6 @@ export async function openUrlInBrave(url, options = {}) {
         return success;
         
     } catch (error) {
-        console.error('❌ Error abriendo URL en Brave:', error);
         return false;
     }
 }

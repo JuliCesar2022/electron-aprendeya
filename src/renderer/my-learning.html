@@ -545,10 +545,8 @@
                     } else {
                         window.location.href = 'https://www.udemy.com/';
                     }
-                    console.log('🚫 Navegación hacia atrás interceptada - redirigiendo a Udemy');
                 } else {
                     // Si no hay sesión, permitir navegación normal
-                    console.log('✅ Navegación hacia atrás permitida - no hay sesión activa');
                 }
             });
         }
@@ -557,7 +555,6 @@
             // Initialize global UpdateManager
             if (window.UpdateManager) {
                 const updateManager = UpdateManager.createGlobalInstance();
-                console.log('✅ UpdateManager global inicializado en my-learning');
             }
             
             // Prevenir navegación hacia atrás al index
@@ -634,7 +631,6 @@
                 renderCourses(allMyCourses); // Renderizar todos los cursos inicialmente
 
             } catch (error) {
-                console.error(error);
                 container.innerHTML = '<p style="color:red;">Error al cargar tus cursos.</p>';
             }
         }
@@ -682,7 +678,6 @@
         async function openCourse(url) {
             if (window.electronAPI) {
                 try {
-                    console.log('🎓 Abriendo curso en Brave con sesión transferida:', url);
                     
                     // Mostrar mensaje de carga
                     showLoadingMessage('Cargando curso...');
@@ -693,17 +688,14 @@
                     hideLoadingMessage();
                     
                     if (success) {
-                        console.log('✅ Curso abierto exitosamente en Brave');
                         showNotification('¡Curso abierto en Brave con tu sesión!', 'success');
                     } else {
-                        console.error('❌ Error abriendo curso en Brave');
                         showNotification('Error abriendo el curso', 'error');
                         // Fallback: abrir en Electron
                         window.electronAPI.send('webview-navigate', url);
                     }
                 } catch (error) {
                     hideLoadingMessage();
-                    console.error('❌ Error:', error);
                     showNotification('Error abriendo el curso', 'error');
                     // Fallback: abrir en Electron
                     window.electronAPI.send('webview-navigate', url);
@@ -805,7 +797,6 @@
                 }
                 
             } catch (error) {
-                console.error('Error al cerrar sesión:', error);
             }
         }
     </script>

@@ -21,7 +21,6 @@ class UdemyWebViewPage {
     }
 
     async init() {
-        console.log('🚀 Initializing Udemy WebView Page...');
         
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
@@ -35,7 +34,6 @@ class UdemyWebViewPage {
         // Get WebView reference
         this.webview = document.getElementById('udemy-webview');
         if (!this.webview) {
-            console.error('❌ WebView element not found');
             return;
         }
 
@@ -57,7 +55,6 @@ class UdemyWebViewPage {
         // Notify main process that page is ready
         this.notifyPageReady();
         
-        console.log('✅ Udemy WebView Page initialized successfully');
     }
 
     initializeAuthManager() {
@@ -65,19 +62,16 @@ class UdemyWebViewPage {
             window.authManager = new AuthManager();
         }
         this.authManager = window.authManager;
-        console.log('✅ Auth Manager initialized');
     }
 
     initializeDialogSystem() {
         this.dialog = DialogManager.createGlobalInstance();
-        console.log('✅ Dialog System initialized');
     }
 
     initializeComponents() {
         // Initialize Global UpdateManager
         if (window.UpdateManager) {
             this.updateManager = UpdateManager.createGlobalInstance();
-            console.log('✅ UpdateManager global inicializado en udemy-webview');
         }
         
         // Initialize Navigation Bar
@@ -96,18 +90,20 @@ class UdemyWebViewPage {
         // Initialize Floating Widget
         this.floatingWidget = new FloatingWidget({
             onMinimize: (isMinimized) => {
-                console.log('Widget minimized:', isMinimized);
             },
             onClose: () => {
-                console.log('Widget closed');
             }
         });
 
         // Make components globally accessible
         window.coursePage = this;
         window.courseDropdown = this.courseDropdown;
+        
+        // Register WebView for hot reload in development
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+            this.setupHotReload();
+        }
 
-        console.log('✅ All components initialized');
     }
 
     setupWebViewEvents() {
@@ -115,41 +111,126 @@ class UdemyWebViewPage {
 
         // WebView DOM ready
         this.webview.addEventListener('dom-ready', () => {
-            console.log('🌐 WebView DOM ready');
-            setTimeout(() => this.injectInterceptor(), 1000);
+            // Usar estrategia de reintentos para interceptor
+            this.initializeInterceptorWithRetry();
+            
+            // INTERCEPTOR DE NAVEGACIÓN: Forzar navegación en WebView
+            this.webview.executeJavaScript(`
+                
+                // INTERCEPTAR Y FORZAR NAVEGACIÓN (solución que funciona)
+                document.addEventListener('click', function(e) {
+                    const target = e.target.closest('a') || e.target;
+                    
+                    if (target.tagName === 'A' && target.href) {
+                        
+                        // Prevenir comportamiento por defecto y forzar navegación
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        
+                        // Forzar navegación directa
+                        window.location.href = target.href;
+                    }
+                }, true); // Capture phase
+            `);
         });
 
         // WebView navigation events
         this.webview.addEventListener('did-navigate', (event) => {
-            console.log('🔍 WebView navigated to:', event.url);
             if (event.url.includes('udemy.com')) {
-                setTimeout(() => {
-                    this.injectInterceptor();
-                }, 1000);
+                // Limpiar interceptor anterior y reinyectar con reintentos
+                this.cleanupPreviousInterceptor();
+                this.initializeInterceptorWithRetry();
             }
         });
 
         this.webview.addEventListener('did-navigate-in-page', (event) => {
-            console.log('🔍 WebView navigated in-page to:', event.url);
             if (event.url.includes('udemy.com')) {
-                setTimeout(() => {
-                    this.injectInterceptor();
-                }, 1500);
+                // Para navegación en página, solo reinicializar si es necesario
+                this.checkAndReinitializeInterceptor();
+            }
+        });
+
+        // Monitoreo de navegación (opcional para debug)
+        this.webview.addEventListener('will-navigate', (event) => {
+        });
+
+        this.webview.addEventListener('did-fail-navigate', (event) => {
+        });
+
+        // Interceptar nuevas ventanas para mantener navegación en el mismo WebView
+        this.webview.addEventListener('new-window', (event) => {
+            
+            // Prevenir que se abra nueva ventana
+            event.preventDefault();
+            
+            try {
+                // Intentar navegar internamente en el WebView
+                this.webview.loadURL(event.url);
+            } catch (error) {
+                
+                // Fallback: cambiar src
+                this.webview.src = event.url;
             }
         });
 
         // WebView load events
         this.webview.addEventListener('did-finish-load', () => {
-            console.log('✅ WebView finished loading');
         });
 
         this.webview.addEventListener('did-fail-load', (event) => {
-            console.error('❌ WebView failed to load:', event);
+            // Filtrar errores no críticos comunes
+            const ignoredUrls = [
+                'gtm.udemy.com', // Google Tag Manager
+                'sw_iframe.html', // Service Worker iframes
+                'googletagmanager.com',
+                'google-analytics.com',
+                '/service_worker/',
+                '_/service_worker/'
+            ];
+            
+            const isIgnoredError = ignoredUrls.some(url => 
+                event.validatedURL && event.validatedURL.includes(url)
+            );
+            
+            // Solo mostrar errores críticos
+            if (!isIgnoredError && event.isMainFrame) {
+                   
+                // Mostrar error al usuario solo si es crítico
+                if (this.dialog) {
+                    this.dialog.toast({
+                        type: 'error',
+                        title: 'Error de Carga',
+                        message: 'Error cargando la página principal',
+                        autoClose: 5000
+                    });
+                }
+            }
         });
 
-        // WebView console messages
+        // WebView console messages - IMPORTANTE: habilitar para ver errores del interceptor
         this.webview.addEventListener('console-message', (event) => {
-            console.log('📨 WebView Console:', event.message);
+            const prefix = '[WebView]';
+            const message = `${prefix} ${event.message}`;
+            const source = event.sourceId ? `(${event.sourceId}:${event.line})` : '';
+            
+            // Mostrar todos los logs del webview en la consola principal
+            switch (event.level) {
+                case 0: // LOG
+                    console.log(message, source);
+                    break;
+                case 1: // WARNING  
+                    console.warn(message, source);
+                    break;
+                case 2: // ERROR
+                    console.error(message, source);
+                    break;
+                case 3: // DEBUG
+                    console.debug(message, source);
+                    break;
+                default:
+                    console.log(message, source);
+            }
         });
     }
 
@@ -158,18 +239,28 @@ class UdemyWebViewPage {
 
         // Listen for WebView navigation requests
         window.electronAPI.receive('webview-navigate', (url) => {
-            console.log('📡 WebView navigation request:', url);
             this.navigateToUrl(url);
         });
 
         // Listen for logout events
         window.electronAPI.receive('perform-logout', () => {
-            console.log('🔐 Logout event received from main process');
             this.handleLogoutFromMain();
         });
 
         // Listen for interceptor events
         this.setupInterceptorListeners();
+        console.log('🔗 Escuchando eventos del interceptor...');
+        
+        // Setup message listeners from webview
+        this.setupWebViewMessageListeners();
+        
+        // Listen for webview notifications
+        window.electronAPI.receive('webview-notification', (data) => {
+            this.showNotificationFromInterceptor(data);
+        });
+        
+        // Setup polling system for interceptor queues
+        this.setupInterceptorPolling();
     }
 
     setupInterceptorListeners() {
@@ -184,9 +275,187 @@ class UdemyWebViewPage {
         });
 
         window.electronAPI.receive('socket-message', (data) => {
-            console.log('📨 Socket message received:', data);
             this.floatingWidget.updateInfo(`Mensaje: ${data.type || 'Nuevo'}`, true);
         });
+    }
+
+    setupWebViewMessageListeners() {
+        console.log('🎯 Configurando listeners de WebView...');
+        
+        if (this.webview) {
+            // Método 1: Escuchar eventos IPC del WebView (correcto para Electron)
+            this.webview.addEventListener('ipc-message', (event) => {
+                console.log('📨 IPC Message recibido en PARENT:', event.channel, event.args);
+                
+                if (event.channel === 'udemy-interceptor-message') {
+                    const messageData = event.args[0];
+                    console.log('✅ Mensaje de interceptor via IPC en PARENT:', messageData);
+                    this.handleInterceptorMessage(messageData);
+                }
+            });
+            
+            // Método 2: Inyectar listener de DOM events en el WebView
+            this.webview.addEventListener('dom-ready', () => {
+                this.webview.executeJavaScript(`
+                    console.log('🎯 Configurando listener DOM en WebView...');
+                    
+                    // Inicializar cola de notificaciones
+                    if (!window.interceptorNotificationQueue) {
+                        window.interceptorNotificationQueue = [];
+                    }
+                    
+                    // Escuchar eventos customizados en el DOM del WebView
+                    document.addEventListener('udemy-interceptor-notification', function(event) {
+                        console.log('🔔 Evento interceptor recibido en WebView DOM:', event.detail);
+                        
+                        // Agregar a la cola para polling
+                        window.interceptorNotificationQueue.push(event.detail);
+                        console.log('✅ Notificación agregada a cola, total:', window.interceptorNotificationQueue.length);
+                    });
+                    
+                    console.log('✅ Listener DOM configurado en WebView');
+                `);
+            });
+            
+            console.log('✅ Listener DOM injection configurado');
+        } else {
+            console.error('❌ WebView no disponible para configurar listeners');
+        }
+        
+        // Método 3: Polling directo al WebView como solución definitiva
+        setInterval(() => {
+            if (this.webview) {
+                this.webview.executeJavaScript(`
+                    // Verificar si hay notificaciones pendientes en una cola global
+                    if (window.interceptorNotificationQueue && window.interceptorNotificationQueue.length > 0) {
+                        const notifications = [...window.interceptorNotificationQueue];
+                        window.interceptorNotificationQueue = []; // Limpiar cola
+                        notifications; // Retornar las notificaciones
+                    } else {
+                        null;
+                    }
+                `).then(notifications => {
+                    if (notifications && notifications.length > 0) {
+                        console.log('📨 Notificaciones obtenidas via POLLING:', notifications);
+                        notifications.forEach(notification => {
+                            console.log('✅ Procesando notificación via POLLING:', notification);
+                            this.handleInterceptorMessage(notification);
+                        });
+                    }
+                }).catch(error => {
+                    // Silenciar errores de polling
+                });
+            }
+        }, 500); // Revisar cada 500ms
+    }
+
+    handleInterceptorMessage(messageData) {
+        const { event, data } = messageData;
+        
+        console.log(`🎯 Procesando evento: ${event}`, data);
+        
+        switch (event) {
+            case 'show-notification':
+                console.log('🔔 Procesando notificación del interceptor:', data);
+                this.showNotificationFromInterceptor(data);
+                break;
+                
+            case 'course-save-attempt':
+                this.handleCourseSaveAttempt(data);
+                break;
+                
+            case 'course-enroll-attempt':
+                this.handleCourseEnrollAttempt(data);
+                break;
+                
+            case 'open-in-brave':
+                this.handleOpenInBrave(data);
+                break;
+                
+            default:
+        }
+    }
+
+    showNotificationFromInterceptor(data) {
+        console.log('🎨 Mostrando notificación:', data);
+        console.log('Dialog disponible:', !!this.dialog);
+        
+        if (this.dialog) {
+            // Usar el DialogManager para mostrar la notificación
+            this.dialog.toast({
+                type: data.type || 'info',
+                title: 'Udemy Interceptor',
+                message: data.message,
+                autoClose: 4000
+            });
+            console.log('✅ Notificación mostrada exitosamente');
+        } else {
+            console.error('❌ DialogManager no disponible');
+        }
+    }
+
+    handleCourseSaveAttempt(data) {
+        
+        // Notificar al proceso principal si es necesario
+        if (window.electronAPI) {
+            window.electronAPI.send('course-action', {
+                action: 'save',
+                payload: data.payload,
+                slug: data.slug
+            });
+        }
+        
+        // Mostrar notificación con DialogManager
+        if (this.dialog) {
+            this.dialog.toast({
+                type: 'info',
+                title: 'Guardando Curso',
+                message: `Guardando: ${data.payload.name}`,
+                autoClose: 3000
+            });
+        }
+    }
+
+    handleCourseEnrollAttempt(data) {
+        
+        // Notificar al proceso principal para abrir en Brave
+        if (window.electronAPI && data.courseUrl) {
+            const learnUrl = `https://www.udemy.com/course/${data.slug}/learn/`;
+            
+            // Notificar sobre la acción de inscripción
+            window.electronAPI.send('course-action', {
+                action: 'enroll',
+                payload: data.payload,
+                slug: data.slug,
+                courseUrl: data.courseUrl,
+                learnUrl: learnUrl
+            });
+        }
+        
+        // Mostrar notificación con DialogManager
+        if (this.dialog) {
+            this.dialog.toast({
+                type: 'success',
+                title: 'Inscripción',
+                message: `Inscribiéndote en: ${data.payload.name}`,
+                autoClose: 3000
+            });
+        }
+    }
+
+    handleOpenInBrave(data) {
+        
+        if (window.electronAPI && data.courseUrl) {
+            // Usar el método navigateToCourse que ya maneja Brave
+            const courseId = this.extractCourseId(data.courseUrl);
+            this.navigateToCourse(courseId, data.courseUrl);
+        }
+    }
+
+    extractCourseId(courseUrl) {
+        // Extraer ID del curso de la URL
+        const match = courseUrl.match(/\/course\/([^\/]+)/);
+        return match ? match[1] : null;
     }
 
     async injectInterceptor() {
@@ -195,56 +464,206 @@ class UdemyWebViewPage {
                 const interceptorCode = await window.electronAPI.invoke('get-udemy-interceptor-code');
                 
                 if (interceptorCode) {
-                    console.log('📝 Interceptor code length:', interceptorCode.length);
-                    console.log('🎯 Injecting interceptor into WebView...');
                     
                     const wrappedCode = `
                         (function() {
                             try {
                                 ${interceptorCode}
+                                return true; // Indica éxito
                             } catch (e) {
-                                console.error('❌ Error en interceptor:', e);
+                                return false; // Indica fallo
                             }
                         })();
                     `;
                     
                     try {
-                        await this.webview.executeJavaScript(wrappedCode);
-                        console.log('✅ Interceptor modular injected successfully into WebView');
+                        const injectionResult = await this.webview.executeJavaScript(wrappedCode);
+                        
+                        if (injectionResult === false) {
+                            this.floatingWidget.updateStatus('error', 'Error ejecutando interceptor');
+                            return false;
+                        }
+                        
                         this.floatingWidget.updateStatus('connected', 'Interceptor modular activo');
                         
-                        
                         // Verificar que el sistema esté inicializado después de un pequeño delay
-                        setTimeout(async () => {
-                            try {
-                                const status = await this.webview.executeJavaScript('window.UdemyInterceptor ? window.UdemyInterceptor.getStatus() : null');
-                                if (status && status.isInitialized) {
-                                    console.log('✅ Sistema modular verificado:', status);
-                                    this.floatingWidget.updateStatus('connected', 'Sistema modular listo');
-                                } else {
-                                    console.warn('⚠️ Sistema modular no se inicializó correctamente');
-                                    this.floatingWidget.updateStatus('warning', 'Sistema modular incompleto');
+                        return new Promise((resolve) => {
+                            setTimeout(async () => {
+                                try {
+                                    const checkCode = `
+                                        if (window.UdemyInterceptor) {
+                                            const status = window.UdemyInterceptor.getStatus();
+                                            status;
+                                        } else {
+                                            null;
+                                        }
+                                    `;
+                                    
+                                    const status = await this.webview.executeJavaScript(checkCode);
+                                    
+                                    if (status && (status.isInitialized || status.isActive)) {
+                                        this.floatingWidget.updateStatus('connected', `Sistema listo • ${status.totalModifications} mods`);
+                                        resolve(true);
+                                    } else {
+                                        this.floatingWidget.updateStatus('warning', 'Sistema modular incompleto');
+                                        resolve(false);
+                                    }
+                                } catch (verifyError) {
+                                    this.floatingWidget.updateStatus('error', 'Error verificando sistema');
+                                    resolve(false);
                                 }
-                            } catch (verifyError) {
-                                console.warn('⚠️ No se pudo verificar el estado del sistema:', verifyError);
-                            }
-                        }, 2000);
+                            }, 2000);
+                        });
                         
                     } catch (jsError) {
-                        console.error('❌ JavaScript execution error in WebView:', jsError);
                         this.floatingWidget.updateStatus('disconnected', 'Error ejecutando interceptor');
+                        return false;
                     }
                 } else {
-                    console.error('❌ No interceptor code available');
                     this.floatingWidget.updateStatus('disconnected', 'Sin interceptor');
+                    return false;
                 }
             }
+            return false;
         } catch (error) {
-            console.error('❌ Error getting interceptor code:', error);
             this.floatingWidget.updateStatus('disconnected', 'Error obteniendo interceptor');
+            return false;
         }
     }
 
+    setupInterceptorPolling() {
+        // Polling cada 2 segundos para revisar las colas del interceptor
+        this.pollingInterval = setInterval(async () => {
+            try {
+                await this.checkInterceptorQueues();
+            } catch (error) {
+            }
+        }, 2000);
+        
+    }
+
+    async checkInterceptorQueues() {
+        // Sistema de cola eliminado - las notificaciones ahora van directamente via electronAPI
+        return;
+    }
+
+    // Función eliminada - sistema de cola removido
+    // Las acciones ahora se manejan directamente via electronAPI
+
+    async initializeInterceptorWithRetry(maxRetries = 3, currentRetry = 0) {
+        
+        try {
+            const success = await this.injectInterceptor();
+            
+            if (success) {
+                return true;
+            }
+            
+            // Si falló y tenemos más reintentos
+            if (currentRetry < maxRetries - 1) {
+                const delay = 1000 * (currentRetry + 1); // Incrementar delay
+                
+                setTimeout(() => {
+                    this.initializeInterceptorWithRetry(maxRetries, currentRetry + 1);
+                }, delay);
+            } else {
+                this.floatingWidget.updateStatus('error', 'Error inicialización');
+            }
+            
+        } catch (error) {
+            if (currentRetry < maxRetries - 1) {
+                const delay = 2000 * (currentRetry + 1);
+                setTimeout(() => {
+                    this.initializeInterceptorWithRetry(maxRetries, currentRetry + 1);
+                }, delay);
+            }
+        }
+    }
+
+    async cleanupPreviousInterceptor() {
+        try {
+            await this.webview.executeJavaScript(`
+                // Limpiar interceptor simple anterior
+                if (window.udemyInterceptorInstance && window.udemyInterceptorInstance.cleanup) {
+                    window.udemyInterceptorInstance.cleanup();
+                }
+                
+                // Limpiar interceptor modular anterior  
+                if (window.UdemyInterceptor && window.UdemyInterceptor.cleanup) {
+                    window.UdemyInterceptor.cleanup();
+                }
+                
+                // Limpiar observadores globales huérfanos
+                if (window.interceptorObserver) {
+                    window.interceptorObserver.disconnect();
+                    window.interceptorObserver = null;
+                }
+                
+                // Limpiar intervalos huérfanos
+                if (window.interceptorInterval) {
+                    clearInterval(window.interceptorInterval);
+                    window.interceptorInterval = null;
+                }
+                
+                // Limpiar registro global si existe
+                if (window.interceptorProcessedElements) {
+                    window.interceptorProcessedElements.clear();
+                }
+                
+            `);
+        } catch (error) {
+        }
+    }
+
+    async checkAndReinitializeInterceptor() {
+        try {
+            const needsReinit = await this.webview.executeJavaScript(`
+                // Verificar si el interceptor está activo y funcionando
+                if (!window.UdemyInterceptor) {
+                    true; // Necesita inicialización
+                } else {
+                    const status = window.UdemyInterceptor.getStatus ? window.UdemyInterceptor.getStatus() : {};
+                    !(status.isInitialized || status.isActive); // Necesita si no está activo
+                }
+            `);
+            
+            if (needsReinit) {
+                this.initializeInterceptorWithRetry();
+            }
+        } catch (error) {
+            // En caso de error, reinicializar por seguridad
+            this.initializeInterceptorWithRetry();
+        }
+    }
+
+    async retryInterceptorInitialization() {
+        
+        try {
+            // Forzar reinicialización en el webview
+            await this.webview.executeJavaScript(`
+                if (window.initializeInterceptor) {
+                    window.initializeInterceptor();
+                } else {
+                }
+            `);
+            
+            // Verificar después de un delay
+            setTimeout(async () => {
+                try {
+                    const status = await this.webview.executeJavaScript('window.UdemyInterceptor ? window.UdemyInterceptor.getStatus() : null');
+                    if (status && (status.isInitialized || status.isActive)) {
+                        this.floatingWidget.updateStatus('connected', 'Sistema reinicializado');
+                    } else {
+                        this.floatingWidget.updateStatus('error', 'Fallo reinicialización');
+                    }
+                } catch (error) {
+                }
+            }, 1000);
+            
+        } catch (error) {
+            this.floatingWidget.updateStatus('error', 'Error reinicialización');
+        }
+    }
 
     // Navigation methods
     navigateToUrl(url) {
@@ -254,21 +673,18 @@ class UdemyWebViewPage {
     }
 
     navigateToMyLearning() {
-        console.log('🏠 Going to My Learning page...');
         if (window.electronAPI) {
             window.electronAPI.send('go-to-my-learning');
         }
     }
 
     navigateToLogin() {
-        console.log('🔐 Going to Login page...');
         if (window.electronAPI) {
             window.electronAPI.send('go-to-login');
         }
     }
 
     async navigateToCourse(courseId, courseUrl) {
-        console.log('🎯 Navigating to course:', courseId, courseUrl);
         
         try {
             // Try to open in Brave first
@@ -279,12 +695,10 @@ class UdemyWebViewPage {
                 });
                 
                 if (success) {
-                    console.log('✅ Course opened in Brave');
                     return;
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Failed to open in Brave, falling back to WebView:', error);
         }
         
         // Fallback: navigate in WebView
@@ -313,7 +727,6 @@ class UdemyWebViewPage {
 
     // Logout functionality
     async performLogout() {
-        console.log('🔐 Logout button clicked, showing confirmation...');
         
         const confirmed = await this.dialog.confirm({
             title: 'Cerrar Sesión',
@@ -325,7 +738,6 @@ class UdemyWebViewPage {
         });
 
         if (!confirmed) {
-            console.log('🔐 Logout cancelled by user');
             return;
         }
 
@@ -338,7 +750,6 @@ class UdemyWebViewPage {
     }
 
     async executeLogout() {
-        console.log('🔐 Executing logout process...');
         
         try {
             // Show loading toast
@@ -355,7 +766,6 @@ class UdemyWebViewPage {
                     this.webview.clearData({
                         storages: ['cookies', 'localstorage', 'sessionstorage', 'indexdb', 'websql', 'cachestorage']
                     }, () => {
-                        console.log('✅ WebView data cleared');
                         resolve();
                     });
                 });
@@ -364,7 +774,6 @@ class UdemyWebViewPage {
             // Clear AuthManager data
             if (this.authManager) {
                 this.authManager.logout();
-                console.log('✅ AuthManager data cleared');
             }
 
             // Clear localStorage
@@ -377,26 +786,21 @@ class UdemyWebViewPage {
                 localStorage.removeItem(key);
             });
             localStorage.clear();
-            console.log('✅ LocalStorage cleared');
 
             // Clear session storage
             sessionStorage.clear();
-            console.log('✅ SessionStorage cleared');
 
             // Clear Electron session cookies
             if (window.electronAPI) {
                 const cookieResult = await window.electronAPI.invoke('clear-cookies');
                 if (cookieResult.success) {
-                    console.log('✅ Electron session cookies cleared');
                 } else {
-                    console.warn('⚠️ Error clearing Electron cookies:', cookieResult.error);
                 }
             }
 
             // Clear courses cache
             if (this.courseDropdown) {
                 this.courseDropdown.invalidateCache();
-                console.log('✅ Courses cache cleared');
             }
 
             // Show success message
@@ -410,13 +814,11 @@ class UdemyWebViewPage {
             // Redirect to home
             setTimeout(() => {
                 if (window.electronAPI) {
-                    console.log('🏠 Redirecting to home page...');
                     window.electronAPI.send('go-to-home');
                 }
             }, 1500);
 
         } catch (error) {
-            console.error('❌ Error during logout:', error);
             
             this.dialog.alert({
                 type: 'error',
@@ -429,11 +831,27 @@ class UdemyWebViewPage {
 
     notifyPageReady() {
         if (window.electronAPI) {
-            console.log('✅ WebView page loaded and ready');
             window.electronAPI.send('webview-page-ready');
         }
     }
 
+    // Hot reload setup for development
+    setupHotReload() {
+        // Load hot reload client
+        const script = document.createElement('script');
+        script.src = '../../hot-reload-client.js';
+        script.type = 'module';
+        document.head.appendChild(script);
+        
+        // Register WebView when client is ready
+        setTimeout(() => {
+            if (window.hotReloadClient && this.webview) {
+                window.hotReloadClient.registerWebView(this.webview, 'udemy');
+                console.log('🔥 WebView de Udemy registrado para hot reload');
+            }
+        }, 1000);
+    }
+    
     // Keyboard shortcuts
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
@@ -460,6 +878,13 @@ class UdemyWebViewPage {
 // Initialize the page when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     window.udemyWebViewPage = new UdemyWebViewPage();
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (window.udemyWebViewPage && window.udemyWebViewPage.pollingInterval) {
+        clearInterval(window.udemyWebViewPage.pollingInterval);
+    }
 });
 
 // Make globally accessible for debugging

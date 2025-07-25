@@ -6,7 +6,8 @@
       "Bash(cp:*)",
       "Bash(npm run dist:win:*)",
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

@@ -41,7 +41,6 @@ export class DOMObserver {
      */
     start() {
         if (this.isActive) {
-            console.log('⚠️ DOM Observer ya está activo');
             return;
         }
         
@@ -54,13 +53,11 @@ export class DOMObserver {
             this.isActive = true;
             this.stats.startTime = Date.now();
             
-            console.log('👁️ DOM Observer iniciado');
             
             // Aplicar modificaciones iniciales
             this.applyModificationsThrottled();
             
         } catch (error) {
-            console.error('❌ Error iniciando DOM Observer:', error);
             showInterceptorNotification('Error iniciando observador DOM', 'error');
         }
     }
@@ -70,7 +67,6 @@ export class DOMObserver {
      */
     stop() {
         if (!this.isActive) {
-            console.log('⚠️ DOM Observer ya está detenido');
             return;
         }
         
@@ -86,10 +82,8 @@ export class DOMObserver {
             }
             
             this.isActive = false;
-            console.log('🛑 DOM Observer detenido');
             
         } catch (error) {
-            console.error('❌ Error deteniendo DOM Observer:', error);
         }
     }
     
@@ -97,7 +91,6 @@ export class DOMObserver {
      * Reinicia el observador
      */
     restart() {
-        console.log('🔄 Reiniciando DOM Observer...');
         this.stop();
         setTimeout(() => this.start(), 100);
     }
@@ -237,11 +230,9 @@ export class DOMObserver {
             this.lastExecution = Date.now();
             
             if (modified > 0) {
-                console.log(`🔄 DOM Observer aplicó ${modified} modificaciones`);
             }
             
         } catch (error) {
-            console.error('❌ Error aplicando modificaciones:', error);
         }
     }
     
@@ -249,7 +240,6 @@ export class DOMObserver {
      * Realiza una ejecución manual inmediata (sin throttling)
      */
     forceExecution() {
-        console.log('⚡ Ejecución forzada de modificaciones');
         this.lastExecution = 0; // Reset throttling
         this.executeModifications();
     }
@@ -282,7 +272,6 @@ export class DOMObserver {
         this.observerConfig = { ...this.observerConfig, ...newConfig };
         
         if (this.isActive) {
-            console.log('🔄 Actualizando configuración del observer...');
             this.restart();
         }
     }
@@ -293,7 +282,6 @@ export class DOMObserver {
      */
     setThrottleDelay(delay) {
         this.throttleDelay = Math.max(100, delay); // Mínimo 100ms
-        console.log(`⏱️ Throttle delay actualizado: ${this.throttleDelay}ms`);
     }
     
     /**
@@ -306,7 +294,6 @@ export class DOMObserver {
             throttledExecutions: 0,
             startTime: this.isActive ? Date.now() : null
         };
-        console.log('📊 Estadísticas del DOM Observer reseteadas');
     }
     
     /**
@@ -316,14 +303,6 @@ export class DOMObserver {
         const status = this.getStatus();
         
         console.group('👁️ DOM Observer Status');
-        console.log('Estado:', status.isActive ? 'Activo' : 'Inactivo');
-        console.log('Tiempo activo:', `${status.uptime}s`);
-        console.log('Mutaciones detectadas:', status.totalMutations);
-        console.log('Modificaciones aplicadas:', status.modificationsApplied);
-        console.log('Ejecuciones throttled:', status.throttledExecutions);
-        console.log('Promedio mutaciones/seg:', status.averageMutationsPerSecond);
-        console.log('Última ejecución:', new Date(status.lastExecution).toLocaleTimeString());
-        console.log('Ejecución pendiente:', status.hasPendingExecution);
         console.groupEnd();
     }
 }

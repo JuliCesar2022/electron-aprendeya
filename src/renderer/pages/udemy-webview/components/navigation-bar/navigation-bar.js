@@ -21,7 +21,6 @@ class NavigationBar {
     init() {
         this.createNavigationBar();
         this.setupEventListeners();
-        console.log('✅ NavigationBar initialized');
     }
 
     createNavigationBar() {

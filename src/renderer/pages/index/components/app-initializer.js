@@ -13,12 +13,10 @@ class AppInitializer {
     }
 
     async init() {
-        console.log('🚀 Iniciando Udemigo...');
         
         try {
             // Marcar que la aplicación ha sido inicializada (primera vez)
             window.appInitialized = true;
-            console.log('✅ Variable global appInitialized establecida');
             
             // Configurar listeners de actualizaciones PRIMERO
             this.setupUpdateListeners();
@@ -33,44 +31,36 @@ class AppInitializer {
             await this.showSplashScreen();
             
             // DESPUÉS verificar si hay sesión activa con timeout total
-            console.log('🔍 Verificando sesión...');
             const hasValidSession = await Promise.race([
                 this.checkSession(),
                 new Promise(resolve => setTimeout(() => {
-                    console.log('⏰ Timeout verificando sesión, continuando sin sesión');
                     resolve(false);
                 }, 3000))
             ]);
             
             if (hasValidSession) {
-                console.log('⚠️ Sesión activa detectada, optimizando y redirigiendo a Udemy...');
                 this.updateStatus('Sesión activa encontrada, optimizando cuenta...', 'success');
                 
                 // Optimizar cuenta con timeout
                 await Promise.race([
                     this.optimizeUserAccount(),
                     new Promise(resolve => setTimeout(() => {
-                        console.log('⏰ Timeout optimizando cuenta, continuando');
                         resolve();
                     }, 5000))
                 ]);
                 
                 this.updateStatus('Cuenta optimizada, redirigiendo a Udemy...', 'success');
                 await this.delay(500);
-                console.log('🚀 Iniciando redirección a Udemy...');
                 this.redirectToUdemy();
-                console.log('🚀 Redirección iniciada, esperando carga...');
                 return;
             }
             
             // Si no hay sesión válida, mostrar opciones de login
-            console.log('🔐 No hay sesión activa, mostrando pantalla principal');
             this.updateStatus('No hay sesión activa, mostrando opciones de login...', 'info');
             await this.delay(1000);
             this.showMainContent();
             
         } catch (error) {
-            console.error('❌ Error en inicialización:', error);
             this.updateStatus('Error en inicialización, mostrando pantalla principal...', 'error');
             await this.delay(1000);
             this.showMainContent();
@@ -81,13 +71,11 @@ class AppInitializer {
         if (window.electronAPI) {
             // Escuchar cuando inicia la extracción
             window.electronAPI.receive('brave-extraction-started', () => {
-                console.log('📦 Extracción de Brave iniciada desde proceso principal');
                 this.updateStatus('Extrayendo navegador integrado...');
             });
             
             // Escuchar cuando termina la extracción
             window.electronAPI.receive('brave-extraction-completed', (result) => {
-                console.log('📦 Extracción completada:', result);
                 if (result.success) {
                     this.updateStatus('Navegador integrado configurado ✓');
                 } else {
@@ -95,7 +83,6 @@ class AppInitializer {
                 }
             });
         } else {
-            console.log('ℹ️ Modo navegador web - listeners no configurados');
         }
     }
 
@@ -114,34 +101,27 @@ class AppInitializer {
     async checkForUpdates() {
         try {
             if (window.electronAPI) {
-                console.log('🔍 Verificando actualizaciones...');
                 
                 const result = await window.electronAPI.invoke('check-for-updates');
                 if (result && result.updateAvailable) {
                     this.updateStatus('Actualización disponible, descargando...', 'success');
-                    console.log('📦 Actualización encontrada:', result.version);
                 } else {
-                    console.log('✅ Aplicación actualizada');
                 }
             }
         } catch (error) {
-            console.error('❌ Error verificando actualizaciones:', error);
         }
     }
 
     setupUpdateListeners() {
         // Los listeners de actualización ahora son manejados por UpdateManager
-        console.log('ℹ️ Update listeners manejados por UpdateManager global');
         
         if (!window.electronAPI) return;
 
         window.electronAPI.receive('perform-logout', () => {
-            console.log('🔐 Logout event received');
             if (window.authManager) {
                 window.authManager.logout();
             }
             localStorage.clear();
-            console.log('✅ Frontend logout completed');
         });
     }
 
@@ -151,33 +131,26 @@ class AppInitializer {
 
     async checkSession() {
         try {
-            console.log('🔍 Iniciando verificación de sesión...');
             
             // Esperar a que authManager esté disponible con timeout
             let attempts = 0;
             while (!window.authManager && attempts < 5) {
-                console.log(`⏳ Esperando AuthManager... (intento ${attempts + 1}/5)`);
                 await this.delay(200);
                 attempts++;
             }
 
             if (window.authManager) {
-                console.log('✅ AuthManager disponible, verificando autenticación...');
                 const isAuthenticated = window.authManager.isAuthenticated() && 
                                       !window.authManager.isTokenExpired();
                 
                 if (isAuthenticated) {
                     const userInfo = window.authManager.getUserInfo();
-                    console.log('✅ Sesión válida encontrada para:', userInfo.email);
                     return true;
                 }
-                console.log('❌ AuthManager: no hay sesión activa');
             } else {
-                console.log('⚠️ AuthManager no disponible después de esperar');
             }
 
             // También verificar localStorage directamente
-            console.log('🔍 Verificando localStorage...');
             const authToken = localStorage.getItem('authToken');
             const userData = localStorage.getItem('userData');
             
@@ -189,29 +162,22 @@ class AppInitializer {
                     const hoursDiff = (now - loginTime) / (1000 * 60 * 60);
                     
                     if (hoursDiff < 24) { // Token válido por 24 horas
-                        console.log('✅ Token válido encontrado en localStorage');
                         return true;
                     } else {
-                        console.log('❌ Token expirado en localStorage');
                     }
                 } catch (e) {
-                    console.log('❌ Error parsing userData:', e);
                 }
             } else {
-                console.log('❌ No hay token en localStorage');
             }
 
-            console.log('❌ No hay sesión válida');
             return false;
         } catch (error) {
-            console.error('❌ Error verificando sesión:', error);
             return false;
         }
     }
 
     async optimizeUserAccount() {
         try {
-            console.log('🔄 Optimizando cuenta de usuario...');
             
             // Obtener token de authManager
             let token = null;
@@ -225,12 +191,10 @@ class AppInitializer {
             }
             
             if (!token) {
-                console.log('⚠️ No se encontró token de autenticación, saltando optimización');
                 return;
             }
             
             // Hacer petición para obtener cuenta óptima con timeout
-            console.log('📡 Haciendo petición al backend...');
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
             
@@ -246,12 +210,10 @@ class AppInitializer {
             clearTimeout(timeoutId);
             
             if (!response.ok) {
-                console.log(`❌ Error en petición: ${response.status} ${response.statusText}`);
                 return;
             }
             
             const accountData = await response.json();
-            console.log('📊 Datos de cuenta óptima recibidos:', accountData);
             
             // Extraer datos de la cuenta óptima
             const account = accountData.data || accountData;
@@ -272,7 +234,6 @@ class AppInitializer {
                     { name: 'user_fullname', value: encodeURIComponent(userFullname), domain: '.udemy.com', path: '/', secure: false }
                 ]);
                 
-                console.log('✅ Cookies de cuenta óptima configuradas correctamente');
             }
             
             // Conectar al socket con el ID de la cuenta óptima (proceso principal)
@@ -280,19 +241,14 @@ class AppInitializer {
             if (udemyId && window.electronAPI) {
                 const result = await window.electronAPI.invoke('socket-connect', udemyId);
                 if (result.success) {
-                    console.log('✅ Socket conectado desde proceso principal');
                 } else {
-                    console.error('❌ Error conectando socket:', result.error);
                 }
             } else {
-                console.warn('⚠️ No se encontró ID de cuenta para conectar socket');
             }
             
         } catch (error) {
             if (error.name === 'AbortError') {
-                console.error('❌ Timeout optimizando cuenta (5s)');
             } else {
-                console.error('❌ Error optimizando cuenta:', error);
             }
         }
     }
@@ -300,7 +256,6 @@ class AppInitializer {
     updateStatus(message, type = 'info') {
         this.statusMessage.textContent = message;
         this.statusMessage.className = `status-message show ${type}`;
-        console.log(`📱 Status: ${message}`);
     }
 
     async showMainContent() {
@@ -342,21 +297,15 @@ class AppInitializer {
     }
 
     redirectToUdemy() {
-        console.log('🚀 Redirigiendo a Udemy WebView...');
-        console.log('🔍 electronAPI disponible:', !!window.electronAPI);
         
         if (window.electronAPI) {
-            console.log('📡 Enviando evento go-to-udemy-webview...');
             window.electronAPI.send('go-to-udemy-webview');
-            console.log('✅ Evento enviado');
         } else {
-            console.log('❌ electronAPI no disponible, usando fallback');
             window.location.href = 'https://www.udemy.com/';
         }
     }
 
     goToLogin() {
-        console.log('🔐 Navegando al login...');
         
         if (window.electronAPI) {
             window.electronAPI.send('go-to-login');
@@ -366,7 +315,6 @@ class AppInitializer {
     }
 
     goToUdemy() {
-        console.log('🚀 Navegando a Udemy WebView (demo)...');
         this.redirectToUdemy();
     }
 

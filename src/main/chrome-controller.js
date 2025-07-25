@@ -28,22 +28,17 @@ class ChromeController {
             '/mnt/c/Users/' + (process.env.USER || 'usuario') + '/AppData/Local/Google/Chrome/Application/chrome.exe'
         ];
 
-        console.log('🔍 Buscando Chrome en las siguientes rutas...');
         
         for (const chromePath of possiblePaths) {
             try {
-                console.log('  - Verificando:', chromePath);
                 const fs = require('fs');
                 if (fs.existsSync(chromePath)) {
-                    console.log('✅ Chrome encontrado en:', chromePath);
                     return chromePath;
                 }
             } catch (error) {
-                console.log('  ❌ Error verificando ruta:', error.message);
                 continue;
             }
         }
-        console.warn('❌ Chrome no encontrado en ninguna ruta conocida');
         return null;
     }
 
@@ -70,12 +65,10 @@ class ChromeController {
         // Guardar cookies para inyección posterior
         this.pendingCookies = null;
         if (cookies && cookies.length > 0) {
-            console.log('🍪 Preparando', cookies.length, 'cookies para Chrome...');
             this.pendingCookies = cookies;
             
             // Chrome inicia directo en Udemy
             url = 'https://www.udemy.com';
-            console.log('🔄 Iniciando Chrome directo en Udemy para inyección de cookies');
         }
 
         const chromeFlags = [
@@ -110,12 +103,10 @@ class ChromeController {
             });
 
             this.chromeProcess.on('error', (error) => {
-                console.error('Error launching Chrome:', error);
                 this.isActive = false;
             });
 
             this.chromeProcess.on('close', (code) => {
-                console.log(`Chrome process closed with code: ${code}`);
                 this.isActive = false;
                 this.chromeProcess = null;
                 this.chromeWindow = null;
@@ -143,7 +134,6 @@ class ChromeController {
 
             return true;
         } catch (error) {
-            console.error('Error al lanzar Chrome:', error);
             return false;
         }
     }
@@ -160,7 +150,6 @@ class ChromeController {
 
             exec(`powershell -Command "${psCommand}"`, (error, stdout, stderr) => {
                 if (error) {
-                    console.error('Error finding Chrome window:', error);
                     resolve(null);
                     return;
                 }
@@ -177,14 +166,12 @@ class ChromeController {
                                 pid: window.Id,
                                 title: window.MainWindowTitle
                             };
-                            console.log('Chrome window found:', this.chromeWindow);
                             resolve(this.chromeWindow);
                             return;
                         }
                     }
                     resolve(null);
                 } catch (parseError) {
-                    console.error('Error parsing PowerShell output:', parseError);
                     resolve(null);
                 }
             });
@@ -226,17 +213,14 @@ class ChromeController {
                 contentScript
             );
 
-            console.log('✅ Extensión de cookies creada en:', extensionDir);
             return extensionDir;
         } catch (error) {
-            console.error('❌ Error creando extensión:', error);
             return false;
         }
     }
 
     // Generar script de startup para Chrome
     generateStartupScript(cookies) {
-        console.log('🍪 Generando script para', cookies.length, 'cookies');
         
         let cookieSetters = '';
         let additionalSetters = '';
@@ -252,7 +236,6 @@ class ChromeController {
             
             cookieSetters += `
             try {
-                console.log('🔄 Estableciendo:', ${name});
                 const success = setCookieAdvanced(${name}, ${value}, {
                     domain: ${domain},
                     path: ${path},
@@ -261,7 +244,6 @@ class ChromeController {
                 });
                 if (success) successCount++;
             } catch(e) {
-                console.error('❌ Error con cookie', ${name}, ':', e);
             }
             `;
             
@@ -274,7 +256,6 @@ class ChromeController {
                         path: '/'
                     });
                 } catch(e) {
-                    console.warn('Error con cookie para dominio exacto:', e);
                 }
                 `;
             }
@@ -282,11 +263,9 @@ class ChromeController {
         
         // Script completo
         const script = `
-            console.log('🍪 Iniciando transferencia de ${cookies.length} cookies de Electron...');
             
             // Función mejorada para establecer cookies
             function setCookieAdvanced(name, value, options = {}) {
-                console.log('🔧 Estableciendo cookie:', name, 'con valor:', value ? value.substring(0, 20) + '...' : 'empty');
                 
                 const defaults = {
                     domain: '.udemy.com',
@@ -311,7 +290,6 @@ class ChromeController {
                 if (opts.httpOnly) cookieString += '; HttpOnly';  
                 if (opts.sameSite) cookieString += '; SameSite=' + opts.sameSite;
                 
-                console.log('📝 Cookie string:', cookieString);
                 document.cookie = cookieString;
                 
                 // Verificar que se estableció (buscar tanto encoded como no-encoded)
@@ -322,11 +300,8 @@ class ChromeController {
                     });
                 
                 if (verification) {
-                    console.log('✅ Cookie confirmada:', name, '-> encontrada como:', verification.trim().substring(0, 50) + '...');
                     return true;
                 } else {
-                    console.warn('❌ Cookie NO establecida:', name);
-                    console.warn('📋 Cookies actuales:', document.cookie);
                     return false;
                 }
             }
@@ -337,21 +312,13 @@ class ChromeController {
             
             ${cookieSetters}
             
-            console.log('🍪 Resumen:', successCount, 'de', totalCount, 'cookies establecidas');
-            console.log('📋 Cookies actuales en documento:', document.cookie);
             
             // Mostrar información del contexto
-            console.log('🌍 Contexto actual:');
-            console.log('  - Hostname:', window.location.hostname);
-            console.log('  - Origin:', window.location.origin);
-            console.log('  - URL completa:', window.location.href);
             
             // Establecer cookies adicionales para dominio exacto
-            console.log('🔄 Estableciendo cookies adicionales para dominio exacto...');
             ${additionalSetters}
             
             // Intentar establecer cookies críticas con múltiples dominios
-            console.log('🎯 Estableciendo cookies críticas con múltiples dominios...');
             const criticalCookieNames = ['client_id', 'access_token', 'dj_session_id'];
             const domains = ['.udemy.com', 'udemy.com', 'www.udemy.com'];
             
@@ -361,7 +328,6 @@ class ChromeController {
                 const cookieData = cookies.find(function(c) { return c.name === cookieName; });
                 
                 if (cookieData) {
-                    console.log('🎯 Estableciendo cookie crítica:', cookieName);
                     domains.forEach(function(domain) {
                         try {
                             setCookieAdvanced(cookieName, cookieData.value, {
@@ -370,23 +336,17 @@ class ChromeController {
                                 secure: domain.includes('udemy.com') // Secure si es HTTPS
                             });
                         } catch(e) {
-                            console.warn('Error estableciendo', cookieName, 'para', domain, ':', e);
                         }
                     });
                 } else {
-                    console.warn('❌ Cookie crítica no encontrada:', cookieName);
                 }
             });
             
             // Verificación final
-            console.log('🔍 Verificación final...');
             const finalCookies = document.cookie;
-            console.log('📋 Cookies finales:', finalCookies);
             
             if (finalCookies.length > 0) {
-                console.log('✅ Cookies detectadas, navegando a Udemy...');
             } else {
-                console.warn('⚠️ No se detectaron cookies, navegando de todas formas...');
             }
             
             // Mostrar mensaje visual
@@ -400,7 +360,6 @@ class ChromeController {
                 '</div></div>';
             
             // Navegar a Udemy
-            console.log('🔄 Navegando a Udemy en 1.5 segundos...');
             setTimeout(function() {
                 window.location.href = 'https://www.udemy.com';
             }, 1500);
@@ -411,15 +370,12 @@ class ChromeController {
 
     // Generar content script para la extensión
     generateContentScript(cookies) {
-        console.log('🍪 Generando content script para extensión con', cookies.length, 'cookies');
         
         const script = `
-console.log('🍪 Cookie Injector Extension - Iniciando...');
 
 // Datos de cookies desde Electron
 const cookiesData = ${JSON.stringify(cookies)};
 
-console.log('📋 Cookies a establecer:', cookiesData.length);
 
 // Función para establecer cookies usando la API de extensiones
 function setCookieViaAPI(cookieData) {
@@ -440,16 +396,13 @@ function setCookieViaAPI(cookieData) {
         if (typeof chrome !== 'undefined' && chrome.cookies) {
             chrome.cookies.set(cookieDetails, (result) => {
                 if (chrome.runtime.lastError) {
-                    console.warn('❌ Error estableciendo cookie:', cookieData.name, chrome.runtime.lastError);
                     resolve(false);
                 } else {
-                    console.log('✅ Cookie establecida vía API:', cookieData.name);
                     resolve(true);
                 }
             });
         } else {
             // Fallback: usar document.cookie
-            console.log('🔄 Fallback: usando document.cookie para', cookieData.name);
             const cookieString = cookieData.name + '=' + cookieData.value + 
                 '; Domain=' + (cookieData.domain || '.udemy.com') +
                 '; Path=' + (cookieData.path || '/') +
@@ -460,9 +413,7 @@ function setCookieViaAPI(cookieData) {
             // Verificar
             const verification = document.cookie.includes(cookieData.name + '=');
             if (verification) {
-                console.log('✅ Cookie establecida vía document:', cookieData.name);
             } else {
-                console.warn('❌ Cookie NO establecida:', cookieData.name);
             }
             resolve(verification);
         }
@@ -471,7 +422,6 @@ function setCookieViaAPI(cookieData) {
 
 // Establecer todas las cookies
 async function establishCookies() {
-    console.log('🚀 Iniciando establecimiento de cookies...');
     
     let successCount = 0;
     
@@ -480,27 +430,21 @@ async function establishCookies() {
             const success = await setCookieViaAPI(cookieData);
             if (success) successCount++;
         } catch (error) {
-            console.error('Error procesando cookie:', cookieData.name, error);
         }
     }
     
-    console.log('🎯 Resumen:', successCount, 'de', cookiesData.length, 'cookies establecidas');
     
     // Verificar cookies críticas
     const criticalCookies = ['client_id', 'access_token', 'dj_session_id'];
-    console.log('🔍 Verificando cookies críticas en documento:');
     
     criticalCookies.forEach(cookieName => {
         if (document.cookie.includes(cookieName + '=')) {
-            console.log('✅', cookieName, 'encontrada en document.cookie');
         } else {
-            console.warn('❌', cookieName, 'NO encontrada en document.cookie');
         }
     });
     
     // Recargar página después de establecer cookies
     if (successCount > 0) {
-        console.log('🔄 Recargando página para aplicar cookies...');
         setTimeout(() => {
             location.reload();
         }, 1000);
@@ -514,7 +458,6 @@ if (document.readyState === 'loading') {
     establishCookies();
 }
 
-console.log('🍪 Cookie Injector Extension - Script cargado');
         `;
         
         return script;
@@ -523,12 +466,10 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
     // Inyectar cookies via Chrome DevTools Protocol
     async injectCookiesViaDevTools() {
         if (!this.pendingCookies || this.pendingCookies.length === 0) {
-            console.warn('No hay cookies pendientes para inyectar');
             return false;
         }
 
         try {
-            console.log('🔧 Inyectando', this.pendingCookies.length, 'cookies via DevTools Protocol...');
 
             // Usar fetch para comunicarse con Chrome DevTools Protocol
             const http = require('http');
@@ -547,14 +488,12 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
             );
 
             if (!udemyTab) {
-                console.warn('No se encontró tab de Udemy, usando la primera tab');
                 // Usar la primera tab disponible
                 var targetTab = tabs[0];
             } else {
                 var targetTab = udemyTab;
             }
 
-            console.log('🎯 Usando tab:', targetTab.url);
 
             // Para cada cookie, usar Runtime.evaluate para establecerla
             let successCount = 0;
@@ -563,11 +502,9 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
                     const success = await this.setCookieViaDevTools(targetTab.webSocketDebuggerUrl, cookie);
                     if (success) successCount++;
                 } catch (error) {
-                    console.warn('❌ Error estableciendo cookie', cookie.name, ':', error.message);
                 }
             }
 
-            console.log('✅ Cookies inyectadas via DevTools:', successCount, 'de', this.pendingCookies.length);
 
             // Recargar la página para aplicar cookies
             if (successCount > 0) {
@@ -579,7 +516,6 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
             return successCount > 0;
 
         } catch (error) {
-            console.error('❌ Error inyectando cookies via DevTools:', error);
             return false;
         }
     }
@@ -630,15 +566,12 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
                         '; Path=' + ${escapedPath} +
                         '; Expires=' + new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
                     
-                    console.log('🍪 Estableciendo cookie:', ${escapedName}, 'con valor de longitud:', ${escapedValue}.length);
                     document.cookie = cookieString;
                     
                     // Verificar que se estableció
                     const verification = document.cookie.includes(${escapedName} + '=');
-                    console.log('Cookie', ${escapedName}, ':', verification ? 'establecida ✅' : 'falló ❌');
                     verification;
                 } catch(e) {
-                    console.error('Error estableciendo cookie', ${escapedName}, ':', e);
                     false;
                 }
                 `;
@@ -666,9 +599,7 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
                             
                             const success = response.result && response.result.value === true;
                             if (success) {
-                                console.log('✅ Cookie establecida via DevTools:', cookie.name);
                             } else {
-                                console.warn('❌ Cookie NO establecida via DevTools:', cookie.name);
                             }
                             resolve(success);
                         }
@@ -744,7 +675,6 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
             const htmlPath = path.join(path.dirname(this.cookieScriptPath), 'cookie_injector.html');
             const fileUrl = 'file:///' + htmlPath.replace(/\\/g, '/');
             
-            console.log('🍪 Navegando a inyector de cookies...');
             
             // Navegar a la página del inyector usando Ctrl+L
             const psCommand = `
@@ -770,19 +700,16 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
             await new Promise((resolve) => {
                 exec(`powershell -Command "${psCommand}"`, (error) => {
                     if (!error) {
-                        console.log('✅ Navegando al inyector de cookies');
                     }
                     resolve();
                 });
             });
             
             // La navegación se maneja automáticamente desde el script de cookies
-            console.log('✅ Inyector de cookies iniciado, navegación automática en 3 segundos...');
             
             return true;
             
         } catch (error) {
-            console.error('❌ Error navegando al inyector:', error);
             return false;
         }
     }
@@ -791,7 +718,6 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
     async navigateToUdemyAfterCookies() {
         if (!this.chromeWindow) return false;
         
-        console.log('🔄 Navegando a Udemy con cookies aplicadas...');
         
         const psCommand = `
             Add-Type -AssemblyName System.Windows.Forms;
@@ -816,7 +742,6 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
         return new Promise((resolve) => {
             exec(`powershell -Command "${psCommand}"`, (error) => {
                 if (!error) {
-                    console.log('✅ Navegado a Udemy con sesión transferida');
                 }
                 resolve(!error);
             });
@@ -866,7 +791,6 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
         return new Promise((resolve) => {
             exec(`powershell -Command "${psCommand}"`, (error) => {
                 if (!error) {
-                    console.log('✅ Chrome configurado como borderless');
                 }
                 resolve(!error);
             });
@@ -876,7 +800,6 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
     // Posicionar ventana Chrome en coordenadas específicas
     async positionChromeWindow(x, y, width, height) {
         if (!this.chromeWindow) {
-            console.error('Chrome window not found');
             return false;
         }
 
@@ -902,10 +825,8 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
         return new Promise((resolve) => {
             exec(`powershell -Command "${psCommand}"`, (error, stdout, stderr) => {
                 if (error) {
-                    console.error('Error positioning Chrome window:', error);
                     resolve(false);
                 } else {
-                    console.log(`Chrome positioned at: ${x},${y} ${width}x${height}`);
                     resolve(true);
                 }
             });
@@ -921,7 +842,6 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
         }
 
         // En modo --app, necesitamos cerrar y reabrir con nueva URL
-        console.log('🔄 Navegando en modo app - reiniciando Chrome con nueva URL...');
         
         // Cerrar Chrome actual
         if (this.chromeProcess) {
@@ -1028,9 +948,7 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
                 this.chromeProcess = null;
                 this.chromeWindow = null;
                 this.isActive = false;
-                console.log('Chrome process cleaned up');
             } catch (error) {
-                console.error('Error cleaning up Chrome process:', error);
             }
         }
 
@@ -1038,10 +956,8 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
         if (this.tempProfilePath && fs.existsSync(this.tempProfilePath)) {
             try {
                 await this.deleteTempProfile(this.tempProfilePath);
-                console.log('✅ Perfil temporal de Chrome eliminado:', this.tempProfilePath);
                 this.tempProfilePath = null;
             } catch (error) {
-                console.error('❌ Error eliminando perfil temporal:', error);
                 // Intentar borrarlo con PowerShell como respaldo
                 this.deleteTempProfileFallback(this.tempProfilePath);
             }
@@ -1069,10 +985,7 @@ console.log('🍪 Cookie Injector Extension - Script cargado');
         // Intentar con rmdir de Windows
         exec(`rmdir /s /q "${dirPath}"`, (error) => {
             if (error) {
-                console.warn('⚠️ No se pudo eliminar automáticamente el perfil temporal:', dirPath);
-                console.warn('El directorio se limpiará automáticamente al reiniciar el sistema');
             } else {
-                console.log('✅ Perfil temporal eliminado con rmdir');
             }
         });
     }

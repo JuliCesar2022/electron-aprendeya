@@ -33,7 +33,6 @@ class FloatingWidget {
     init() {
         this.createWidget();
         this.setupEventListeners();
-        console.log('✅ FloatingWidget initialized');
     }
 
     createWidget() {
@@ -65,14 +64,7 @@ class FloatingWidget {
             </div>
         `;
         
-        // Insert into DOM
-        document.body.insertAdjacentHTML('beforeend', widgetHTML);
-        
-        // Get references
-        this.container = document.getElementById(this.options.containerId);
-        this.statusDot = document.getElementById('status-dot');
-        this.statusText = document.getElementById('status-text');
-        this.widgetInfo = document.getElementById('widget-info');
+       
     }
 
     setupEventListeners() {
