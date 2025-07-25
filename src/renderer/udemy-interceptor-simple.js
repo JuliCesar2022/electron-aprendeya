@@ -33,12 +33,143 @@ class UdemyInterceptorSimple {
         this.init();
     }
     
+    hideOriginalButtonsImmediately() {
+        // ⚡ CSS para ocultar botones inmediatamente
+        const hideButtonsCSS = `
+            <style id="udemy-interceptor-hide-buttons">
+                /* Ocultar botones de inscripción/compra inmediatamente */
+                [data-purpose="subscription-redirect-button"],
+                [data-purpose="buy-this-course-button"],
+                [data-purpose="enroll-button"],
+                [data-testid="add-to-cart"],
+                button[data-purpose*="buy"],
+                button[data-purpose*="enroll"],
+                button[data-purpose*="purchase"],
+                .buy-button,
+                .enroll-button,
+                .purchase-button,
+                /* Contenedores de botones */
+                [data-purpose="course-cta-holder"],
+                [data-purpose="enrollment-cta"],
+                [data-purpose="buy-box"],
+                .buy-box,
+                .course-cta-holder,
+                .enrollment-cta {
+                    display: none !important;
+                    visibility: hidden !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
+                }
+                
+                /* Mostrar solo nuestros botones personalizados */
+                .udemy-interceptor-enroll-btn {
+                    display: inline-flex !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                }
+            </style>
+        `;
+        
+        // Inyectar CSS inmediatamente en el head
+        if (!document.getElementById('udemy-interceptor-hide-buttons')) {
+            document.head.insertAdjacentHTML('beforeend', hideButtonsCSS);
+        }
+        
+        // También ocultar elementos existentes de forma directa
+        this.hideExistingButtons();
+        
+        console.log('⚡ Botones originales ocultados inmediatamente');
+    }
+    
+    hideExistingButtons() {
+        const buttonSelectors = [
+            '[data-purpose="subscription-redirect-button"]',
+            '[data-purpose="buy-this-course-button"]',
+            '[data-purpose="enroll-button"]',
+            '[data-testid="add-to-cart"]',
+            'button[data-purpose*="buy"]',
+            'button[data-purpose*="enroll"]',
+            'button[data-purpose*="purchase"]',
+            '.buy-button',
+            '.enroll-button',
+            '.purchase-button',
+            '[data-purpose="course-cta-holder"]',
+            '[data-purpose="enrollment-cta"]',
+            '[data-purpose="buy-box"]',
+            '.buy-box',
+            '.course-cta-holder',
+            '.enrollment-cta'
+        ];
+        
+        buttonSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                element.style.display = 'none';
+                element.style.visibility = 'hidden';
+                element.style.opacity = '0';
+                element.style.pointerEvents = 'none';
+                element.setAttribute('data-interceptor-hidden-immediately', 'true');
+            });
+        });
+    }
+    
+    hideButtonsInNode(node) {
+        // Ocultar el propio nodo si es un botón de inscripción
+        const buttonSelectors = [
+            '[data-purpose="subscription-redirect-button"]',
+            '[data-purpose="buy-this-course-button"]',
+            '[data-purpose="enroll-button"]',
+            '[data-testid="add-to-cart"]',
+            'button[data-purpose*="buy"]',
+            'button[data-purpose*="enroll"]',
+            'button[data-purpose*="purchase"]',
+            '.buy-button',
+            '.enroll-button',
+            '.purchase-button',
+            '[data-purpose="course-cta-holder"]',
+            '[data-purpose="enrollment-cta"]',
+            '[data-purpose="buy-box"]',
+            '.buy-box',
+            '.course-cta-holder',
+            '.enrollment-cta'
+        ];
+        
+        // Verificar si el nodo en sí coincide con algún selector
+        for (const selector of buttonSelectors) {
+            if (node.matches && node.matches(selector)) {
+                this.hideElement(node);
+                console.log('⚡ Botón ocultado inmediatamente (nodo):', node);
+                break;
+            }
+        }
+        
+        // Buscar y ocultar elementos dentro del nodo
+        buttonSelectors.forEach(selector => {
+            const elements = node.querySelectorAll ? node.querySelectorAll(selector) : [];
+            elements.forEach(element => {
+                this.hideElement(element);
+                console.log('⚡ Botón ocultado inmediatamente (hijo):', element);
+            });
+        });
+    }
+    
+    hideElement(element) {
+        element.style.display = 'none';
+        element.style.visibility = 'hidden';
+        element.style.opacity = '0';
+        element.style.pointerEvents = 'none';
+        element.setAttribute('data-interceptor-hidden-immediately', 'true');
+    }
+    
     async init() {
         // Verificar si estamos en Udemy
         if (!window.location.hostname.includes('udemy.com')) {
             return;
         }
         
+        // ⚡ OCULTAR BOTONES INMEDIATAMENTE antes de cualquier otra cosa
+        this.hideOriginalButtonsImmediately();
         
         // Limpiar interceptor anterior si existe
         if (window.udemyInterceptorInstance && window.udemyInterceptorInstance.cleanup) {
@@ -50,6 +181,14 @@ class UdemyInterceptorSimple {
         
         // Configurar interceptors de botones
         this.setupButtonInterceptors();
+        
+        // Configurar interceptor de navegación solo en páginas de curso sin /learn
+        const currentUrl = window.location.href;
+        if (currentUrl.includes('/course/') && !currentUrl.includes('/learn')) {
+            console.log('debe de abir brave');
+            
+            this.setupNavigationInterceptor();
+        }
         
         // Iniciar observador DOM
         this.startDOMObserver();
@@ -263,20 +402,137 @@ class UdemyInterceptorSimple {
         }
         
         this.observer = new MutationObserver((mutations) => {
+            // ⚡ PROCESAMIENTO INMEDIATO SIN THROTTLING para elementos críticos
+            this.handleMutationsImmediate(mutations);
+            
+            // Procesamiento normal con throttling para el resto
             this.handleMutations(mutations);
         });
         
-        // Observar solo las áreas relevantes para botones
-        this.observer.observe(document.body, {
+        // Observar TODO el documento con máxima sensibilidad
+        this.observer.observe(document.documentElement, {
             childList: true,
             subtree: true,
-            // No observar atributos ni characterData para mejorar performance
-            attributes: false,
+            attributes: true, // Observar cambios de atributos también
+            attributeFilter: ['data-purpose', 'class', 'style'], // Solo atributos relevantes
             characterData: false
         });
         
         // Almacenar referencia para cleanup
         this.domObserver = this.observer;
+        
+        console.log('🔍 DOM Observer ultra-agresivo iniciado');
+    }
+    
+    handleMutationsImmediate(mutations) {
+        // Procesamiento INMEDIATO sin throttling para elementos críticos
+        mutations.forEach(mutation => {
+            if (mutation.type === 'childList') {
+                Array.from(mutation.addedNodes).forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        // ⚡ OCULTAR INMEDIATAMENTE sin esperar
+                        this.hideButtonsInNodeImmediate(node);
+                    }
+                });
+            } else if (mutation.type === 'attributes') {
+                // Si cambian atributos que podrían hacer visible un botón
+                const target = mutation.target;
+                if (target.nodeType === Node.ELEMENT_NODE) {
+                    this.hideButtonsInNodeImmediate(target);
+                }
+            }
+        });
+    }
+    
+    hideButtonsInNodeImmediate(node) {
+        // ⚡ NUEVA ESTRATEGIA: Detectar y reemplazar inmediatamente en lugar de ocultar
+        const enrollButtonSelectors = [
+            '[data-purpose="subscription-redirect-button"]',
+            '[data-purpose="buy-this-course-button"]',
+            '[data-purpose="enroll-button"]',
+            '[data-testid="add-to-cart"]',
+            'button[data-purpose*="buy"]',
+            'button[data-purpose*="enroll"]',
+            'button[data-purpose*="purchase"]',
+            '.buy-button',
+            '.enroll-button',
+            '.purchase-button'
+        ];
+        
+        // Verificar si el nodo en sí es un botón de inscripción
+        for (const selector of enrollButtonSelectors) {
+            if (node.matches && node.matches(selector) && 
+                !node.classList.contains('udemy-interceptor-enroll-btn') &&
+                !node.dataset.interceptorReplaced &&
+                !node.dataset.interceptorProcessing) {
+                
+                console.log('🎯 Botón de inscripción detectado inmediatamente:', node);
+                
+                // Marcar como en procesamiento para evitar duplicados
+                node.dataset.interceptorProcessing = 'true';
+                
+                // Reemplazar inmediatamente en lugar de ocultar
+                setTimeout(() => {
+                    // Verificar una vez más antes de reemplazar
+                    if (!node.dataset.interceptorReplaced && !node.classList.contains('udemy-interceptor-enroll-btn')) {
+                        this.replaceDirectButton(node);
+                    }
+                }, 50);
+                return;
+            }
+        }
+        
+        // Buscar botones de inscripción dentro del nodo
+        enrollButtonSelectors.forEach(selector => {
+            try {
+                const elements = node.querySelectorAll ? node.querySelectorAll(selector) : [];
+                elements.forEach(element => {
+                    if (!element.classList.contains('udemy-interceptor-enroll-btn') &&
+                        !element.dataset.interceptorReplaced &&
+                        !element.dataset.interceptorProcessing) {
+                        
+                        console.log('🎯 Botón de inscripción hijo detectado (responsive):', element);
+                        
+                        // Marcar como en procesamiento para evitar duplicados EN ESTE ELEMENTO
+                        element.dataset.interceptorProcessing = 'true';
+                        
+                        // Reemplazar inmediatamente en lugar de ocultar
+                        setTimeout(() => {
+                            // Verificar una vez más antes de reemplazar
+                            if (!element.dataset.interceptorReplaced && !element.classList.contains('udemy-interceptor-enroll-btn')) {
+                                this.replaceDirectButton(element);
+                            }
+                        }, 50);
+                    }
+                });
+            } catch (e) {
+                // Ignorar errores para máxima velocidad
+            }
+        });
+        
+        // Solo ocultar elementos que NO sean botones de inscripción
+        const otherUnwantedSelectors = [
+            '[data-purpose="user-logout"]',
+            '[data-purpose="subscription-cta"]',
+            '.logout-button'
+        ];
+        
+        otherUnwantedSelectors.forEach(selector => {
+            try {
+                const elements = node.querySelectorAll ? node.querySelectorAll(selector) : [];
+                elements.forEach(element => {
+                    this.hideElementImmediate(element);
+                });
+            } catch (e) {
+                // Ignorar errores
+            }
+        });
+    }
+    
+    hideElementImmediate(element) {
+        // Ocultación inmediata sin verificaciones extras
+        element.style.cssText += 'display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;position:absolute!important;left:-9999px!important;';
+        element.setAttribute('data-interceptor-ultra-hidden', 'true');
     }
     
     handleMutations(mutations) {
@@ -295,6 +551,9 @@ class UdemyInterceptorSimple {
             // Solo procesar si se añadieron nodos que podrían contener botones
             return Array.from(mutation.addedNodes).some(node => {
                 if (node.nodeType !== Node.ELEMENT_NODE) return false;
+                
+                // ⚡ OCULTAR INMEDIATAMENTE cualquier botón de inscripción que aparezca
+                this.hideButtonsInNode(node);
                 
                 // Verificar si el nodo añadido contiene elementos que nos interesan
                 const element = node;
@@ -363,6 +622,100 @@ class UdemyInterceptorSimple {
         console.groupEnd();
     }
     
+    setupNavigationInterceptor() {
+        // Interceptar clicks en enlaces para detectar navegación a cursos
+        this.navigationClickHandler = (event) => {
+            console.log('🔍 Click detectado en:', event.target);
+            
+            // NO interceptar clicks en nuestros botones personalizados
+            if (event.target.classList.contains('udemy-interceptor-enroll-btn') || 
+                event.target.closest('.udemy-interceptor-enroll-btn')) {
+                console.log('🔍 Ignorando click en botón personalizado');
+                return;
+            }
+            
+            // Intentar múltiples formas de encontrar el enlace
+            let link = null;
+            
+            // Método 1: El elemento clickeado es directamente un enlace
+            if (event.target.tagName === 'A') {
+                link = event.target;
+            }
+            // Método 2: Buscar hacia arriba en el DOM
+            else {
+                link = event.target.closest('a');
+            }
+            
+            // Si no encontramos enlace, buscar en hermanos y elementos relacionados
+            if (!link) {
+                // Buscar en el elemento padre inmediato
+                const parent = event.target.parentElement;
+                if (parent && parent.tagName === 'A') {
+                    link = parent;
+                }
+                // Buscar enlaces en el mismo contenedor
+                else if (parent) {
+                    link = parent.querySelector('a');
+                }
+            }
+            
+            console.log('🔗 Enlace encontrado:', link);
+            
+            if (!link || !link.href) {
+                console.log('❌ No se encontró enlace válido');
+                return;
+            }
+            
+            const targetUrl = link.href;
+            console.log('🎯 URL objetivo:', targetUrl);
+            
+            // Verificar si la URL contiene '/course/' y termina con '/learn' o '/learn/'
+            const coursePattern = /\/course\/([^\/\?]+)\/learn\/?(?:\?.*)?$/;
+            const match = targetUrl.match(coursePattern);
+            
+            if (match) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                console.log('🎯 Interceptado click en enlace de curso:', targetUrl);
+                
+                const slug = match[1]; // El slug del curso extraído del patrón
+                
+                if (slug) {
+                    // Disparar evento para abrir en Brave
+                    const braveEvent = new CustomEvent('udemy-interceptor-notification', {
+                        detail: {
+                            source: 'udemy-interceptor',
+                            event: 'open-in-brave',
+                            data: {
+                                courseUrl: targetUrl,
+                                slug: slug
+                            }
+                        },
+                        bubbles: true
+                    });
+                    
+                    document.dispatchEvent(braveEvent);
+                    
+                    // Mostrar notificación
+                    if (window.electronAPI && window.electronAPI.send) {
+                        window.electronAPI.send('webview-notification', {
+                            type: 'info',
+                            message: '🚀 Abriendo curso en Brave...'
+                        });
+                    }
+                } else {
+                    console.warn('⚠️ No se pudo extraer slug de la URL:', targetUrl);
+                }
+            }
+        };
+        
+        // Añadir el event listener al document con capture para interceptar antes que otros handlers
+        document.addEventListener('click', this.navigationClickHandler, true);
+        
+        console.log('✅ Interceptor de navegación configurado para páginas de curso');
+    }
+
     setupButtonInterceptors() {
         
         // Resetear flag de botón reemplazado para nueva página
@@ -466,6 +819,10 @@ class UdemyInterceptorSimple {
             for (const selector of enrollSelectors) {
                 enrollButton = event.target.closest(selector);
                 if (enrollButton) {
+                    // NO interceptar si es nuestro botón personalizado
+                    if (enrollButton.classList.contains('udemy-interceptor-enroll-btn')) {
+                        return; // Permitir que el evento continúe
+                    }
                     event.preventDefault();
                     event.stopPropagation();
                     return;
@@ -481,6 +838,12 @@ class UdemyInterceptorSimple {
                 elementText.includes('agregar al carrito') ||
                 elementText.includes('free') ||
                 elementText.includes('gratis')) {
+                
+                // NO interceptar si es nuestro botón personalizado
+                if (clickedElement.classList.contains('udemy-interceptor-enroll-btn') || 
+                    clickedElement.closest('.udemy-interceptor-enroll-btn')) {
+                    return; // Permitir que el evento continúe
+                }
                 
                 event.preventDefault();
                 event.stopPropagation();
@@ -539,6 +902,9 @@ class UdemyInterceptorSimple {
         
         // Buscar y reemplazar botones de suscripción/inscripción
         const checkForEnrollButtons = () => {
+            // ⚡ PERMITIR MÚLTIPLES CONTENEDORES para responsive design
+            console.log('🔍 Buscando contenedores de botones para responsive...');
+            
             // PASO 1: Buscar contenedores primero (más eficiente y evita duplicados)
             const containerSelectors = [
                 '[data-purpose="course-cta-holder"]',
@@ -549,19 +915,26 @@ class UdemyInterceptorSimple {
                 '.enrollment-cta'
             ];
             
-            let foundContainer = false;
+            let processedContainers = 0;
             containerSelectors.forEach(selector => {
                 const containers = document.querySelectorAll(selector);
-                containers.forEach(container => {
+                console.log(`📦 Encontrados ${containers.length} contenedores para selector: ${selector}`);
+                
+                containers.forEach((container, index) => {
                     if (container && !container.dataset.interceptorReplaced && !container.querySelector('.udemy-interceptor-enroll-btn')) {
-                        this.replaceEnrollButton(container);
-                        foundContainer = true;
+                        console.log(`🎯 Procesando contenedor ${index + 1}:`, container);
+                        if (this.replaceEnrollButton(container)) {
+                            processedContainers++;
+                        }
+                    } else {
+                        console.log(`⏭️ Contenedor ${index + 1} ya procesado o con botón personalizado`);
                     }
                 });
             });
             
             // PASO 2: Solo si no encontramos contenedores, buscar botones individuales
-            if (!foundContainer) {
+            if (processedContainers === 0) {
+                console.log('🔍 No se encontraron contenedores, buscando botones individuales...');
                 let foundDirectButton = false;
                 
                 // PASO 2A: Buscar botones específicos por selector
@@ -581,12 +954,14 @@ class UdemyInterceptorSimple {
                 for (const selector of buttonSelectors) {
                     const buttons = document.querySelectorAll(selector);
                     for (const button of buttons) {
-                        if (button && !button.dataset.interceptorReplaced && button.style.display !== 'none') {
-                            this.replaceDirectButton(button);
-                            foundDirectButton = true;
+                        if (button && !button.dataset.interceptorReplaced && 
+                            button.style.display !== 'none') {
+                            if (this.replaceDirectButton(button)) {
+                                foundDirectButton = true;
+                                // No hacer break aquí - permitir múltiples botones en diferentes contenedores
+                            }
                         }
                     }
-                  
                 }
                 
                 // PASO 2B: Solo si no encontramos botones por selector, buscar por texto
@@ -597,9 +972,9 @@ class UdemyInterceptorSimple {
             }
         };
         
-        // Ejecutar inmediatamente y luego cada 2 segundos
+        // Ejecutar inmediatamente y luego cada 100ms para detección ultra-rápida
         checkForEnrollButtons();
-        this.enrollButtonInterval = setInterval(checkForEnrollButtons, 2000);
+        this.enrollButtonInterval = setInterval(checkForEnrollButtons, 100);
     }
 
     findButtonsByText(textArray) {
@@ -779,13 +1154,17 @@ class UdemyInterceptorSimple {
     }
     
     replaceEnrollButton(container) {
-        // Verificar si ya hemos reemplazado un botón en esta página
-       
-        // Verificar si ya existe un botón personalizado en la página
+        // ⚡ CONTROL POR CONTENEDOR - permitir múltiples contenedores
+        if (container.dataset.interceptorReplaced || 
+            container.querySelector('.udemy-interceptor-enroll-btn')) {
+            console.log('⚠️ Este contenedor ya fue procesado, saltando:', container);
+            return false;
+        }
         
+        console.log('🔄 Iniciando reemplazo de contenedor:', container);
         
-        // Marcar como procesado
-     
+        // Marcar como procesado INMEDIATAMENTE
+        container.dataset.interceptorReplaced = 'true';
         
         // Extraer información del curso (misma lógica que replaceDirectButton)
         const courseTitle = document.querySelector('h1[data-purpose="course-title"]')?.textContent ||
@@ -842,20 +1221,30 @@ class UdemyInterceptorSimple {
             }
             
             // Enviar directamente al backend
-            // this.saveCourseToBackend(payload, slug);
+            this.saveCourseToBackend(payload, slug);
         });
         
-        // Marcar que ya hemos reemplazado un botón
-        this.enrollButtonReplaced = true;
+        // NO marcar flag global - permitir múltiples contenedores
+        // this.enrollButtonReplaced = true;
         
         return true;
     }
     
     replaceDirectButton(button) {
-        // Verificar si ya hemos reemplazado un botón en esta página
-       
+            
+
+        // ⚡ CONTROL POR BOTÓN INDIVIDUAL - permitir múltiples en diferentes contenedores
+        if (button.dataset.interceptorReplaced || 
+            button.classList.contains('udemy-interceptor-enroll-btn') ||
+            button.querySelector('.udemy-interceptor-enroll-btn')) {
+                
+            console.log('⚠️ Este botón ya fue procesado, saltando:', button);
+            return false;
+        }
         
-        // Marcar como procesado
+        console.log('🔄 Iniciando reemplazo de botón directo:', button);
+        
+        // Marcar como procesado INMEDIATAMENTE
         button.dataset.interceptorReplaced = 'true';
         
         // Extraer información del curso (misma lógica que replaceEnrollButton)
@@ -883,6 +1272,7 @@ class UdemyInterceptorSimple {
         
         // Crear nuevo botón personalizado
         const newButton = this.createEnrollButton();
+        console.log('🎯 Botón personalizado creado:', newButton, 'con clase:', newButton.className);
         
         // Copiar clases y estilos del botón original para mantener apariencia
         if (button.className) {
@@ -895,8 +1285,10 @@ class UdemyInterceptorSimple {
         
         // Agregar eventos al botón - envío directo al backend
         newButton.addEventListener('click', (event) => {
+            console.log('🔥 CLICK DETECTADO en botón personalizado - INICIO');
             event.preventDefault();
             event.stopPropagation();
+            console.log('🔥 preventDefault y stopPropagation ejecutados');
             console.log('Hola desde el nuevo botón de inscripción:', courseTitle, 'slug:', slug, 'url:', courseUrl, 'imagen:', imageUrl);
             
             // Validar que tenemos los datos necesarios
@@ -912,20 +1304,16 @@ class UdemyInterceptorSimple {
                 urlImage: imageUrl
             };
             
-            // Mostrar notificación inicial
-            if (window.electronAPI && window.electronAPI.send) {
-                window.electronAPI.send('webview-notification', {
-                    type: 'info',
-                    message: '🎓 Guardando curso...'
-                });
-            }
+          
             
+            console.log('🔥 A punto de llamar saveCourseToBackend con payload:', payload);
             // Enviar directamente al backend
             this.saveCourseToBackend(payload, slug);
+            console.log('🔥 saveCourseToBackend llamado - FIN del click handler');
         });
         
-        // Marcar que ya hemos reemplazado un botón
-        this.enrollButtonReplaced = true;
+        // NO marcar flag global - permitir múltiples botones en diferentes contenedores
+        // this.enrollButtonReplaced = true;
         
         return true;
     }
@@ -1091,11 +1479,14 @@ class UdemyInterceptorSimple {
         }
         
         // Enviar al backend usando la función correcta
-        // this.saveCourseToBackend(payload, slug);
+        this.saveCourseToBackend(payload, slug);
         
     }
     
     saveCourseToBackend(payload, slug) {
+        console.log('🚀🚀🚀 EJECUTADA saveCourseToBackend con payload:', payload, 'y slug:', slug);
+        console.log('🚀 Stack trace:', new Error().stack);
+        
         // Verificar si ya se está procesando este curso
         if (this.processingSlugs.has(slug)) {
             console.log(`🔄 Curso ${slug} ya se está procesando, ignorando duplicado`);
@@ -1522,6 +1913,18 @@ class UdemyInterceptorSimple {
             this.saveButtonListenerAttached = false;
         }
         
+        // Limpiar event listener de navegación si existe
+        if (this.navigationClickHandler) {
+            document.removeEventListener('click', this.navigationClickHandler, true);
+            this.navigationClickHandler = null;
+        }
+        
+        // Limpiar CSS inyectado
+        const injectedStyle = document.getElementById('udemy-interceptor-hide-buttons');
+        if (injectedStyle) {
+            injectedStyle.remove();
+        }
+        
     }
 
     removeUnwantedElements() {
@@ -1797,6 +2200,136 @@ function initializeInterceptor() {
         return null;
     }
 }
+
+// === INTERCEPTACIÓN ULTRA-TEMPRANA ===
+// Inyectar CSS inmediatamente antes de que cargue cualquier cosa
+(function injectImmediateCSS() {
+    const ultraEarlyCSS = `
+        <style id="udemy-interceptor-ultra-early">
+            /* ⚡ OCULTACIÓN SELECTIVA - permitir que botones aparezcan brevemente */
+            /* [data-purpose="subscription-redirect-button"],
+            [data-purpose="buy-this-course-button"], 
+            [data-purpose="enroll-button"],
+            [data-testid="add-to-cart"],
+            button[data-purpose*="buy"]:not(.udemy-interceptor-enroll-btn),
+            button[data-purpose*="enroll"]:not(.udemy-interceptor-enroll-btn),
+            button[data-purpose*="purchase"]:not(.udemy-interceptor-enroll-btn),
+            .buy-button:not(.udemy-interceptor-enroll-btn),
+            .enroll-button:not(.udemy-interceptor-enroll-btn),
+            .purchase-button:not(.udemy-interceptor-enroll-btn), */
+            [data-purpose="course-cta-holder"]:not(:has(.udemy-interceptor-enroll-btn)),
+            [data-purpose="enrollment-cta"]:not(:has(.udemy-interceptor-enroll-btn)),
+            [data-purpose="buy-box"]:not(:has(.udemy-interceptor-enroll-btn)),
+            .buy-box:not(:has(.udemy-interceptor-enroll-btn)),
+            .course-cta-holder:not(:has(.udemy-interceptor-enroll-btn)),
+            .enrollment-cta:not(:has(.udemy-interceptor-enroll-btn)),
+            /* Patrones más agresivos para elementos dinámicos */
+            button[class*="buy"]:not(.udemy-interceptor-enroll-btn),
+            button[class*="enroll"]:not(.udemy-interceptor-enroll-btn),
+            button[class*="purchase"]:not(.udemy-interceptor-enroll-btn),
+            a[class*="buy"]:not(.udemy-interceptor-enroll-btn),
+            a[class*="enroll"]:not(.udemy-interceptor-enroll-btn),
+            /* Texto específico de Udemy */
+            button:contains("Inscríbete"):not(.udemy-interceptor-enroll-btn),
+            button:contains("Enroll"):not(.udemy-interceptor-enroll-btn),
+            button:contains("Buy now"):not(.udemy-interceptor-enroll-btn),
+            button:contains("Comprar"):not(.udemy-interceptor-enroll-btn) {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                position: absolute !important;
+                left: -9999px !important;
+                width: 0 !important;
+                height: 0 !important;
+            }
+            
+            /* Asegurar que nuestros botones sean visibles */
+            .udemy-interceptor-enroll-btn {
+                display: inline-flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                position: relative !important;
+                left: auto !important;
+                width: auto !important;
+                height: auto !important;
+            }
+        </style>
+    `;
+    
+    // Inyectar CSS incluso si el head no existe aún
+    if (document.head) {
+        document.head.insertAdjacentHTML('afterbegin', ultraEarlyCSS);
+    } else {
+        // Si no hay head, crear uno y añadir el CSS
+        const head = document.createElement('head');
+        head.innerHTML = ultraEarlyCSS;
+        if (document.documentElement) {
+            document.documentElement.insertBefore(head, document.documentElement.firstChild);
+        }
+    }
+    
+    console.log('⚡ CSS ultra-temprano inyectado');
+})();
+
+// === INTERCEPTOR DE CLICKS GLOBAL ULTRA-TEMPRANO ===
+(function setupUltraEarlyClickInterception() {
+    const globalClickHandler = function(event) {
+        const element = event.target;
+        
+        // Lista de patrones peligrosos (EXCLUYENDO botones de inscripción)
+        const dangerousPatterns = [
+            // Solo elementos realmente peligrosos, NO botones de inscripción
+            '[data-purpose="user-logout"]',
+            '[data-purpose="subscription-cta"]',
+            '.logout-button',
+            // Texto peligroso (EXCLUYENDO inscripción)
+            'logout', 'log out', 'cerrar sesión', 'sign out', 'salir'
+        ];
+        
+        // Verificar si el elemento clickeado es peligroso
+        let isDangerous = false;
+        
+        // Verificar selectores CSS
+        for (const pattern of dangerousPatterns.slice(0, 3)) {
+            if (element.matches && element.matches(pattern)) {
+                isDangerous = true;
+                break;
+            }
+            if (element.closest && element.closest(pattern)) {
+                isDangerous = true;
+                break;
+            }
+        }
+        
+        // Verificar texto del elemento
+        if (!isDangerous) {
+            const elementText = (element.textContent || element.innerText || '').toLowerCase();
+            const textPatterns = dangerousPatterns.slice(3);
+            
+            isDangerous = textPatterns.some(pattern => elementText.includes(pattern));
+        }
+        
+        // Si es peligroso y NO es nuestro botón, bloquearlo
+        if (isDangerous && !element.classList.contains('udemy-interceptor-enroll-btn')) {
+            console.log('🚫 CLICK BLOQUEADO en botón peligroso:', element);
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            return false;
+        }
+    };
+    
+    // Añadir el interceptor con máxima prioridad
+    document.addEventListener('click', globalClickHandler, true);
+    
+    // También interceptar otros eventos de interacción
+    document.addEventListener('mousedown', globalClickHandler, true);
+    document.addEventListener('touchstart', globalClickHandler, true);
+    
+    console.log('🛡️ Interceptor de clicks global ultra-temprano activado');
+})();
 
 // === INICIO AUTOMÁTICO ===
 // Esperar a que el DOM esté listo

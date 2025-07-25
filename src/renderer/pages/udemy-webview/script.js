@@ -32,13 +32,16 @@ class UdemyWebViewPage {
         }
     }
 
-    setup() {
+    async setup() {
         // Get WebView reference
         this.webview = document.getElementById('udemy-webview');
         if (!this.webview) {
             return;
         }
 
+        // === CONFIGURAR WEBPREFERENCES SEGÚN MODO DE OPTIMIZACIÓN (ANTES DE USAR WEBVIEW) ===
+        await this.configureWebViewPreferences();
+        
         // === CONFIGURAR LÍMITES DE MEMORIA PARA WEBVIEW (120MB) ===
         this.configureWebViewMemoryLimits();
 
@@ -941,6 +944,109 @@ class UdemyWebViewPage {
                 }
             }
         });
+    }
+
+    // === CONFIGURAR WEBPREFERENCES SEGÚN MODO DE OPTIMIZACIÓN ===
+    async configureWebViewPreferences() {
+        try {
+            console.log('🎨 Configurando WebView preferences según modo de optimización...');
+            
+            // Obtener información de memoria del sistema
+            let memoryInfo = null;
+            if (window.electronAPI) {
+                try {
+                    memoryInfo = await window.electronAPI.invoke('get-memory-info');
+                } catch(e) {
+                    console.warn('No se pudo obtener información de memoria, usando configuración por defecto');
+                }
+            }
+            
+            const profile = memoryInfo?.profile || 'balanced';
+            console.log(`🎯 Configurando WebView para perfil: ${profile}`);
+            
+            // Configuraciones base
+            let webpreferences = {
+                nodeIntegration: false,
+                contextIsolation: true,
+                webSecurity: false,
+                allowRunningInsecureContent: true,
+                experimentalFeatures: false,
+                enableRemoteModule: false,
+                nativeWindowOpen: false,
+                javascript: true,
+                spellcheck: false,
+                backgroundThrottling: false,
+                plugins: false,
+                images: true,
+                autoplayPolicy: 'no-user-gesture-required',
+                v8CacheOptions: 'none',
+                enableWebSQL: false,
+                sandbox: false,
+                offscreen: false
+            };
+            
+            // Configuración consistente para todos los modos - como ultra-low para sombras correctas
+            webpreferences.webgl = false; // Deshabilitado en todos los modos para renderizado consistente
+            webpreferences.experimentalFeatures = false;
+            webpreferences.backgroundThrottling = true;
+            webpreferences.plugins = false;
+            
+            // Solo variar límites de memoria según el perfil
+            switch(profile) {
+                case 'high-performance':
+                    console.log('✅ Configuración HIGH PERFORMANCE: Sin WebGL, sombras por software (como ultra-low)');
+                    break;
+                    
+                case 'balanced':
+                    console.log('✅ Configuración BALANCED: Sin WebGL, sombras por software (como ultra-low)');
+                    break;
+                    
+                case 'low-memory':
+                    console.log('✅ Configuración LOW MEMORY: Sin WebGL, sombras por software (como ultra-low)');
+                    break;
+                    
+                case 'ultra-low':
+                    console.log('✅ Configuración ULTRA LOW: Sin WebGL, sombras por software (configuración original)');
+                    break;
+                    
+                default:
+                    console.log('✅ Configuración por defecto: Sin WebGL, sombras por software (como ultra-low)');
+            }
+            
+            // Convertir a string para webpreferences
+            const webprefString = Object.entries(webpreferences)
+                .map(([key, value]) => `${key}=${value}`)
+                .join(',');
+            
+            // Aplicar las preferencias al webview
+            const oldPrefs = this.webview.getAttribute('webpreferences');
+            this.webview.setAttribute('webpreferences', webprefString);
+            
+            console.log(`🔧 WebView preferences ANTES: ${oldPrefs?.substring(0, 100)}...`);
+            console.log(`🔧 WebView preferences DESPUÉS: ${webprefString.substring(0, 100)}...`);
+            
+            // Verificar si el cambio se aplicó
+            const currentPrefs = this.webview.getAttribute('webpreferences');
+            const webglEnabled = currentPrefs.includes('webgl=true');
+            const webglDisabled = currentPrefs.includes('webgl=false');
+            
+            console.log(`🎯 Estado WebGL después del cambio: ${webglEnabled ? 'HABILITADO' : webglDisabled ? 'DESHABILITADO' : 'INDETERMINADO'}`);
+            
+            // FORZAR RECARGA DEL WEBVIEW para aplicar cambios
+            if (oldPrefs !== webprefString) {
+                console.log('🔄 Forzando recarga del WebView para aplicar nuevas preferencias...');
+                const currentSrc = this.webview.src;
+                setTimeout(() => {
+                    this.webview.src = currentSrc;
+                }, 100);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error configurando WebView preferences:', error);
+            // Fallback: configuración como ultra-low para sombras consistentes
+            const fallbackPrefs = "nodeIntegration=false,contextIsolation=true,webSecurity=false,webgl=false,backgroundThrottling=true,plugins=false,images=true";
+            this.webview.setAttribute('webpreferences', fallbackPrefs);
+        }
     }
 
     // === CONFIGURACIÓN DE LÍMITES DE MEMORIA PARA WEBVIEW (120MB) ===

@@ -57,14 +57,17 @@ class SmartMemoryManager {
     }
 
     applyHighPerformanceConfig() {
-        console.log('🚀 Configurando modo HIGH PERFORMANCE (6GB+ libre)');
+        console.log('🚀 Configurando modo HIGH PERFORMANCE (6GB+ libre) - Renderizado como ultra-low');
         
-        // Configuración generosa para sistemas con mucha RAM
-        app.commandLine.appendSwitch('--max-old-space-size', '512'); // 512MB por proceso
-        app.commandLine.appendSwitch('--renderer-process-limit', '8'); // 8 procesos
+        // Usar la misma configuración de renderizado que ultra-low para sombras consistentes
+        app.commandLine.appendSwitch('--max-old-space-size', '512'); // Mayor memoria pero mismo renderizado
+        app.commandLine.appendSwitch('--renderer-process-limit', '8'); // Más procesos
+        app.commandLine.appendSwitch('--disable-gpu'); // Igual que ultra-low
+        app.commandLine.appendSwitch('--disable-software-rasterizer'); // Igual que ultra-low
         app.commandLine.appendSwitch('--memory-pressure-off');
+        app.commandLine.appendSwitch('--optimize-for-size');
+        app.commandLine.appendSwitch('--enable-low-end-device-mode'); // Igual que ultra-low
         app.commandLine.appendSwitch('--disable-background-timer-throttling');
-        app.commandLine.appendSwitch('--disable-renderer-backgrounding', 'false'); // Permitir background
         app.commandLine.appendSwitch('--disk-cache-size', '200000000'); // 200MB cache
         
         this.appMemoryLimit = 800; // 800MB para la app
@@ -72,13 +75,16 @@ class SmartMemoryManager {
     }
 
     applyBalancedConfig() {
-        console.log('⚖️ Configurando modo BALANCED (4-6GB libre)');
+        console.log('⚖️ Configurando modo BALANCED (4-6GB libre) - Renderizado como ultra-low');
         
-        // Configuración equilibrada
+        // Usar la misma configuración de renderizado que ultra-low para sombras consistentes
         app.commandLine.appendSwitch('--max-old-space-size', '128'); // 128MB por proceso
         app.commandLine.appendSwitch('--renderer-process-limit', '4'); // 4 procesos
+        app.commandLine.appendSwitch('--disable-gpu'); // Igual que ultra-low
+        app.commandLine.appendSwitch('--disable-software-rasterizer'); // Igual que ultra-low
         app.commandLine.appendSwitch('--memory-pressure-off');
         app.commandLine.appendSwitch('--optimize-for-size');
+        app.commandLine.appendSwitch('--enable-low-end-device-mode'); // Igual que ultra-low
         app.commandLine.appendSwitch('--disable-background-timer-throttling');
         app.commandLine.appendSwitch('--disk-cache-size', '100000000'); // 100MB cache
         
@@ -87,16 +93,16 @@ class SmartMemoryManager {
     }
 
     applyLowMemoryConfig() {
-        console.log('🔋 Configurando modo LOW MEMORY (2-4GB libre)');
+        console.log('🔋 Configurando modo LOW MEMORY (2-4GB libre) - Renderizado como ultra-low');
         
-        // Configuración optimizada para poca RAM
+        // Usar la misma configuración de renderizado que ultra-low para sombras consistentes
         app.commandLine.appendSwitch('--max-old-space-size', '64'); // 64MB por proceso
         app.commandLine.appendSwitch('--renderer-process-limit', '2'); // 2 procesos
+        app.commandLine.appendSwitch('--disable-gpu'); // Igual que ultra-low
+        app.commandLine.appendSwitch('--disable-software-rasterizer'); // Igual que ultra-low
         app.commandLine.appendSwitch('--memory-pressure-off');
         app.commandLine.appendSwitch('--optimize-for-size');
-        app.commandLine.appendSwitch('--enable-low-end-device-mode');
-        app.commandLine.appendSwitch('--disable-gpu-sandbox');
-        app.commandLine.appendSwitch('--disable-software-rasterizer');
+        app.commandLine.appendSwitch('--enable-low-end-device-mode'); // Igual que ultra-low
         app.commandLine.appendSwitch('--disk-cache-size', '50000000'); // 50MB cache
         app.commandLine.appendSwitch('--aggressive-cache-discard');
         
@@ -112,7 +118,7 @@ class SmartMemoryManager {
         app.commandLine.appendSwitch('--renderer-process-limit', '1'); // 1 proceso
         app.commandLine.appendSwitch('--disable-gpu'); // Sin GPU
         app.commandLine.appendSwitch('--disable-software-rasterizer');
-        app.commandLine.appendSwitch('--disable-features', 'site-per-process,VizDisplayCompositor,AudioServiceOutOfProcess');
+        app.commandLine.appendSwitch('--disable-features', 'site-per-process,AudioServiceOutOfProcess');
         app.commandLine.appendSwitch('--disable-extensions');
         app.commandLine.appendSwitch('--disable-plugins');
         app.commandLine.appendSwitch('--disable-web-security');
