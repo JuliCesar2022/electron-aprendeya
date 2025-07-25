@@ -24,6 +24,12 @@ class UdemyInterceptorSimple {
         // Flag para evitar duplicación de botones de inscripción
         this.enrollButtonReplaced = false;
         
+        // Flag para evitar duplicación de event listeners
+        this.saveButtonListenerAttached = false;
+        
+        // Set para rastrear cursos que se están procesando (evitar duplicados)
+        this.processingSlugs = new Set();
+        
         this.init();
     }
     
@@ -32,6 +38,7 @@ class UdemyInterceptorSimple {
         if (!window.location.hostname.includes('udemy.com')) {
             return;
         }
+        
         
         // Limpiar interceptor anterior si existe
         if (window.udemyInterceptorInstance && window.udemyInterceptorInstance.cleanup) {
@@ -304,6 +311,7 @@ class UdemyInterceptorSimple {
             clearTimeout(this.mutationTimeout);
             this.mutationTimeout = setTimeout(() => {
                 this.applyAllModifications();
+                this.removeUnwantedElements(); // También eliminar elementos no deseados en contenido dinámico
             }, 200);
         }
     }
@@ -365,17 +373,35 @@ class UdemyInterceptorSimple {
         
         if (currentUrl.includes('/course/') && !currentUrl.includes('/learn')) {
             // Página de curso individual - interceptar botones de inscripción
+            console.log('individual');
+            
             this.setupEnrollButtonInterceptor();
-        } else {
-            // Página de búsqueda o lista - interceptar botones de guardar
-            this.setupSaveButtonInterceptor();
-        }
+        } 
+        
+        // Página de búsqueda o lista - interceptar botones de guardar
+        if (currentUrl.includes('/search/') ) {
+    console.log('guardar');
+    this.setupSaveButtonInterceptor();
+} 
+        
+        // Eliminar elementos no deseados (botones de logout, suscripción, etc.)
+        this.removeUnwantedElements();
     }
     
     setupSaveButtonInterceptor() {
+        // Verificar si ya se añadió el event listener para evitar duplicados
+        if (this.saveButtonListenerAttached) {
+            console.log('🔄 Event listener ya existe, saltando duplicación');
+            return;
+        }
         
-        // Interceptar clicks en botones de guardar con múltiples selectores
-        document.addEventListener('click', (event) => {
+        console.log('🎯 Añadiendo event listener para botones save/guardar');
+        
+        // Marcar como añadido
+        this.saveButtonListenerAttached = true;
+        
+        // Crear función del event listener para poder removerla después
+        this.saveButtonClickHandler = (event) => {
             // Lista de selectores para botones de guardar
             const saveSelectors = [
                 '[data-testid="save-to-list-button"]',
@@ -418,7 +444,6 @@ class UdemyInterceptorSimple {
                 
                 event.preventDefault();
                 event.stopPropagation();
-                this.handleSaveToListClick(event, clickedElement);
                 return;
             }
 
@@ -443,7 +468,6 @@ class UdemyInterceptorSimple {
                 if (enrollButton) {
                     event.preventDefault();
                     event.stopPropagation();
-                    this.handleEnrollClick(event, enrollButton);
                     return;
                 }
             }
@@ -463,7 +487,10 @@ class UdemyInterceptorSimple {
                 this.handleEnrollClick(event, clickedElement);
                 return;
             }
-        }, true);
+        };
+        
+        // Añadir el event listener al document
+        document.addEventListener('click', this.saveButtonClickHandler, true);
         
         // También configurar interceptor específico para elementos dinámicos
         this.setupDynamicSaveButtons();
@@ -599,8 +626,13 @@ class UdemyInterceptorSimple {
     }
     
     handleSaveToListClick(event, element) {
-        
-        // Sin cooldown - permitir saves inmediatos
+        // Añadir cooldown para evitar doble ejecución
+        const now = Date.now();
+        if (now - this.lastSaveTime < 1000) { // 1 segundo de cooldown
+            console.log('🔄 Cooldown activo, ignorando click duplicado');
+            return;
+        }
+        this.lastSaveTime = now;
         
         // Intentar múltiples estrategias para encontrar el contenedor del curso
         const courseCard = this.findCourseContainer(element);
@@ -625,6 +657,8 @@ class UdemyInterceptorSimple {
             udemyId: courseInfo.slug,
             urlImage: courseInfo.image || null
         };
+        
+        console.log('procesado');
         
         // Procesar el guardado del curso (funcionalidad principal)
         this.saveCourseToBackend(payload, courseInfo.slug);
@@ -808,7 +842,7 @@ class UdemyInterceptorSimple {
             }
             
             // Enviar directamente al backend
-            this.saveCourseToBackend(payload, slug);
+            // this.saveCourseToBackend(payload, slug);
         });
         
         // Marcar que ya hemos reemplazado un botón
@@ -1057,12 +1091,20 @@ class UdemyInterceptorSimple {
         }
         
         // Enviar al backend usando la función correcta
-        this.saveCourseToBackend(payload, slug);
+        // this.saveCourseToBackend(payload, slug);
         
     }
     
     saveCourseToBackend(payload, slug) {
+        // Verificar si ya se está procesando este curso
+        if (this.processingSlugs.has(slug)) {
+            console.log(`🔄 Curso ${slug} ya se está procesando, ignorando duplicado`);
+            return;
+        }
         
+        // Marcar como en procesamiento
+        this.processingSlugs.add(slug);
+        console.log(`🎯 Iniciando procesamiento de curso: ${slug}`);
         
         // Obtener token de las cookies
         const token = this.getCookieValue('auth_token');
@@ -1116,15 +1158,20 @@ class UdemyInterceptorSimple {
             body: JSON.stringify(payload)
         })
         .then(response => {
+            // Capturar el status para determinar si es curso nuevo o existente
+            const responseStatus = response.status;
+            
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            return response.json();
+            
+            return response.json().then(data => ({ data, status: responseStatus }));
         })
         .then(data => {
             
             // Enviar notificación de éxito usando DOM CustomEvent
             const successMessage = data.message ? `✅ ${data.message}` : '✅ Curso guardado exitosamente';
+            console.log('hola antes de brave');
             
             const successEvent = new CustomEvent('udemy-interceptor-notification', {
                 detail: {
@@ -1140,7 +1187,7 @@ class UdemyInterceptorSimple {
             
             document.dispatchEvent(successEvent);
             
-            // Comunicar con el padre para abrir Brave sin notificaciones
+            // ✅ Curso guardado exitosamente (nuevo) - abrir Brave automáticamente
             const braveEvent = new CustomEvent('udemy-interceptor-notification', {
                 detail: {
                     source: 'udemy-interceptor',
@@ -1154,6 +1201,12 @@ class UdemyInterceptorSimple {
             });
             
             document.dispatchEvent(braveEvent);
+            
+            // Limpiar del set de procesamiento después de éxito
+            setTimeout(() => {
+                this.processingSlugs.delete(slug);
+                console.log(`✅ Procesamiento completado para: ${slug}`);
+            }, 2000);
         })
         .catch(error => {
             
@@ -1164,8 +1217,8 @@ class UdemyInterceptorSimple {
                 let message;
                 if (errorMessage.includes('already') || errorMessage.includes('existe') || errorMessage.includes('ya existe')) {
                     message = {
-                        type: 'success',
-                        message: '✅ Curso ya estaba guardado'
+                        type: 'info',
+                        message: 'ℹ️ Curso ya estaba guardado'
                     };
                 } else {
                     // Para otros HTTP 400, asumir que el curso se guardó exitosamente
@@ -1186,7 +1239,7 @@ class UdemyInterceptorSimple {
                 
                 document.dispatchEvent(errorEvent);
                 
-                // Abrir en Brave de todas formas usando comunicación con padre
+                // ✅ Curso ya existe - abrir Brave una sola vez (sin duplicar)
                 const braveEvent = new CustomEvent('udemy-interceptor-notification', {
                     detail: {
                         source: 'udemy-interceptor',
@@ -1211,6 +1264,10 @@ class UdemyInterceptorSimple {
                     message = '❌ Error: ' + error.message;
                 }
                 
+            console.log('hola en el catch antes de brave');
+            console.log(error);
+            
+
                 const errorEvent = new CustomEvent('udemy-interceptor-notification', {
                     detail: {
                         source: 'udemy-interceptor',
@@ -1225,10 +1282,18 @@ class UdemyInterceptorSimple {
                 
                 document.dispatchEvent(errorEvent);
             }
+            
+            // Limpiar del set de procesamiento después de error
+            setTimeout(() => {
+                this.processingSlugs.delete(slug);
+                console.log(`❌ Procesamiento con error finalizado para: ${slug}`);
+            }, 2000);
         });
     }
 
     openCourseAfterSave(slug) {
+        console.log('hola en openCourseAfterSave con slug:', slug);
+        
         // Abrir el curso en Brave inmediatamente después de guardarlo exitosamente
         const learnUrl = `https://www.udemy.com/course/${slug}/learn/`;
         
@@ -1320,6 +1385,8 @@ class UdemyInterceptorSimple {
     // Método createDirectNotification eliminado - solo usar Electron
 
     async openCourseInBrave(courseUrl) {
+        console.log('Abriendo curso en Brave:', courseUrl);
+        
         // Normalizar URL a string antes de enviar
         const normalizedUrl = this.normalizeUrl(courseUrl);
         
@@ -1448,6 +1515,241 @@ class UdemyInterceptorSimple {
         // Resetear flag de botón reemplazado
         this.enrollButtonReplaced = false;
         
+        // Limpiar event listener de save buttons si existe
+        if (this.saveButtonClickHandler) {
+            document.removeEventListener('click', this.saveButtonClickHandler, true);
+            this.saveButtonClickHandler = null;
+            this.saveButtonListenerAttached = false;
+        }
+        
+    }
+
+    removeUnwantedElements() {
+        // Selectores para elementos no deseados
+        const unwantedSelectors = [
+            // Botones de cerrar sesión
+            '[data-purpose="user-logout"]',
+            '[data-purpose="logout"]',
+            'a[href*="logout"]',
+            'button[data-testid="logout"]',
+            '.logout-button',
+            '[aria-label*="Log out"]',
+            '[aria-label*="Cerrar sesión"]',
+            'a[href="/user/logout/"]',
+            
+            // Botones de suscripción y planes
+            '[data-purpose="subscription-cta"]',
+            '[data-purpose="subscription-button"]',
+            '[data-purpose="subscription-upgrade"]',
+            '[data-testid="subscription-cta"]',
+            '.subscription-button',
+            '.subscription-cta',
+            '[aria-label*="Subscribe"]',
+            '[aria-label*="Suscripción"]',
+            '[aria-label*="Premium"]',
+            '[aria-label*="Plus"]',
+            'a[href*="/subscription/"]',
+            'a[href*="/pricing/"]',
+            
+            // Configuración de cuenta y perfil
+            '[data-purpose="account-settings"]',
+            '[data-purpose="profile-settings"]',
+            'a[href*="/user/edit-account/"]',
+            'a[href*="/user/edit-profile/"]',
+            'a[href*="/account/"]',
+            'a[href*="/settings/"]',
+            '[data-testid="account-settings"]',
+            '.account-settings',
+            '.profile-settings',
+            '[aria-label*="Account settings"]',
+            '[aria-label*="Configuración de cuenta"]',
+            '[aria-label*="Profile settings"]',
+            '[aria-label*="Configuración de perfil"]',
+            
+            // Métodos de pago y facturación
+            '[data-purpose="payment-methods"]',
+            '[data-purpose="billing"]',
+            '[data-purpose="payment-settings"]',
+            'a[href*="/user/edit-payment/"]',
+            'a[href*="/payment/"]',
+            'a[href*="/billing/"]',
+            'a[href*="/credit-cards/"]',
+            '[data-testid="payment-methods"]',
+            '[data-testid="billing"]',
+            '.payment-methods',
+            '.billing-settings',
+            '[aria-label*="Payment"]',
+            '[aria-label*="Pago"]',
+            '[aria-label*="Billing"]',
+            '[aria-label*="Facturación"]',
+            '[aria-label*="Credit card"]',
+            '[aria-label*="Tarjeta"]',
+            
+            // Gestión de suscripciones
+            '[data-purpose="manage-subscription"]',
+            '[data-purpose="subscription-management"]',
+            'a[href*="/subscription/manage/"]',
+            'a[href*="/user/subscription/"]',
+            '[data-testid="manage-subscription"]',
+            '.manage-subscription',
+            '.subscription-management',
+            '[aria-label*="Manage subscription"]',
+            '[aria-label*="Gestionar suscripción"]',
+            
+            // Banners promocionales de suscripción
+            '[data-purpose="upsell-banner"]',
+            '[data-purpose="subscription-banner"]',
+            '.upsell-banner',
+            '.subscription-banner',
+            '.plus-banner',
+            '.premium-banner',
+            
+            // Elementos de publicidad
+            '[data-purpose="ads-display"]',
+            '.ads-container',
+            '.advertisement',
+            '[class*="ad-"]',
+            
+            // Elementos de compra/carrito
+            '[data-purpose="add-to-cart"]',
+            '[data-purpose="buy-now"]',
+            '.buy-now-button',
+            '.add-to-cart-button'
+        ];
+        
+        // Eliminar elementos por selector
+        unwantedSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                if (element && element.parentNode) {
+                    element.style.display = 'none';
+                    element.setAttribute('data-interceptor-hidden', 'true');
+                }
+            });
+        });
+        
+        // Buscar por texto común en botones
+        const unwantedTexts = [
+            'logout',
+            'log out',
+            'cerrar sesión',
+            'sign out',
+            'salir',
+            'subscribe',
+            'suscribirse',
+            'subscription',
+            'suscripción',
+            'premium',
+            'plus',
+            'upgrade',
+            'actualizar',
+            'buy now',
+            'comprar ahora',
+            'add to cart',
+            'agregar al carrito',
+            'payment',
+            'pago',
+            'billing',
+            'facturación',
+            'payment methods',
+            'métodos de pago',
+            'credit card',
+            'tarjeta de crédito',
+            'account settings',
+            'configuración de cuenta',
+            'settings',
+            'configuración',
+            'manage subscription',
+            'gestionar suscripción',
+            'cancel subscription',
+            'cancelar suscripción'
+        ];
+        
+        // Buscar botones y enlaces por texto
+        const allButtons = document.querySelectorAll('button, a, [role="button"]');
+        allButtons.forEach(button => {
+            const text = (button.textContent || button.innerText || '').toLowerCase().trim();
+            const title = (button.title || '').toLowerCase().trim();
+            const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase().trim();
+            
+            const matchesUnwantedText = unwantedTexts.some(unwantedText => 
+                text.includes(unwantedText) || 
+                title.includes(unwantedText) || 
+                ariaLabel.includes(unwantedText)
+            );
+            
+            if (matchesUnwantedText && !button.getAttribute('data-interceptor-hidden')) {
+                button.style.display = 'none';
+                button.setAttribute('data-interceptor-hidden', 'true');
+            }
+        });
+        
+        // Eliminar elementos específicos de Udemy que aparecen dinámicamente
+        setTimeout(() => {
+            this.removeDynamicUnwantedElements();
+        }, 2000);
+    }
+    
+    removeDynamicUnwantedElements() {
+        // Selectores específicos para elementos que se cargan después
+        const dynamicSelectors = [
+            // Header user menu
+            '[data-purpose="user-dropdown"] a[href*="logout"]',
+            '.header-user-menu a[href*="logout"]',
+            '[data-purpose="user-dropdown"] a[href*="account"]',
+            '.header-user-menu a[href*="account"]',
+            '[data-purpose="user-dropdown"] a[href*="settings"]',
+            '.header-user-menu a[href*="settings"]',
+            '[data-purpose="user-dropdown"] a[href*="payment"]',
+            '.header-user-menu a[href*="payment"]',
+            '[data-purpose="user-dropdown"] a[href*="billing"]',
+            '.header-user-menu a[href*="billing"]',
+            '[data-purpose="user-dropdown"] a[href*="subscription"]',
+            '.header-user-menu a[href*="subscription"]',
+            
+            // Subscription prompts
+            '[data-purpose="subscription-prompt"]',
+            '.subscription-prompt',
+            
+            // Plus/Premium badges and buttons
+            '.plus-badge',
+            '.premium-badge',
+            '[data-purpose="plus-indicator"]',
+            
+            // Footer subscription links
+            'footer a[href*="subscription"]',
+            'footer a[href*="pricing"]',
+            'footer a[href*="payment"]',
+            'footer a[href*="billing"]',
+            'footer a[href*="account"]',
+            'footer a[href*="settings"]',
+            
+            // Navigation menu items
+            'nav a[href*="/user/edit-account/"]',
+            'nav a[href*="/user/edit-payment/"]',
+            'nav a[href*="/subscription/"]',
+            'nav a[href*="/billing/"]',
+            'nav a[href*="/account/"]',
+            'nav a[href*="/settings/"]',
+            
+            // Sidebar menu items
+            '.sidebar a[href*="account"]',
+            '.sidebar a[href*="payment"]',
+            '.sidebar a[href*="billing"]',
+            '.sidebar a[href*="subscription"]',
+            '.sidebar a[href*="settings"]',
+            '.sidebar a[href*="logout"]'
+        ];
+        
+        dynamicSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                if (element && !element.getAttribute('data-interceptor-hidden')) {
+                    element.style.display = 'none';
+                    element.setAttribute('data-interceptor-hidden', 'true');
+                }
+            });
+        });
     }
 
     // === SISTEMA SIMPLIFICADO SIN COLA ===

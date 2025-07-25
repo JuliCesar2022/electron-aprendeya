@@ -2,8 +2,190 @@ const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session } = require('e
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const BraveController = require('./brave-controller');
 const HotReloadManager = require('./hot-reload');
+
+// === SISTEMA INTELIGENTE DE CONFIGURACIÓN SEGÚN RAM ===
+class SmartMemoryManager {
+    constructor() {
+        this.totalRAM = 0;
+        this.freeRAM = 0;
+        this.usedRAM = 0;
+        this.profile = 'ultra-low';
+        this.detectSystemMemory();
+        this.applyConfiguration();
+    }
+
+    detectSystemMemory() {
+        // Obtener información de memoria del sistema
+        this.totalRAM = Math.round(os.totalmem() / (1024 * 1024 * 1024)); // GB
+        this.freeRAM = Math.round(os.freemem() / (1024 * 1024 * 1024)); // GB
+        this.usedRAM = this.totalRAM - this.freeRAM;
+        
+        console.log(`🖥️ Sistema detectado: ${this.totalRAM}GB total | ${this.freeRAM}GB libre | ${this.usedRAM}GB usado`);
+        
+        // Determinar perfil según RAM disponible
+        if (this.freeRAM >= 6) {
+            this.profile = 'high-performance';
+        } else if (this.freeRAM >= 4) {
+            this.profile = 'balanced';
+        } else if (this.freeRAM >= 2) {
+            this.profile = 'low-memory';
+        } else {
+            this.profile = 'ultra-low';
+        }
+        
+        console.log(`🎯 Perfil seleccionado: ${this.profile} (${this.freeRAM}GB RAM libre)`);
+    }
+
+    applyConfiguration() {
+        switch (this.profile) {
+            case 'high-performance':
+                this.applyHighPerformanceConfig();
+                break;
+            case 'balanced':
+                this.applyBalancedConfig();
+                break;    
+            case 'low-memory':
+                this.applyLowMemoryConfig();
+                break;
+            case 'ultra-low':
+                this.applyUltraLowConfig();
+                break;
+        }
+    }
+
+    applyHighPerformanceConfig() {
+        console.log('🚀 Configurando modo HIGH PERFORMANCE (6GB+ libre)');
+        
+        // Configuración generosa para sistemas con mucha RAM
+        app.commandLine.appendSwitch('--max-old-space-size', '512'); // 512MB por proceso
+        app.commandLine.appendSwitch('--renderer-process-limit', '8'); // 8 procesos
+        app.commandLine.appendSwitch('--memory-pressure-off');
+        app.commandLine.appendSwitch('--disable-background-timer-throttling');
+        app.commandLine.appendSwitch('--disable-renderer-backgrounding', 'false'); // Permitir background
+        app.commandLine.appendSwitch('--disk-cache-size', '200000000'); // 200MB cache
+        
+        this.appMemoryLimit = 800; // 800MB para la app
+        this.webviewMemoryLimit = 400; // 400MB para webview
+    }
+
+    applyBalancedConfig() {
+        console.log('⚖️ Configurando modo BALANCED (4-6GB libre)');
+        
+        // Configuración equilibrada
+        app.commandLine.appendSwitch('--max-old-space-size', '128'); // 128MB por proceso
+        app.commandLine.appendSwitch('--renderer-process-limit', '4'); // 4 procesos
+        app.commandLine.appendSwitch('--memory-pressure-off');
+        app.commandLine.appendSwitch('--optimize-for-size');
+        app.commandLine.appendSwitch('--disable-background-timer-throttling');
+        app.commandLine.appendSwitch('--disk-cache-size', '100000000'); // 100MB cache
+        
+        this.appMemoryLimit = 400; // 400MB para la app
+        this.webviewMemoryLimit = 200; // 200MB para webview
+    }
+
+    applyLowMemoryConfig() {
+        console.log('🔋 Configurando modo LOW MEMORY (2-4GB libre)');
+        
+        // Configuración optimizada para poca RAM
+        app.commandLine.appendSwitch('--max-old-space-size', '64'); // 64MB por proceso
+        app.commandLine.appendSwitch('--renderer-process-limit', '2'); // 2 procesos
+        app.commandLine.appendSwitch('--memory-pressure-off');
+        app.commandLine.appendSwitch('--optimize-for-size');
+        app.commandLine.appendSwitch('--enable-low-end-device-mode');
+        app.commandLine.appendSwitch('--disable-gpu-sandbox');
+        app.commandLine.appendSwitch('--disable-software-rasterizer');
+        app.commandLine.appendSwitch('--disk-cache-size', '50000000'); // 50MB cache
+        app.commandLine.appendSwitch('--aggressive-cache-discard');
+        
+        this.appMemoryLimit = 200; // 200MB para la app
+        this.webviewMemoryLimit = 120; // 120MB para webview
+    }
+
+    applyUltraLowConfig() {
+        console.log('🆘 Configurando modo ULTRA LOW (<2GB libre)');
+        
+        // Configuración ultra-agresiva para sistemas con muy poca RAM
+        app.commandLine.appendSwitch('--max-old-space-size', '30'); // 30MB por proceso
+        app.commandLine.appendSwitch('--renderer-process-limit', '1'); // 1 proceso
+        app.commandLine.appendSwitch('--disable-gpu'); // Sin GPU
+        app.commandLine.appendSwitch('--disable-software-rasterizer');
+        app.commandLine.appendSwitch('--disable-features', 'site-per-process,VizDisplayCompositor,AudioServiceOutOfProcess');
+        app.commandLine.appendSwitch('--disable-extensions');
+        app.commandLine.appendSwitch('--disable-plugins');
+        app.commandLine.appendSwitch('--disable-web-security');
+        app.commandLine.appendSwitch('--disable-site-isolation-trials');
+        app.commandLine.appendSwitch('--no-zygote');
+        app.commandLine.appendSwitch('--memory-pressure-off');
+        app.commandLine.appendSwitch('--optimize-for-size');
+        app.commandLine.appendSwitch('--enable-low-end-device-mode');
+        app.commandLine.appendSwitch('--disable-background-networking');
+        app.commandLine.appendSwitch('--disable-background-timer-throttling');
+        app.commandLine.appendSwitch('--disable-backgrounding-occluded-windows');
+        app.commandLine.appendSwitch('--disable-renderer-backgrounding');
+        app.commandLine.appendSwitch('--disable-features', 'TranslateUI,BlinkGenPropertyTrees');
+        app.commandLine.appendSwitch('--aggressive-cache-discard');
+        app.commandLine.appendSwitch('--disable-ipc-flooding-protection');
+        app.commandLine.appendSwitch('--disk-cache-size', '20000000'); // 20MB cache
+        
+        this.appMemoryLimit = 120; // 120MB para la app
+        this.webviewMemoryLimit = 80; // 80MB para webview
+    }
+
+    getMemoryLimits() {
+        return {
+            app: this.appMemoryLimit,
+            webview: this.webviewMemoryLimit,
+            profile: this.profile,
+            totalRAM: this.totalRAM,
+            freeRAM: this.freeRAM
+        };
+    }
+
+    // Monitorear cambios en RAM cada 30 segundos
+    startMemoryMonitoring() {
+        setInterval(() => {
+            const currentFreeRAM = Math.round(os.freemem() / (1024 * 1024 * 1024));
+            const ramChange = Math.abs(currentFreeRAM - this.freeRAM);
+            
+            // Si la RAM cambió significativamente (>1GB), log para información
+            if (ramChange >= 1) {
+                console.log(`📊 RAM actualizada: ${currentFreeRAM}GB libre (era ${this.freeRAM}GB)`);
+                
+                // Determinar si cambiaría de perfil
+                let newProfile = 'ultra-low';
+                if (currentFreeRAM >= 6) {
+                    newProfile = 'high-performance';
+                } else if (currentFreeRAM >= 4) {
+                    newProfile = 'balanced';
+                } else if (currentFreeRAM >= 2) {
+                    newProfile = 'low-memory';
+                }
+                
+                if (newProfile !== this.profile) {
+                    console.log(`🔄 Perfil cambiaría de ${this.profile} a ${newProfile} (requiere reinicio)`);
+                }
+                
+                this.freeRAM = currentFreeRAM;
+            }
+        }, 30000); // 30 segundos
+    }
+}
+
+// Inicializar sistema inteligente de memoria
+const smartMemoryManager = new SmartMemoryManager();
+
+// Iniciar monitoreo dinámico de memoria
+smartMemoryManager.startMemoryMonitoring();
+
+// Mostrar configuración aplicada
+const memoryLimits = smartMemoryManager.getMemoryLimits();
+console.log(`✅ Configuración aplicada: ${memoryLimits.profile.toUpperCase()}`);
+console.log(`🎯 Límites: App ${memoryLimits.app}MB | WebView ${memoryLimits.webview}MB`);
+console.log(`🖥️ Sistema: ${memoryLimits.totalRAM}GB total | ${memoryLimits.freeRAM}GB libre`);
+console.log(`📊 Monitoreo de RAM activado cada 30 segundos`);
 
 // Clase para manejar el socket en el proceso principal
 class MainSocketManager {
@@ -167,6 +349,11 @@ class AppUpdater {
     // Cuando se encuentra una actualización
     autoUpdater.on('update-available', (info) => {
       
+      // Actualizar estado global de actualización
+      updateStatus.available = true;
+      updateStatus.version = info.version;
+      updateStatus.downloaded = false;
+      
       // Guardar info de actualización pendiente
       pendingUpdateInfo = {
         version: info.version,
@@ -194,6 +381,10 @@ class AppUpdater {
     // Cuando no hay actualizaciones
     autoUpdater.on('update-not-available', (info) => {
       
+      // Actualizar estado global
+      updateStatus.available = false;
+      updateStatus.version = null;
+      
       // Solo para testing en desarrollo - mostrar overlay de prueba
       if (!app.isPackaged) {
         setTimeout(() => {
@@ -215,6 +406,9 @@ class AppUpdater {
       let logMessage = `Descargando: ${Math.round(progressObj.percent)}%`;
       logMessage += ` (${Math.round(progressObj.bytesPerSecond / 1024)} KB/s)`;
       
+      // Actualizar estado global
+      updateStatus.downloadProgress = Math.round(progressObj.percent);
+      
       // Enviar progreso a TODAS las ventanas
       const windows = BrowserWindow.getAllWindows();
       if (windows.length > 0) {
@@ -226,6 +420,10 @@ class AppUpdater {
 
     // Cuando la descarga está completa
     autoUpdater.on('update-downloaded', (info) => {
+      
+      // Actualizar estado global
+      updateStatus.downloaded = true;
+      updateStatus.downloadProgress = 100;
       
       // Limpiar info pendiente ya que la descarga terminó
       pendingUpdateInfo = null;
@@ -295,7 +493,7 @@ function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    backgroundColor: '#ffffff', // Set explicit white background
+    backgroundColor: '#ffffff',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -303,13 +501,21 @@ function createWindow() {
       webSecurity: false,
       webviewTag: true, // Enable webview tag
       preload: path.join(__dirname, '../preload/preload.js'),
-      // Optimizaciones para reducir procesos
+      
+      // === CONFIGURACIÓN INTELIGENTE SEGÚN RAM ===
       backgroundThrottling: false,
       offscreen: false,
       sandbox: false,
       spellcheck: false,
       enableWebSQL: false,
-      v8CacheOptions: 'none'
+      v8CacheOptions: 'none',
+      
+      // === LÍMITES DINÁMICOS SEGÚN SISTEMA ===
+      additionalArguments: [
+        `--max-old-space-size=${Math.round(memoryLimits.app * 0.7)}`, // 70% del límite de app
+        '--memory-pressure-off',
+        '--optimize-for-size'
+      ]
     },
     icon: path.join(__dirname, '../../assets', 'icon.png'),
     titleBarStyle: 'default',
@@ -488,8 +694,8 @@ function createMenu(mainWindow) {
     });
   }
 
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  // Eliminar menú completamente
+  Menu.setApplicationMenu(null);
 }
 
 // ===== SISTEMA DE VENTANAS DE NOTIFICACIÓN NATIVAS =====
@@ -911,7 +1117,6 @@ ipcMain.on('go-to-udemy-webview', (event, url) => {
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) { 
     window.loadFile(path.join(__dirname, '../renderer/pages/udemy-webview/index.html'));
-  } else {
   }
 });
 
@@ -949,6 +1154,7 @@ ipcMain.on('go-to-my-learning', (event) => {
   const webContents = event.sender;
   const window = BrowserWindow.fromWebContents(webContents);
   if (window) {
+    // OPTIMIZACIÓN: Solo cargar my-learning cuando se necesite
     window.loadFile(path.join(__dirname, '../renderer/my-learning.html'));
   }
 });
@@ -1049,6 +1255,56 @@ ipcMain.handle('open-brave-logs-directory', () => {
 // Handler para obtener la versión de la app
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
+});
+
+// Handler para obtener información de memoria del sistema
+ipcMain.handle('get-memory-info', () => {
+  return {
+    ...smartMemoryManager.getMemoryLimits(),
+    currentFreeRAM: Math.round(os.freemem() / (1024 * 1024 * 1024)),
+    currentUsedRAM: Math.round((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024))
+  };
+});
+
+// Variable global para almacenar el estado de actualización
+let updateStatus = {
+  available: false,
+  version: null,
+  downloadProgress: 0,
+  downloaded: false
+};
+
+// Handler para verificar el estado de actualizaciones
+ipcMain.handle('check-update-status', () => {
+  return updateStatus;
+});
+
+// Handler para triggear verificación de actualizaciones
+ipcMain.handle('trigger-update-check', async () => {
+  try {
+    console.log('🔄 Verificando actualizaciones manualmente...');
+    const result = await autoUpdater.checkForUpdatesAndNotify();
+    
+    if (result && result.updateInfo) {
+      updateStatus.available = true;
+      updateStatus.version = result.updateInfo.version;
+      console.log(`✅ Actualización encontrada: v${result.updateInfo.version}`);
+      
+      // Enviar notificación a todas las ventanas
+      if (mainWindow) {
+        mainWindow.webContents.send('update-available', result.updateInfo);
+      }
+      
+      return { success: true, updateInfo: result.updateInfo };
+    } else {
+      updateStatus.available = false;
+      console.log('ℹ️ No hay actualizaciones disponibles');
+      return { success: true, message: 'No hay actualizaciones disponibles' };
+    }
+  } catch (error) {
+    console.error('❌ Error al verificar actualizaciones:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // Brave Controller IPC Handlers

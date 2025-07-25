@@ -1,0 +1,289 @@
+/* Memory Mode Button Component Styles */
+
+.memory-mode-button {
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    z-index: 1000;
+    
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 8px 12px;
+    min-width: 140px;
+    
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.3s ease;
+    
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 12px;
+}
+
+.memory-mode-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.98);
+}
+
+.memory-mode-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.memory-mode-icon {
+    font-size: 16px;
+    line-height: 1;
+    min-width: 16px;
+    text-align: center;
+}
+
+.memory-mode-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.memory-mode-label {
+    font-size: 10px;
+    color: rgba(0, 0, 0, 0.6);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.memory-mode-value {
+    font-size: 11px;
+    color: rgba(0, 0, 0, 0.9);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.memory-mode-stats {
+    text-align: right;
+}
+
+.memory-mode-ram {
+    font-size: 10px;
+    color: rgba(0, 0, 0, 0.7);
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+/* Mode-specific styling */
+.memory-mode-high-performance {
+    border-color: rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.memory-mode-high-performance:hover {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.4);
+}
+
+.memory-mode-high-performance .memory-mode-value {
+    color: rgb(34, 197, 94);
+}
+
+.memory-mode-balanced {
+    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.memory-mode-balanced:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.memory-mode-balanced .memory-mode-value {
+    color: rgb(59, 130, 246);
+}
+
+.memory-mode-low-memory {
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.memory-mode-low-memory:hover {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.memory-mode-low-memory .memory-mode-value {
+    color: rgb(245, 158, 11);
+}
+
+.memory-mode-ultra-low {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.memory-mode-ultra-low:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.memory-mode-ultra-low .memory-mode-value {
+    color: rgb(239, 68, 68);
+}
+
+.memory-mode-error {
+    border-color: rgba(156, 163, 175, 0.3);
+    background: rgba(156, 163, 175, 0.05);
+}
+
+.memory-mode-error:hover {
+    background: rgba(156, 163, 175, 0.1);
+    border-color: rgba(156, 163, 175, 0.4);
+}
+
+.memory-mode-error .memory-mode-value {
+    color: rgb(156, 163, 175);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .memory-mode-button {
+        top: 65px;
+        left: 15px;
+        min-width: 120px;
+        padding: 6px 10px;
+    }
+    
+    .memory-mode-content {
+        gap: 6px;
+    }
+    
+    .memory-mode-icon {
+        font-size: 14px;
+    }
+    
+    .memory-mode-label {
+        font-size: 9px;
+    }
+    
+    .memory-mode-value {
+        font-size: 10px;
+    }
+    
+    .memory-mode-ram {
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 480px) {
+    .memory-mode-button {
+        top: 60px;
+        left: 10px;
+        min-width: 100px;
+        padding: 5px 8px;
+    }
+    
+    .memory-mode-content {
+        gap: 5px;
+    }
+    
+    .memory-mode-icon {
+        font-size: 12px;
+    }
+    
+    .memory-mode-label {
+        font-size: 8px;
+    }
+    
+    .memory-mode-value {
+        font-size: 9px;
+    }
+    
+    .memory-mode-ram {
+        font-size: 8px;
+    }
+}
+
+/* Animation for initial load */
+.memory-mode-button {
+    animation: memoryModeSlideIn 0.5s ease-out;
+}
+
+@keyframes memoryModeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Pulse animation for loading state */
+.memory-mode-button.loading .memory-mode-value {
+    animation: memoryModePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes memoryModePulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .memory-mode-button {
+        background: rgba(31, 41, 55, 0.95);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .memory-mode-button:hover {
+        background: rgba(31, 41, 55, 0.98);
+    }
+    
+    .memory-mode-label {
+        color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .memory-mode-value {
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .memory-mode-ram {
+        color: rgba(255, 255, 255, 0.7);
+    }
+}
+
+/* Print styles */
+@media print {
+    .memory-mode-button {
+        display: none !important;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .memory-mode-button {
+        animation: none !important;
+        transition: none !important;
+    }
+    
+    .memory-mode-button:hover {
+        transform: none !important;
+    }
+    
+    .memory-mode-value {
+        animation: none !important;
+    }
+}

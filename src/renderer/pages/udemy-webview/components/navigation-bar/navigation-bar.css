@@ -1,7 +1,7 @@
 /* Navigation Bar Styles */
 .nav-bar {
     position: fixed;
-    top: 20px;
+    top: 40px;
     right: 30px;
     z-index: 9999;
     pointer-events: none; /* Allow clicks to pass through unless on buttons */

@@ -135,7 +135,14 @@ class LoginForm {
         
         // Set cookies in Electron
         if (window.electronAPI) {
-            await window.electronAPI.invoke('set-cookies', [
+            console.log('🍪 [LOGIN] Configurando cookies para nueva cuenta:', { 
+                email: userEmail, 
+                hasAccessToken: !!(account.accessToken), 
+                hasSessionId: !!(account.dj_session_id),
+                hasClientId: !!(account.client_id)
+            });
+            
+            const cookieResult = await window.electronAPI.invoke('set-cookies', [
                 { name: 'access_token', value: account.accessToken, domain: '.udemy.com', path: '/', secure: true },
                 { name: 'dj_session_id', value: account.dj_session_id, domain: '.udemy.com', path: '/', secure: true, httpOnly: false },
                 { name: 'client_id', value: account.client_id, domain: '.udemy.com', path: '/', secure: true },
@@ -143,6 +150,14 @@ class LoginForm {
                 { name: 'user_email', value: userEmail || '', domain: '.udemy.com', path: '/', secure: false },
                 { name: 'user_fullname', value: encodeURIComponent(userFullname || ''), domain: '.udemy.com', path: '/', secure: false }
             ]);
+            
+            console.log('🍪 [LOGIN] Resultado de configuración de cookies:', cookieResult);
+            
+            if (cookieResult && cookieResult.success) {
+                console.log('✅ [LOGIN] Cookies configuradas exitosamente para Udemy');
+            } else {
+                console.error('❌ [LOGIN] Error configurando cookies:', cookieResult);
+            }
         }
         
         return account;

@@ -225,7 +225,14 @@ class AppInitializer {
             
             // Configurar cookies usando electronAPI
             if (window.electronAPI) {
-                await window.electronAPI.invoke('set-cookies', [
+                console.log('🍪 Configurando cookies para la cuenta:', { 
+                    email: userEmail, 
+                    hasAccessToken: !!(account.accessToken), 
+                    hasSessionId: !!(account.dj_session_id),
+                    hasClientId: !!(account.client_id)
+                });
+                
+                const cookieResult = await window.electronAPI.invoke('set-cookies', [
                     { name: 'access_token', value: account.accessToken || '', domain: '.udemy.com', path: '/', secure: true },
                     { name: 'dj_session_id', value: account.dj_session_id || '', domain: '.udemy.com', path: '/', secure: true, httpOnly: false },
                     { name: 'client_id', value: account.client_id || '', domain: '.udemy.com', path: '/', secure: true },
@@ -234,6 +241,13 @@ class AppInitializer {
                     { name: 'user_fullname', value: encodeURIComponent(userFullname), domain: '.udemy.com', path: '/', secure: false }
                 ]);
                 
+                console.log('🍪 Resultado de configuración de cookies:', cookieResult);
+                
+                if (cookieResult && cookieResult.success) {
+                    console.log('✅ Cookies configuradas exitosamente para Udemy');
+                } else {
+                    console.error('❌ Error configurando cookies:', cookieResult);
+                }
             }
             
             // Conectar al socket con el ID de la cuenta óptima (proceso principal)

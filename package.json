@@ -1,6 +1,6 @@
 {
   "name": "udemy-aprendeya",
-  "version": "2.1.6",
+  "version": "2.1.3",
   "description": "Aplicación para intercepción y mejora de la experiencia de usuario en Udemy",
   "main": "src/main/main.js",
   "homepage": "https://forif.co",

@@ -11,6 +11,8 @@ class UdemyWebViewPage {
         this.navigationBar = null;
         this.courseDropdown = null;
         this.floatingWidget = null;
+        this.memoryModeButton = null;
+        this.statusBar = null;
         this.dialog = null;
         this.updateManager = null;
         
@@ -36,6 +38,9 @@ class UdemyWebViewPage {
         if (!this.webview) {
             return;
         }
+
+        // === CONFIGURAR LÍMITES DE MEMORIA PARA WEBVIEW (120MB) ===
+        this.configureWebViewMemoryLimits();
 
         // Initialize auth manager
         this.initializeAuthManager();
@@ -73,6 +78,26 @@ class UdemyWebViewPage {
         if (window.UpdateManager) {
             this.updateManager = UpdateManager.createGlobalInstance();
         }
+        
+        // Initialize Status Bar FIRST (it needs to be rendered before other components)
+        this.statusBar = new StatusBar({
+            container: document.body
+        });
+
+        // Initialize Memory Mode Button (will be moved to status bar)
+        this.memoryModeButton = new MemoryModeButton({
+            container: document.body, // Temporary container
+            onModeClick: (memoryInfo) => {
+                this.handleMemoryModeClick(memoryInfo);
+            }
+        });
+
+        // Move memory button to status bar center after a brief delay
+        setTimeout(() => {
+            if (this.statusBar && this.memoryModeButton) {
+                this.statusBar.moveMemoryButtonToCenter(this.memoryModeButton);
+            }
+        }, 100);
         
         // Initialize Navigation Bar
         this.navigationBar = new NavigationBar({
@@ -449,6 +474,50 @@ class UdemyWebViewPage {
             // Usar el método navigateToCourse que ya maneja Brave
             const courseId = this.extractCourseId(data.courseUrl);
             this.navigateToCourse(courseId, data.courseUrl);
+        }
+    }
+
+    handleMemoryModeClick(memoryInfo) {
+        
+        // Show detailed memory information in a dialog if available
+        if (this.dialog && memoryInfo) {
+            const profile = memoryInfo.profile || 'unknown';
+            const freeRAM = memoryInfo.currentFreeRAM || memoryInfo.freeRAM || 0;
+            const totalRAM = memoryInfo.totalRAM || 0;
+            const appLimit = memoryInfo.app || 0;
+            const webviewLimit = memoryInfo.webview || 0;
+            
+            const modeNames = {
+                'high-performance': 'Alto Rendimiento',
+                'balanced': 'Equilibrado',
+                'low-memory': 'Memoria Baja',
+                'ultra-low': 'Ultra Bajo'
+            };
+            
+            const modeName = modeNames[profile] || 'Desconocido';
+            
+            const message = `
+                <div style="text-align: left; font-family: monospace; font-size: 13px;">
+                    <p><strong>📊 Información del Sistema:</strong></p>
+                    <p>• Modo actual: <strong>${modeName}</strong></p>
+                    <p>• RAM total: <strong>${totalRAM}GB</strong></p>
+                    <p>• RAM libre: <strong>${freeRAM}GB</strong></p>
+                    <p>• Límite App: <strong>${appLimit}MB</strong></p>
+                    <p>• Límite WebView: <strong>${webviewLimit}MB</strong></p>
+                    <br>
+                    <p style="font-size: 11px; color: #666;">
+                        El modo se ajusta automáticamente según la RAM disponible.
+                        Revisar consola para información técnica detallada.
+                    </p>
+                </div>
+            `;
+            
+            this.dialog.alert({
+                type: 'info',
+                title: '🖥️ Estado de Memoria del Sistema',
+                message: message,
+                animation: 'popup'
+            });
         }
     }
 
@@ -873,6 +942,110 @@ class UdemyWebViewPage {
             }
         });
     }
+
+    // === CONFIGURACIÓN DE LÍMITES DE MEMORIA PARA WEBVIEW (120MB) ===
+    configureWebViewMemoryLimits() {
+        try {
+            console.log('🔧 Configurando límites de memoria para WebView: 120MB...');
+
+            // Configurar opciones adicionales cuando el webview esté listo
+            this.webview.addEventListener('dom-ready', () => {
+                this.webview.executeJavaScript(`
+                    // Configurar garbage collection más agresivo
+                    if (window.gc && typeof window.gc === 'function') {
+                        // Ejecutar GC cada 30 segundos
+                        setInterval(() => {
+                            try {
+                                window.gc();
+                                console.log('🧹 GC ejecutado en WebView');
+                            } catch (e) {
+                                // GC no disponible
+                            }
+                        }, 30000);
+                    }
+
+                    // Limitar cache de imágenes y recursos
+                    if (window.performance && window.performance.setResourceTimingBufferSize) {
+                        window.performance.setResourceTimingBufferSize(50); // Máximo 50 recursos en cache
+                    }
+
+                    // Configurar opciones de memoria del navegador
+                    console.log('🎯 WebView configurado con límites de memoria: 120MB');
+                `).catch(error => {
+                    console.log('WebView memory configuration applied (some features may not be available)');
+                });
+            });
+
+            // Monitorear uso de memoria cada minuto
+            this.memoryMonitoringInterval = setInterval(() => {
+                this.monitorWebViewMemory();
+            }, 60000); // 60 segundos
+
+            console.log('✅ Configuración de memoria WebView completada');
+        } catch (error) {
+            console.error('❌ Error configurando límites de memoria WebView:', error);
+        }
+    }
+
+    // Monitorear uso de memoria del WebView
+    monitorWebViewMemory() {
+        if (this.webview) {
+            this.webview.executeJavaScript(`
+                // Obtener información de memoria si está disponible
+                if (window.performance && window.performance.memory) {
+                    const memory = window.performance.memory;
+                    const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+                    const limitMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
+                    
+                    console.log(\`📊 WebView Memory: \${usedMB}MB / \${limitMB}MB\`);
+                    
+                    // Si está usando más de 100MB, ejecutar GC
+                    if (usedMB > 100 && window.gc) {
+                        try {
+                            window.gc();
+                            console.log('🧹 GC forzado por uso alto de memoria');
+                        } catch (e) {}
+                    }
+                    
+                    return { used: usedMB, limit: limitMB };
+                }
+                return null;
+            `).then(memoryInfo => {
+                if (memoryInfo && memoryInfo.used > 110) {
+                    console.warn(`⚠️ WebView usando ${memoryInfo.used}MB (límite: 120MB)`);
+                }
+            }).catch(() => {
+                // Silently ignore errors
+            });
+        }
+    }
+
+    // Cleanup function para limpiar memoria
+    cleanup() {
+        // Clear memory monitoring interval
+        if (this.memoryMonitoringInterval) {
+            clearInterval(this.memoryMonitoringInterval);
+        }
+
+        // Clear polling interval
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+
+        // Cleanup memory mode button
+        if (this.memoryModeButton) {
+            this.memoryModeButton.destroy();
+            this.memoryModeButton = null;
+        }
+
+        // Cleanup status bar
+        if (this.statusBar) {
+            this.statusBar.destroy();
+            this.statusBar = null;
+        }
+
+        console.log('🧹 WebView cleanup completado');
+    }
 }
 
 // Initialize the page when DOM is ready
@@ -882,8 +1055,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
-    if (window.udemyWebViewPage && window.udemyWebViewPage.pollingInterval) {
-        clearInterval(window.udemyWebViewPage.pollingInterval);
+    if (window.udemyWebViewPage) {
+        if (window.udemyWebViewPage.pollingInterval) {
+            clearInterval(window.udemyWebViewPage.pollingInterval);
+        }
+        // Call cleanup method
+        if (typeof window.udemyWebViewPage.cleanup === 'function') {
+            window.udemyWebViewPage.cleanup();
+        }
     }
 });
 

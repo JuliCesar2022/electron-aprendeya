@@ -16,6 +16,12 @@
     
     <!-- Page Specific Styles -->
     <link rel="stylesheet" href="./styles.css">
+    
+    <!-- Memory Mode Button Styles -->
+    <link rel="stylesheet" href="./components/memory-mode-button/memory-mode-button.css">
+    
+    <!-- Status Bar Styles -->
+    <link rel="stylesheet" href="./components/status-bar/status-bar.css">
 </head>
 <body class="udemy-webview-page">
     <!-- WebView Container -->
@@ -24,8 +30,8 @@
             class="webview"
             id="udemy-webview" 
             src="https://www.udemy.com/"
-            webpreferences="nodeIntegration=true,contextIsolation=false,webSecurity=false,allowRunningInsecureContent=true,experimentalFeatures=true,enableRemoteModule=false,nativeWindowOpen=false,javascript=true"
-            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36">
+            webpreferences="nodeIntegration=false,contextIsolation=true,webSecurity=false,allowRunningInsecureContent=true,experimentalFeatures=false,enableRemoteModule=false,nativeWindowOpen=false,javascript=true,spellcheck=false,backgroundThrottling=false,plugins=false,webgl=false,images=true,autoplayPolicy=no-user-gesture-required,v8CacheOptions=none,enableWebSQL=false,sandbox=false,offscreen=false"
+            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         </webview>
     </div>
 
@@ -46,6 +52,12 @@
     
     <!-- Floating Widget Component -->
     <script src="./components/floating-widget/floating-widget.js"></script>
+    
+    <!-- Memory Mode Button Component -->
+    <script src="./components/memory-mode-button/memory-mode-button.js"></script>
+    
+    <!-- Status Bar Component -->
+    <script src="./components/status-bar/status-bar.js"></script>
     
     <!-- Main Page Script -->
     <script src="./script.js"></script>

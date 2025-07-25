@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Udemigo - Learning Platform</title>
+    
+    <!-- Global styles -->
+    <link rel="stylesheet" href="./components/dialog-styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            overflow: hidden;
+        }
+
+        /* App Shell Container */
+        .app-shell {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Page Containers - Solo una visible a la vez */
+        .page-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .page-container.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(102, 126, 234, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Page-specific style containers */
+        .page-styles {
+            display: none;
+        }
+
+        .page-styles.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="globalLoadingOverlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h3 id="loadingMessage">Cargando...</h3>
+                <p id="loadingDetails">Preparando la aplicación</p>
+            </div>
+        </div>
+
+        <!-- Dynamic CSS Container -->
+        <div id="dynamicStyles"></div>
+
+        <!-- Page: Home -->
+        <iframe class="page-container" data-page="home" id="homePage" frameborder="0"></iframe>
+
+        <!-- Page: Login -->
+        <iframe class="page-container" data-page="login" id="loginPage" frameborder="0"></iframe>
+
+        <!-- Page: Udemy WebView -->
+        <iframe class="page-container" data-page="udemy-webview" id="udemyWebviewPage" frameborder="0"></iframe>
+
+        <!-- Page: My Learning -->
+        <iframe class="page-container" data-page="my-learning" id="myLearningPage" frameborder="0"></iframe>
+    </div>
+
+    <!-- Global Components -->
+    <script src="./components/dialog-manager.js"></script>
+    <script src="./components/update-manager.js"></script>
+
+    <!-- Navigation Manager -->
+    <script>
+        class AppNavigationManager {
+            constructor() {
+                this.currentPage = null;
+                this.loadedPages = new Set();
+                
+                // Page configurations
+                this.pageConfigs = {
+                    'home': {
+                        htmlPath: './pages/index/index.html',
+                        cssPath: null,
+                        scriptPath: null,
+                        title: 'Udemigo - Inicio'
+                    },
+                    'login': {
+                        htmlPath: './pages/login/index.html',
+                        cssPath: null,
+                        scriptPath: null,
+                        title: 'Udemigo - Iniciar Sesión'
+                    },
+                    'udemy-webview': {
+                        htmlPath: './pages/udemy-webview/index.html',
+                        cssPath: null,
+                        scriptPath: null,
+                        title: 'Udemigo - Udemy'
+                    },
+                    'my-learning': {
+                        htmlPath: './my-learning-content.html',
+                        cssPath: null,
+                        scriptPath: null,
+                        title: 'Udemigo - Mi Aprendizaje'
+                    }
+                };
+
+                this.init();
+            }
+
+            init() {
+                // Initialize global UpdateManager
+                if (window.UpdateManager) {
+                    const updateManager = UpdateManager.createGlobalInstance();
+                }
+
+                // Setup IPC listeners for navigation
+                if (window.electronAPI) {
+                    this.setupIPCListeners();
+                }
+
+                // Start with home page
+                this.navigateToPage('home');
+            }
+
+            setupIPCListeners() {
+                // Listen for navigation commands from main process
+                window.electronAPI.receive('navigate-to-page', (page) => {
+                    this.navigateToPage(page);
+                });
+            }
+
+            async navigateToPage(pageName) {
+                console.log(`🔄 Navegando a: ${pageName}`);
+                
+                try {
+                    // Show loading
+                    this.showLoading(`Cargando ${pageName}...`);
+
+                    // Cleanup current page
+                    if (this.currentPage && this.currentPage !== pageName) {
+                        await this.cleanupPage(this.currentPage);
+                    }
+
+                    // Load new page if not already loaded
+                    if (!this.loadedPages.has(pageName)) {
+                        await this.loadPage(pageName);
+                        this.loadedPages.add(pageName);
+                    }
+
+                    // Activate page
+                    this.activatePage(pageName);
+                    this.currentPage = pageName;
+
+                    // Update title
+                    const config = this.pageConfigs[pageName];
+                    if (config) {
+                        document.title = config.title;
+                    }
+
+                    // Hide loading
+                    this.hideLoading();
+
+                    console.log(`✅ Navegación completada: ${pageName}`);
+                } catch (error) {
+                    console.error(`❌ Error navegando a ${pageName}:`, error);
+                    this.hideLoading();
+                    this.showError(`Error cargando ${pageName}`);
+                }
+            }
+
+            async loadPage(pageName) {
+                const config = this.pageConfigs[pageName];
+                if (!config) {
+                    throw new Error(`Configuración de página no encontrada: ${pageName}`);
+                }
+
+                // Get iframe element
+                const pageContainer = document.getElementById(`${pageName.replace('-', '')}Page`.replace('mylearning', 'myLearning'));
+                if (pageContainer && pageContainer.tagName === 'IFRAME') {
+                    // Load page in iframe
+                    pageContainer.src = config.htmlPath;
+                    
+                    // Wait for iframe to load
+                    await new Promise((resolve, reject) => {
+                        pageContainer.onload = () => {
+                            console.log(`📄 Iframe cargado: ${pageName}`);
+                            resolve();
+                        };
+                        pageContainer.onerror = () => {
+                            console.error(`❌ Error cargando iframe: ${pageName}`);
+                            reject(new Error(`Error loading page: ${pageName}`));
+                        };
+                        
+                        // Timeout after 10 seconds
+                        setTimeout(() => {
+                            reject(new Error(`Timeout loading page: ${pageName}`));
+                        }, 10000);
+                    });
+                }
+
+                console.log(`📄 Página cargada: ${pageName}`);
+            }
+
+
+            activatePage(pageName) {
+                // Deactivate all pages
+                document.querySelectorAll('.page-container').forEach(container => {
+                    container.classList.remove('active');
+                });
+
+                // Activate target page
+                const pageContainer = document.getElementById(`${pageName.replace('-', '')}Page`.replace('mylearning', 'myLearning'));
+                if (pageContainer) {
+                    pageContainer.classList.add('active');
+                }
+            }
+
+            async cleanupPage(pageName) {
+                console.log(`🧹 Limpiando página: ${pageName}`);
+
+                try {
+                    // Get iframe element
+                    const pageContainer = document.getElementById(`${pageName.replace('-', '')}Page`.replace('mylearning', 'myLearning'));
+                    if (pageContainer && pageContainer.tagName === 'IFRAME') {
+                        // Clear iframe src to unload the page
+                        pageContainer.src = 'about:blank';
+                    }
+
+                    // Remove from loaded pages
+                    this.loadedPages.delete(pageName);
+
+                    console.log(`✅ Página limpiada: ${pageName}`);
+                } catch (error) {
+                    console.error(`❌ Error limpiando página ${pageName}:`, error);
+                }
+            }
+
+
+            showLoading(message, details = '') {
+                const overlay = document.getElementById('globalLoadingOverlay');
+                const messageEl = document.getElementById('loadingMessage');
+                const detailsEl = document.getElementById('loadingDetails');
+                
+                if (messageEl) messageEl.textContent = message;
+                if (detailsEl) detailsEl.textContent = details;
+                if (overlay) overlay.style.display = 'flex';
+            }
+
+            hideLoading() {
+                const overlay = document.getElementById('globalLoadingOverlay');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+            }
+
+            showError(message) {
+                // Use dialog manager if available, otherwise alert
+                if (window.DialogManager) {
+                    window.DialogManager.showError('Error de Navegación', message);
+                } else {
+                    alert(`Error: ${message}`);
+                }
+            }
+
+            // Public API for external navigation
+            goToHome() { this.navigateToPage('home'); }
+            goToLogin() { this.navigateToPage('login'); }
+            goToUdemyWebview() { this.navigateToPage('udemy-webview'); }
+            goToMyLearning() { this.navigateToPage('my-learning'); }
+
+            // Get current page
+            getCurrentPage() {
+                return this.currentPage;
+            }
+
+            // Check if page is loaded
+            isPageLoaded(pageName) {
+                return this.loadedPages.has(pageName);
+            }
+        }
+
+        // Initialize app navigation manager
+        window.appNavigationManager = new AppNavigationManager();
+
+        // Expose navigation functions globally for backward compatibility
+        window.goToHome = () => window.appNavigationManager.goToHome();
+        window.goToLogin = () => window.appNavigationManager.goToLogin();
+        window.goToUdemyWebview = () => window.appNavigationManager.goToUdemyWebview();
+        window.goToMyLearning = () => window.appNavigationManager.goToMyLearning();
+    </script>
+</body>
+</html>

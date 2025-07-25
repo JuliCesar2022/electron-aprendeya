@@ -55,7 +55,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'get-brave-logging-info',
       'open-brave-logs-directory',
       'get-app-version',
-      'fetch-user-courses'
+      'get-memory-info',
+      'fetch-user-courses',
+      'check-update-status',
+      'trigger-update-check'
     ];
     if (validInvokeChannels.includes(channel)) {
       return await ipcRenderer.invoke(channel, data);
