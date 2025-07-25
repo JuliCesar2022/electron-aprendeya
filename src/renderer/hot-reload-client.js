@@ -9,7 +9,6 @@ class HotReloadClient {
         
         if (this.isEnabled) {
             this.setupListeners();
-            console.log('🔥 Hot Reload Client activado');
         }
     }
 
@@ -24,19 +23,16 @@ class HotReloadClient {
 
         // Listener para hot reload general
         window.electronAPI.receive('hot-reload-trigger', (data) => {
-            console.log('🔄 Hot reload trigger recibido:', data);
             this.handleGeneralReload(data);
         });
 
         // Listener para hot reload específico del interceptor
         window.electronAPI.receive('hot-reload-interceptor', (data) => {
-            console.log('🎯 Hot reload interceptor recibido:', data);
             this.handleInterceptorReload(data);
         });
 
         // Listener para hot reload de estilos
         window.electronAPI.receive('hot-reload-styles', (data) => {
-            console.log('🎨 Hot reload estilos recibido:', data);
             this.handleStyleReload(data);
         });
     }
@@ -48,7 +44,6 @@ class HotReloadClient {
         if (!this.isEnabled) return;
         
         this.webviews.set(name, webview);
-        console.log(`📝 WebView registrado para hot reload: ${name}`);
     }
 
     /**
@@ -101,7 +96,6 @@ class HotReloadClient {
      * Recarga la página completa
      */
     reloadPage() {
-        console.log('🔄 Recargando página completa...');
         setTimeout(() => {
             window.location.reload();
         }, 100);
@@ -111,13 +105,11 @@ class HotReloadClient {
      * Recarga todos los WebViews
      */
     reloadWebViews() {
-        console.log('🔄 Recargando WebViews...');
         
         this.webviews.forEach((webview, name) => {
             if (webview && !webview.isDestroyed && !webview.isDestroyed()) {
                 try {
                     webview.reload();
-                    console.log(`✅ WebView recargado: ${name}`);
                 } catch (error) {
                     console.error(`❌ Error recargando WebView ${name}:`, error);
                 }
@@ -135,7 +127,6 @@ class HotReloadClient {
         
         if (udemyWebView) {
             try {
-                console.log('🎯 Recargando WebView de Udemy...');
                 
                 // Limpiar interceptor antes del reload
                 if (udemyWebView.executeJavaScript) {
@@ -154,7 +145,6 @@ class HotReloadClient {
                 // Recargar después de una pequeña pausa
                 setTimeout(() => {
                     udemyWebView.reload();
-                    console.log('✅ WebView de Udemy recargado');
                 }, 200);
                 
             } catch (error) {
@@ -169,7 +159,6 @@ class HotReloadClient {
      * Recarga todos los WebViews sin distinción
      */
     reloadAllWebViews() {
-        console.log('🔄 Recargando todos los WebViews...');
         
         // Buscar WebViews registrados
         this.reloadWebViews();
@@ -179,7 +168,6 @@ class HotReloadClient {
         webviewElements.forEach((webview, index) => {
             try {
                 webview.reload();
-                console.log(`✅ WebView DOM recargado: ${index}`);
             } catch (error) {
                 console.error(`❌ Error recargando WebView DOM ${index}:`, error);
             }
@@ -190,7 +178,6 @@ class HotReloadClient {
      * Recarga hojas de estilo específicas
      */
     reloadStylesheets(changedFilePath) {
-        console.log(`🎨 Recargando estilos: ${changedFilePath}`);
         
         // Buscar hojas de estilo que coincidan
         const links = document.querySelectorAll('link[rel="stylesheet"]');
@@ -226,7 +213,6 @@ class HotReloadClient {
                 : href + '?v=' + Date.now();
             
             linkElement.setAttribute('href', newHref);
-            console.log(`✅ Hoja de estilo recargada: ${href}`);
         } catch (error) {
             console.error('❌ Error recargando hoja de estilo:', error);
         }
@@ -253,7 +239,6 @@ class HotReloadClient {
                         });
                     `);
                     
-                    console.log(`🎨 Estilos recargados en WebView: ${name}`);
                 } catch (error) {
                     console.warn(`⚠️ Error recargando estilos en WebView ${name}:`, error);
                 }
@@ -266,7 +251,6 @@ class HotReloadClient {
      */
     cleanup() {
         this.webviews.clear();
-        console.log('🧹 Hot Reload Client limpiado');
     }
 }
 

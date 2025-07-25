@@ -462,7 +462,6 @@
     function initializeMyLearningPage() {
         if (myLearningInitialized) return;
         
-        console.log('🎓 Inicializando página My Learning...');
         
         loadUserData();
         loadMyCourses();
@@ -486,7 +485,6 @@
         });
 
         myLearningInitialized = true;
-        console.log('✅ My Learning inicializado correctamente');
     }
 
     function loadUserData() {
@@ -708,7 +706,6 @@
 
     // Función de limpieza para cuando se cambia de página
     function cleanupMyLearningPage() {
-        console.log('🧹 Limpiando página My Learning...');
         
         // Remover event listeners específicos si es necesario
         const elements = [
@@ -729,7 +726,6 @@
         allMyCourses = [];
         myLearningInitialized = false;
         
-        console.log('✅ My Learning limpiado');
     }
 
     // Registrar funciones de inicialización y limpieza en el navigation manager

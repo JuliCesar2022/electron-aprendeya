@@ -245,19 +245,15 @@ class UdemyWebViewPage {
             // Mostrar todos los logs del webview en la consola principal
             switch (event.level) {
                 case 0: // LOG
-                    console.log(message, source);
                     break;
                 case 1: // WARNING  
-                    console.warn(message, source);
                     break;
                 case 2: // ERROR
-                    console.error(message, source);
                     break;
                 case 3: // DEBUG
                     console.debug(message, source);
                     break;
                 default:
-                    console.log(message, source);
             }
         });
     }
@@ -277,7 +273,6 @@ class UdemyWebViewPage {
 
         // Listen for interceptor events
         this.setupInterceptorListeners();
-        console.log('🔗 Escuchando eventos del interceptor...');
         
         // Setup message listeners from webview
         this.setupWebViewMessageListeners();
@@ -308,16 +303,13 @@ class UdemyWebViewPage {
     }
 
     setupWebViewMessageListeners() {
-        console.log('🎯 Configurando listeners de WebView...');
         
         if (this.webview) {
             // Método 1: Escuchar eventos IPC del WebView (correcto para Electron)
             this.webview.addEventListener('ipc-message', (event) => {
-                console.log('📨 IPC Message recibido en PARENT:', event.channel, event.args);
                 
                 if (event.channel === 'udemy-interceptor-message') {
                     const messageData = event.args[0];
-                    console.log('✅ Mensaje de interceptor via IPC en PARENT:', messageData);
                     this.handleInterceptorMessage(messageData);
                 }
             });
@@ -325,7 +317,6 @@ class UdemyWebViewPage {
             // Método 2: Inyectar listener de DOM events en el WebView
             this.webview.addEventListener('dom-ready', () => {
                 this.webview.executeJavaScript(`
-                    console.log('🎯 Configurando listener DOM en WebView...');
                     
                     // Inicializar cola de notificaciones
                     if (!window.interceptorNotificationQueue) {
@@ -334,20 +325,15 @@ class UdemyWebViewPage {
                     
                     // Escuchar eventos customizados en el DOM del WebView
                     document.addEventListener('udemy-interceptor-notification', function(event) {
-                        console.log('🔔 Evento interceptor recibido en WebView DOM:', event.detail);
                         
                         // Agregar a la cola para polling
                         window.interceptorNotificationQueue.push(event.detail);
-                        console.log('✅ Notificación agregada a cola, total:', window.interceptorNotificationQueue.length);
                     });
                     
-                    console.log('✅ Listener DOM configurado en WebView');
                 `);
             });
             
-            console.log('✅ Listener DOM injection configurado');
         } else {
-            console.error('❌ WebView no disponible para configurar listeners');
         }
         
         // Método 3: Polling directo al WebView como solución definitiva
@@ -364,9 +350,7 @@ class UdemyWebViewPage {
                     }
                 `).then(notifications => {
                     if (notifications && notifications.length > 0) {
-                        console.log('📨 Notificaciones obtenidas via POLLING:', notifications);
                         notifications.forEach(notification => {
-                            console.log('✅ Procesando notificación via POLLING:', notification);
                             this.handleInterceptorMessage(notification);
                         });
                     }
@@ -380,11 +364,9 @@ class UdemyWebViewPage {
     handleInterceptorMessage(messageData) {
         const { event, data } = messageData;
         
-        console.log(`🎯 Procesando evento: ${event}`, data);
         
         switch (event) {
             case 'show-notification':
-                console.log('🔔 Procesando notificación del interceptor:', data);
                 this.showNotificationFromInterceptor(data);
                 break;
                 
@@ -405,8 +387,6 @@ class UdemyWebViewPage {
     }
 
     showNotificationFromInterceptor(data) {
-        console.log('🎨 Mostrando notificación:', data);
-        console.log('Dialog disponible:', !!this.dialog);
         
         if (this.dialog) {
             // Usar el DialogManager para mostrar la notificación
@@ -416,9 +396,7 @@ class UdemyWebViewPage {
                 message: data.message,
                 autoClose: 4000
             });
-            console.log('✅ Notificación mostrada exitosamente');
         } else {
-            console.error('❌ DialogManager no disponible');
         }
     }
 
@@ -919,7 +897,6 @@ class UdemyWebViewPage {
         setTimeout(() => {
             if (window.hotReloadClient && this.webview) {
                 window.hotReloadClient.registerWebView(this.webview, 'udemy');
-                console.log('🔥 WebView de Udemy registrado para hot reload');
             }
         }, 1000);
     }
@@ -949,7 +926,6 @@ class UdemyWebViewPage {
     // === CONFIGURAR WEBPREFERENCES SEGÚN MODO DE OPTIMIZACIÓN ===
     async configureWebViewPreferences() {
         try {
-            console.log('🎨 Configurando WebView preferences según modo de optimización...');
             
             // Obtener información de memoria del sistema
             let memoryInfo = null;
@@ -957,12 +933,10 @@ class UdemyWebViewPage {
                 try {
                     memoryInfo = await window.electronAPI.invoke('get-memory-info');
                 } catch(e) {
-                    console.warn('No se pudo obtener información de memoria, usando configuración por defecto');
                 }
             }
             
             const profile = memoryInfo?.profile || 'balanced';
-            console.log(`🎯 Configurando WebView para perfil: ${profile}`);
             
             // Configuraciones base
             let webpreferences = {
@@ -994,23 +968,18 @@ class UdemyWebViewPage {
             // Solo variar límites de memoria según el perfil
             switch(profile) {
                 case 'high-performance':
-                    console.log('✅ Configuración HIGH PERFORMANCE: Sin WebGL, sombras por software (como ultra-low)');
                     break;
                     
                 case 'balanced':
-                    console.log('✅ Configuración BALANCED: Sin WebGL, sombras por software (como ultra-low)');
                     break;
                     
                 case 'low-memory':
-                    console.log('✅ Configuración LOW MEMORY: Sin WebGL, sombras por software (como ultra-low)');
                     break;
                     
                 case 'ultra-low':
-                    console.log('✅ Configuración ULTRA LOW: Sin WebGL, sombras por software (configuración original)');
                     break;
                     
                 default:
-                    console.log('✅ Configuración por defecto: Sin WebGL, sombras por software (como ultra-low)');
             }
             
             // Convertir a string para webpreferences
@@ -1022,19 +991,15 @@ class UdemyWebViewPage {
             const oldPrefs = this.webview.getAttribute('webpreferences');
             this.webview.setAttribute('webpreferences', webprefString);
             
-            console.log(`🔧 WebView preferences ANTES: ${oldPrefs?.substring(0, 100)}...`);
-            console.log(`🔧 WebView preferences DESPUÉS: ${webprefString.substring(0, 100)}...`);
             
             // Verificar si el cambio se aplicó
             const currentPrefs = this.webview.getAttribute('webpreferences');
             const webglEnabled = currentPrefs.includes('webgl=true');
             const webglDisabled = currentPrefs.includes('webgl=false');
             
-            console.log(`🎯 Estado WebGL después del cambio: ${webglEnabled ? 'HABILITADO' : webglDisabled ? 'DESHABILITADO' : 'INDETERMINADO'}`);
             
             // FORZAR RECARGA DEL WEBVIEW para aplicar cambios
             if (oldPrefs !== webprefString) {
-                console.log('🔄 Forzando recarga del WebView para aplicar nuevas preferencias...');
                 const currentSrc = this.webview.src;
                 setTimeout(() => {
                     this.webview.src = currentSrc;
@@ -1042,7 +1007,6 @@ class UdemyWebViewPage {
             }
             
         } catch (error) {
-            console.error('❌ Error configurando WebView preferences:', error);
             // Fallback: configuración como ultra-low para sombras consistentes
             const fallbackPrefs = "nodeIntegration=false,contextIsolation=true,webSecurity=false,webgl=false,backgroundThrottling=true,plugins=false,images=true";
             this.webview.setAttribute('webpreferences', fallbackPrefs);
@@ -1052,7 +1016,6 @@ class UdemyWebViewPage {
     // === CONFIGURACIÓN DE LÍMITES DE MEMORIA PARA WEBVIEW (120MB) ===
     configureWebViewMemoryLimits() {
         try {
-            console.log('🔧 Configurando límites de memoria para WebView: 120MB...');
 
             // Configurar opciones adicionales cuando el webview esté listo
             this.webview.addEventListener('dom-ready', () => {
@@ -1063,7 +1026,6 @@ class UdemyWebViewPage {
                         setInterval(() => {
                             try {
                                 window.gc();
-                                console.log('🧹 GC ejecutado en WebView');
                             } catch (e) {
                                 // GC no disponible
                             }
@@ -1076,9 +1038,7 @@ class UdemyWebViewPage {
                     }
 
                     // Configurar opciones de memoria del navegador
-                    console.log('🎯 WebView configurado con límites de memoria: 120MB');
                 `).catch(error => {
-                    console.log('WebView memory configuration applied (some features may not be available)');
                 });
             });
 
@@ -1087,9 +1047,7 @@ class UdemyWebViewPage {
                 this.monitorWebViewMemory();
             }, 60000); // 60 segundos
 
-            console.log('✅ Configuración de memoria WebView completada');
         } catch (error) {
-            console.error('❌ Error configurando límites de memoria WebView:', error);
         }
     }
 
@@ -1103,13 +1061,11 @@ class UdemyWebViewPage {
                     const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
                     const limitMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
                     
-                    console.log(\`📊 WebView Memory: \${usedMB}MB / \${limitMB}MB\`);
                     
                     // Si está usando más de 100MB, ejecutar GC
                     if (usedMB > 100 && window.gc) {
                         try {
                             window.gc();
-                            console.log('🧹 GC forzado por uso alto de memoria');
                         } catch (e) {}
                     }
                     
@@ -1118,7 +1074,6 @@ class UdemyWebViewPage {
                 return null;
             `).then(memoryInfo => {
                 if (memoryInfo && memoryInfo.used > 110) {
-                    console.warn(`⚠️ WebView usando ${memoryInfo.used}MB (límite: 120MB)`);
                 }
             }).catch(() => {
                 // Silently ignore errors
@@ -1150,7 +1105,6 @@ class UdemyWebViewPage {
             this.statusBar = null;
         }
 
-        console.log('🧹 WebView cleanup completado');
     }
 }
 

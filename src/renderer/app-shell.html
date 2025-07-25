@@ -185,7 +185,6 @@
             }
 
             async navigateToPage(pageName) {
-                console.log(`🔄 Navegando a: ${pageName}`);
                 
                 try {
                     // Show loading
@@ -215,7 +214,6 @@
                     // Hide loading
                     this.hideLoading();
 
-                    console.log(`✅ Navegación completada: ${pageName}`);
                 } catch (error) {
                     console.error(`❌ Error navegando a ${pageName}:`, error);
                     this.hideLoading();
@@ -238,7 +236,6 @@
                     // Wait for iframe to load
                     await new Promise((resolve, reject) => {
                         pageContainer.onload = () => {
-                            console.log(`📄 Iframe cargado: ${pageName}`);
                             resolve();
                         };
                         pageContainer.onerror = () => {
@@ -253,7 +250,6 @@
                     });
                 }
 
-                console.log(`📄 Página cargada: ${pageName}`);
             }
 
 
@@ -271,7 +267,6 @@
             }
 
             async cleanupPage(pageName) {
-                console.log(`🧹 Limpiando página: ${pageName}`);
 
                 try {
                     // Get iframe element
@@ -284,7 +279,6 @@
                     // Remove from loaded pages
                     this.loadedPages.delete(pageName);
 
-                    console.log(`✅ Página limpiada: ${pageName}`);
                 } catch (error) {
                     console.error(`❌ Error limpiando página ${pageName}:`, error);
                 }

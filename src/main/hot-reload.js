@@ -9,7 +9,6 @@ let chokidar;
 try {
     chokidar = require('chokidar');
 } catch (error) {
-    console.log('🔥 Chokidar no disponible - Hot Reload deshabilitado para producción');
     chokidar = null;
 }
 
@@ -20,9 +19,7 @@ class HotReloadManager {
         this.isEnabled = process.env.NODE_ENV === 'development' && chokidar !== null;
         
         if (this.isEnabled) {
-            console.log('🔥 Hot Reload activado para desarrollo');
         } else if (process.env.NODE_ENV === 'development' && !chokidar) {
-            console.log('⚠️ Hot Reload no disponible - chokidar no encontrado');
         }
     }
 
@@ -33,7 +30,6 @@ class HotReloadManager {
         if (!this.isEnabled) return;
         
         this.windows.set(windowType, window);
-        console.log(`📝 Ventana registrada para hot reload: ${windowType}`);
     }
 
     /**
@@ -46,7 +42,6 @@ class HotReloadManager {
         this.setupInterceptorWatcher();
         this.setupStyleWatcher();
         
-        console.log('🚀 Hot Reload iniciado - Watching files...');
     }
 
     /**
@@ -72,7 +67,6 @@ class HotReloadManager {
 
         watcher.on('change', (filePath) => {
             const relativePath = path.relative(process.cwd(), filePath);
-            console.log(`🔄 Archivo renderer cambiado: ${relativePath}`);
             
             this.reloadWebViews('renderer');
         });
@@ -98,7 +92,6 @@ class HotReloadManager {
 
         watcher.on('change', (filePath) => {
             const relativePath = path.relative(process.cwd(), filePath);
-            console.log(`🎯 Interceptor cambiado: ${relativePath}`);
             
             // Para interceptores, recargamos específicamente el WebView de Udemy
             this.reloadUdemyWebView();
@@ -124,7 +117,6 @@ class HotReloadManager {
 
         watcher.on('change', (filePath) => {
             const relativePath = path.relative(process.cwd(), filePath);
-            console.log(`🎨 CSS cambiado: ${relativePath}`);
             
             // Para CSS, solo inyectamos los estilos sin recargar toda la página
             this.reloadStyles(filePath);
@@ -146,7 +138,6 @@ class HotReloadManager {
                         timestamp: Date.now()
                     });
                     
-                    console.log(`🔄 Hot reload enviado a ventana: ${windowType}`);
                 } catch (error) {
                     console.error(`❌ Error enviando hot reload a ${windowType}:`, error.message);
                 }
@@ -167,7 +158,6 @@ class HotReloadManager {
                     action: 'reload-udemy-webview'
                 });
                 
-                console.log('🎯 Hot reload específico del interceptor enviado');
             } catch (error) {
                 console.error('❌ Error enviando hot reload del interceptor:', error.message);
             }
@@ -188,7 +178,6 @@ class HotReloadManager {
                         timestamp: Date.now()
                     });
                     
-                    console.log(`🎨 Estilos recargados en ventana: ${windowType}`);
                 } catch (error) {
                     console.error(`❌ Error recargando estilos en ${windowType}:`, error.message);
                 }
@@ -200,7 +189,6 @@ class HotReloadManager {
      * Detiene todos los watchers
      */
     stop() {
-        console.log('🛑 Deteniendo Hot Reload...');
         
         this.watchers.forEach(watcher => {
             watcher.close();
@@ -209,7 +197,6 @@ class HotReloadManager {
         this.watchers = [];
         this.windows.clear();
         
-        console.log('✅ Hot Reload detenido');
     }
 
     /**
@@ -218,7 +205,6 @@ class HotReloadManager {
     unregisterWindow(windowType) {
         if (this.windows.has(windowType)) {
             this.windows.delete(windowType);
-            console.log(`🗑️ Ventana removida del hot reload: ${windowType}`);
         }
     }
 }

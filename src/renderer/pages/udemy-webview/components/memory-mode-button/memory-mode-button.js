@@ -26,29 +26,24 @@ class MemoryModeButton {
 
     async fetchMemoryInfoWithRetry(maxRetries = 3) {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            console.log(`🔄 Memory info fetch attempt ${attempt}/${maxRetries}`);
             
             try {
                 await this.fetchMemoryInfo();
                 
                 // If we have valid data, break out of retry loop
                 if (this.memoryInfo && this.memoryInfo.profile) {
-                    console.log('✅ Memory info obtained successfully');
                     return;
                 }
             } catch (error) {
-                console.error(`❌ Attempt ${attempt} failed:`, error);
             }
             
             // Wait before retrying (exponential backoff)
             if (attempt < maxRetries) {
                 const delay = 1000 * attempt; // 1s, 2s, 3s
-                console.log(`⏳ Waiting ${delay}ms before retry...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
         
-        console.error('❌ All retry attempts failed');
         this.showError();
     }
 
@@ -73,45 +68,36 @@ class MemoryModeButton {
 
     async fetchMemoryInfo() {
         try {
-            console.log('🔍 Fetching memory info...');
             
             if (!window.electronAPI) {
-                console.error('❌ electronAPI not available');
                 this.showError();
                 return;
             }
 
             const result = await window.electronAPI.invoke('get-memory-info');
-            console.log('📊 Memory info received:', result);
             
             if (result && typeof result === 'object') {
                 this.memoryInfo = result;
                 this.updateDisplay();
-                console.log('✅ Memory info updated successfully');
             } else {
-                console.error('❌ Invalid memory info result:', result);
                 this.showError();
             }
         } catch (error) {
-            console.error('❌ Error fetching memory info:', error);
             this.showError();
         }
     }
 
     updateDisplay() {
         if (!this.memoryInfo || !this.element) {
-            console.warn('⚠️ Cannot update display: missing memoryInfo or element');
             return;
         }
 
-        console.log('🎨 Updating display with data:', this.memoryInfo);
 
         const modeValue = this.element.querySelector('.memory-mode-value');
         const ramStats = this.element.querySelector('.memory-mode-ram');
         const icon = this.element.querySelector('.memory-mode-icon');
 
         if (!modeValue || !ramStats || !icon) {
-            console.error('❌ Missing display elements');
             return;
         }
 
@@ -120,7 +106,6 @@ class MemoryModeButton {
         const displayName = this.getModeDisplayName(profile);
         const modeIcon = this.getModeIcon(profile);
         
-        console.log(`🏷️ Profile: ${profile}, Display: ${displayName}, Icon: ${modeIcon}`);
         
         modeValue.textContent = displayName;
         icon.textContent = modeIcon;
@@ -130,7 +115,6 @@ class MemoryModeButton {
         const freeRAM = this.memoryInfo.freeRAM;
         const totalRAM = this.memoryInfo.totalRAM;
         
-        console.log(`🧠 RAM data - current: ${currentFreeRAM}, free: ${freeRAM}, total: ${totalRAM}`);
         
         const displayFreeRAM = currentFreeRAM || freeRAM || 0;
         const displayTotalRAM = totalRAM || 0;
@@ -147,7 +131,6 @@ class MemoryModeButton {
         // Add tooltip
         this.element.title = this.getTooltipText();
         
-        console.log('✅ Display updated successfully');
     }
 
     getModeDisplayName(profile) {
@@ -187,10 +170,8 @@ class MemoryModeButton {
     }
 
     showError() {
-        console.log('🚨 Showing error state');
         
         if (!this.element) {
-            console.error('❌ Cannot show error: element missing');
             return;
         }
         
@@ -205,7 +186,6 @@ class MemoryModeButton {
         this.element.className = 'memory-mode-button memory-mode-error';
         this.element.title = 'Error obteniendo información de memoria. Revisa la consola para más detalles.';
         
-        console.log('✅ Error state displayed');
     }
 
     setupEventListeners() {
@@ -219,12 +199,6 @@ class MemoryModeButton {
     handleClick() {
         // Show detailed memory info in console for debugging
         console.group('📊 Información Detallada de Memoria');
-        console.log('Perfil actual:', this.memoryInfo?.profile);
-        console.log('RAM total:', this.memoryInfo?.totalRAM + 'GB');
-        console.log('RAM libre:', (this.memoryInfo?.currentFreeRAM || this.memoryInfo?.freeRAM) + 'GB');
-        console.log('Límite App:', this.memoryInfo?.app + 'MB');
-        console.log('Límite WebView:', this.memoryInfo?.webview + 'MB');
-        console.log('Configuración completa:', this.memoryInfo);
         console.groupEnd();
         
         // Call custom callback

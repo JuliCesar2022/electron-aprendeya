@@ -79,7 +79,6 @@ class UdemyInterceptorSimple {
         // También ocultar elementos existentes de forma directa
         this.hideExistingButtons();
         
-        console.log('⚡ Botones originales ocultados inmediatamente');
     }
     
     hideExistingButtons() {
@@ -139,7 +138,6 @@ class UdemyInterceptorSimple {
         for (const selector of buttonSelectors) {
             if (node.matches && node.matches(selector)) {
                 this.hideElement(node);
-                console.log('⚡ Botón ocultado inmediatamente (nodo):', node);
                 break;
             }
         }
@@ -149,7 +147,6 @@ class UdemyInterceptorSimple {
             const elements = node.querySelectorAll ? node.querySelectorAll(selector) : [];
             elements.forEach(element => {
                 this.hideElement(element);
-                console.log('⚡ Botón ocultado inmediatamente (hijo):', element);
             });
         });
     }
@@ -185,7 +182,6 @@ class UdemyInterceptorSimple {
         // Configurar interceptor de navegación solo en páginas de curso sin /learn
         const currentUrl = window.location.href;
         if (currentUrl.includes('/course/') && !currentUrl.includes('/learn')) {
-            console.log('debe de abir brave');
             
             this.setupNavigationInterceptor();
         }
@@ -421,7 +417,6 @@ class UdemyInterceptorSimple {
         // Almacenar referencia para cleanup
         this.domObserver = this.observer;
         
-        console.log('🔍 DOM Observer ultra-agresivo iniciado');
     }
     
     handleMutationsImmediate(mutations) {
@@ -466,7 +461,6 @@ class UdemyInterceptorSimple {
                 !node.dataset.interceptorReplaced &&
                 !node.dataset.interceptorProcessing) {
                 
-                console.log('🎯 Botón de inscripción detectado inmediatamente:', node);
                 
                 // Marcar como en procesamiento para evitar duplicados
                 node.dataset.interceptorProcessing = 'true';
@@ -491,7 +485,6 @@ class UdemyInterceptorSimple {
                         !element.dataset.interceptorReplaced &&
                         !element.dataset.interceptorProcessing) {
                         
-                        console.log('🎯 Botón de inscripción hijo detectado (responsive):', element);
                         
                         // Marcar como en procesamiento para evitar duplicados EN ESTE ELEMENTO
                         element.dataset.interceptorProcessing = 'true';
@@ -625,12 +618,10 @@ class UdemyInterceptorSimple {
     setupNavigationInterceptor() {
         // Interceptar clicks en enlaces para detectar navegación a cursos
         this.navigationClickHandler = (event) => {
-            console.log('🔍 Click detectado en:', event.target);
             
             // NO interceptar clicks en nuestros botones personalizados
             if (event.target.classList.contains('udemy-interceptor-enroll-btn') || 
                 event.target.closest('.udemy-interceptor-enroll-btn')) {
-                console.log('🔍 Ignorando click en botón personalizado');
                 return;
             }
             
@@ -659,15 +650,12 @@ class UdemyInterceptorSimple {
                 }
             }
             
-            console.log('🔗 Enlace encontrado:', link);
             
             if (!link || !link.href) {
-                console.log('❌ No se encontró enlace válido');
                 return;
             }
             
             const targetUrl = link.href;
-            console.log('🎯 URL objetivo:', targetUrl);
             
             // Verificar si la URL contiene '/course/' y termina con '/learn' o '/learn/'
             const coursePattern = /\/course\/([^\/\?]+)\/learn\/?(?:\?.*)?$/;
@@ -677,7 +665,6 @@ class UdemyInterceptorSimple {
                 event.preventDefault();
                 event.stopPropagation();
                 
-                console.log('🎯 Interceptado click en enlace de curso:', targetUrl);
                 
                 const slug = match[1]; // El slug del curso extraído del patrón
                 
@@ -713,7 +700,6 @@ class UdemyInterceptorSimple {
         // Añadir el event listener al document con capture para interceptar antes que otros handlers
         document.addEventListener('click', this.navigationClickHandler, true);
         
-        console.log('✅ Interceptor de navegación configurado para páginas de curso');
     }
 
     setupButtonInterceptors() {
@@ -726,14 +712,12 @@ class UdemyInterceptorSimple {
         
         if (currentUrl.includes('/course/') && !currentUrl.includes('/learn')) {
             // Página de curso individual - interceptar botones de inscripción
-            console.log('individual');
             
             this.setupEnrollButtonInterceptor();
         } 
         
         // Página de búsqueda o lista - interceptar botones de guardar
         if (currentUrl.includes('/search/') ) {
-    console.log('guardar');
     this.setupSaveButtonInterceptor();
 } 
         
@@ -744,11 +728,9 @@ class UdemyInterceptorSimple {
     setupSaveButtonInterceptor() {
         // Verificar si ya se añadió el event listener para evitar duplicados
         if (this.saveButtonListenerAttached) {
-            console.log('🔄 Event listener ya existe, saltando duplicación');
             return;
         }
         
-        console.log('🎯 Añadiendo event listener para botones save/guardar');
         
         // Marcar como añadido
         this.saveButtonListenerAttached = true;
@@ -903,7 +885,6 @@ class UdemyInterceptorSimple {
         // Buscar y reemplazar botones de suscripción/inscripción
         const checkForEnrollButtons = () => {
             // ⚡ PERMITIR MÚLTIPLES CONTENEDORES para responsive design
-            console.log('🔍 Buscando contenedores de botones para responsive...');
             
             // PASO 1: Buscar contenedores primero (más eficiente y evita duplicados)
             const containerSelectors = [
@@ -918,23 +899,19 @@ class UdemyInterceptorSimple {
             let processedContainers = 0;
             containerSelectors.forEach(selector => {
                 const containers = document.querySelectorAll(selector);
-                console.log(`📦 Encontrados ${containers.length} contenedores para selector: ${selector}`);
                 
                 containers.forEach((container, index) => {
                     if (container && !container.dataset.interceptorReplaced && !container.querySelector('.udemy-interceptor-enroll-btn')) {
-                        console.log(`🎯 Procesando contenedor ${index + 1}:`, container);
                         if (this.replaceEnrollButton(container)) {
                             processedContainers++;
                         }
                     } else {
-                        console.log(`⏭️ Contenedor ${index + 1} ya procesado o con botón personalizado`);
                     }
                 });
             });
             
             // PASO 2: Solo si no encontramos contenedores, buscar botones individuales
             if (processedContainers === 0) {
-                console.log('🔍 No se encontraron contenedores, buscando botones individuales...');
                 let foundDirectButton = false;
                 
                 // PASO 2A: Buscar botones específicos por selector
@@ -1004,7 +981,6 @@ class UdemyInterceptorSimple {
         // Añadir cooldown para evitar doble ejecución
         const now = Date.now();
         if (now - this.lastSaveTime < 1000) { // 1 segundo de cooldown
-            console.log('🔄 Cooldown activo, ignorando click duplicado');
             return;
         }
         this.lastSaveTime = now;
@@ -1033,7 +1009,6 @@ class UdemyInterceptorSimple {
             urlImage: courseInfo.image || null
         };
         
-        console.log('procesado');
         
         // Procesar el guardado del curso (funcionalidad principal)
         this.saveCourseToBackend(payload, courseInfo.slug);
@@ -1157,11 +1132,9 @@ class UdemyInterceptorSimple {
         // ⚡ CONTROL POR CONTENEDOR - permitir múltiples contenedores
         if (container.dataset.interceptorReplaced || 
             container.querySelector('.udemy-interceptor-enroll-btn')) {
-            console.log('⚠️ Este contenedor ya fue procesado, saltando:', container);
             return false;
         }
         
-        console.log('🔄 Iniciando reemplazo de contenedor:', container);
         
         // Marcar como procesado INMEDIATAMENTE
         container.dataset.interceptorReplaced = 'true';
@@ -1238,11 +1211,9 @@ class UdemyInterceptorSimple {
             button.classList.contains('udemy-interceptor-enroll-btn') ||
             button.querySelector('.udemy-interceptor-enroll-btn')) {
                 
-            console.log('⚠️ Este botón ya fue procesado, saltando:', button);
             return false;
         }
         
-        console.log('🔄 Iniciando reemplazo de botón directo:', button);
         
         // Marcar como procesado INMEDIATAMENTE
         button.dataset.interceptorReplaced = 'true';
@@ -1268,11 +1239,9 @@ class UdemyInterceptorSimple {
         const slugMatch = courseUrl.match(/\/course\/([^/]+)/);
         const slug = slugMatch?.[1];
         
-        console.log('Reemplazando botón directo:', button, 'para curso:', courseTitle, 'slug:', slug, 'url:', courseUrl, 'imagen:', imageUrl);
         
         // Crear nuevo botón personalizado
         const newButton = this.createEnrollButton();
-        console.log('🎯 Botón personalizado creado:', newButton, 'con clase:', newButton.className);
         
         // Copiar clases y estilos del botón original para mantener apariencia
         if (button.className) {
@@ -1285,11 +1254,8 @@ class UdemyInterceptorSimple {
         
         // Agregar eventos al botón - envío directo al backend
         newButton.addEventListener('click', (event) => {
-            console.log('🔥 CLICK DETECTADO en botón personalizado - INICIO');
             event.preventDefault();
             event.stopPropagation();
-            console.log('🔥 preventDefault y stopPropagation ejecutados');
-            console.log('Hola desde el nuevo botón de inscripción:', courseTitle, 'slug:', slug, 'url:', courseUrl, 'imagen:', imageUrl);
             
             // Validar que tenemos los datos necesarios
             if (!slug) {
@@ -1306,10 +1272,8 @@ class UdemyInterceptorSimple {
             
           
             
-            console.log('🔥 A punto de llamar saveCourseToBackend con payload:', payload);
             // Enviar directamente al backend
             this.saveCourseToBackend(payload, slug);
-            console.log('🔥 saveCourseToBackend llamado - FIN del click handler');
         });
         
         // NO marcar flag global - permitir múltiples botones en diferentes contenedores
@@ -1484,18 +1448,14 @@ class UdemyInterceptorSimple {
     }
     
     saveCourseToBackend(payload, slug) {
-        console.log('🚀🚀🚀 EJECUTADA saveCourseToBackend con payload:', payload, 'y slug:', slug);
-        console.log('🚀 Stack trace:', new Error().stack);
         
         // Verificar si ya se está procesando este curso
         if (this.processingSlugs.has(slug)) {
-            console.log(`🔄 Curso ${slug} ya se está procesando, ignorando duplicado`);
             return;
         }
         
         // Marcar como en procesamiento
         this.processingSlugs.add(slug);
-        console.log(`🎯 Iniciando procesamiento de curso: ${slug}`);
         
         // Obtener token de las cookies
         const token = this.getCookieValue('auth_token');
@@ -1506,7 +1466,6 @@ class UdemyInterceptorSimple {
             this.showErrorNotification('❌ Token no encontrado. Inicia sesión primero.');
             return;
         }
-        console.log('paso el token:', token);
         
         // Mostrar indicador de carga usando ipcRenderer para WebView
         try {
@@ -1528,14 +1487,7 @@ class UdemyInterceptorSimple {
             document.dispatchEvent(customEvent);
             
         } catch (error) {
-            console.error('❌ Error enviando notificación:', error);
-            console.log('Contexto del error:', {
-                window: typeof window,
-                parent: typeof window.parent,
-                isParent: window.parent === window,
-                location: window.location.href,
-                require: typeof require
-            });
+           
         }
         
         
@@ -1562,7 +1514,6 @@ class UdemyInterceptorSimple {
             
             // Enviar notificación de éxito usando DOM CustomEvent
             const successMessage = data.message ? `✅ ${data.message}` : '✅ Curso guardado exitosamente';
-            console.log('hola antes de brave');
             
             const successEvent = new CustomEvent('udemy-interceptor-notification', {
                 detail: {
@@ -1596,7 +1547,6 @@ class UdemyInterceptorSimple {
             // Limpiar del set de procesamiento después de éxito
             setTimeout(() => {
                 this.processingSlugs.delete(slug);
-                console.log(`✅ Procesamiento completado para: ${slug}`);
             }, 2000);
         })
         .catch(error => {
@@ -1655,8 +1605,6 @@ class UdemyInterceptorSimple {
                     message = '❌ Error: ' + error.message;
                 }
                 
-            console.log('hola en el catch antes de brave');
-            console.log(error);
             
 
                 const errorEvent = new CustomEvent('udemy-interceptor-notification', {
@@ -1677,13 +1625,11 @@ class UdemyInterceptorSimple {
             // Limpiar del set de procesamiento después de error
             setTimeout(() => {
                 this.processingSlugs.delete(slug);
-                console.log(`❌ Procesamiento con error finalizado para: ${slug}`);
             }, 2000);
         });
     }
 
     openCourseAfterSave(slug) {
-        console.log('hola en openCourseAfterSave con slug:', slug);
         
         // Abrir el curso en Brave inmediatamente después de guardarlo exitosamente
         const learnUrl = `https://www.udemy.com/course/${slug}/learn/`;
@@ -1776,7 +1722,6 @@ class UdemyInterceptorSimple {
     // Método createDirectNotification eliminado - solo usar Electron
 
     async openCourseInBrave(courseUrl) {
-        console.log('Abriendo curso en Brave:', courseUrl);
         
         // Normalizar URL a string antes de enviar
         const normalizedUrl = this.normalizeUrl(courseUrl);
@@ -2270,7 +2215,6 @@ function initializeInterceptor() {
         }
     }
     
-    console.log('⚡ CSS ultra-temprano inyectado');
 })();
 
 // === INTERCEPTOR DE CLICKS GLOBAL ULTRA-TEMPRANO ===
@@ -2313,7 +2257,6 @@ function initializeInterceptor() {
         
         // Si es peligroso y NO es nuestro botón, bloquearlo
         if (isDangerous && !element.classList.contains('udemy-interceptor-enroll-btn')) {
-            console.log('🚫 CLICK BLOQUEADO en botón peligroso:', element);
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
@@ -2328,7 +2271,6 @@ function initializeInterceptor() {
     document.addEventListener('mousedown', globalClickHandler, true);
     document.addEventListener('touchstart', globalClickHandler, true);
     
-    console.log('🛡️ Interceptor de clicks global ultra-temprano activado');
 })();
 
 // === INICIO AUTOMÁTICO ===

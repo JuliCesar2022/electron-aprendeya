@@ -23,7 +23,6 @@ class SmartMemoryManager {
         this.freeRAM = Math.round(os.freemem() / (1024 * 1024 * 1024)); // GB
         this.usedRAM = this.totalRAM - this.freeRAM;
         
-        console.log(`🖥️ Sistema detectado: ${this.totalRAM}GB total | ${this.freeRAM}GB libre | ${this.usedRAM}GB usado`);
         
         // Determinar perfil según RAM disponible
         if (this.freeRAM >= 6) {
@@ -36,7 +35,6 @@ class SmartMemoryManager {
             this.profile = 'ultra-low';
         }
         
-        console.log(`🎯 Perfil seleccionado: ${this.profile} (${this.freeRAM}GB RAM libre)`);
     }
 
     applyConfiguration() {
@@ -57,7 +55,6 @@ class SmartMemoryManager {
     }
 
     applyHighPerformanceConfig() {
-        console.log('🚀 Configurando modo HIGH PERFORMANCE (6GB+ libre) - Renderizado como ultra-low');
         
         // Usar la misma configuración de renderizado que ultra-low para sombras consistentes
         app.commandLine.appendSwitch('--max-old-space-size', '512'); // Mayor memoria pero mismo renderizado
@@ -75,7 +72,6 @@ class SmartMemoryManager {
     }
 
     applyBalancedConfig() {
-        console.log('⚖️ Configurando modo BALANCED (4-6GB libre) - Renderizado como ultra-low');
         
         // Usar la misma configuración de renderizado que ultra-low para sombras consistentes
         app.commandLine.appendSwitch('--max-old-space-size', '128'); // 128MB por proceso
@@ -93,7 +89,6 @@ class SmartMemoryManager {
     }
 
     applyLowMemoryConfig() {
-        console.log('🔋 Configurando modo LOW MEMORY (2-4GB libre) - Renderizado como ultra-low');
         
         // Usar la misma configuración de renderizado que ultra-low para sombras consistentes
         app.commandLine.appendSwitch('--max-old-space-size', '64'); // 64MB por proceso
@@ -111,7 +106,6 @@ class SmartMemoryManager {
     }
 
     applyUltraLowConfig() {
-        console.log('🆘 Configurando modo ULTRA LOW (<2GB libre)');
         
         // Configuración ultra-agresiva para sistemas con muy poca RAM
         app.commandLine.appendSwitch('--max-old-space-size', '30'); // 30MB por proceso
@@ -158,7 +152,6 @@ class SmartMemoryManager {
             
             // Si la RAM cambió significativamente (>1GB), log para información
             if (ramChange >= 1) {
-                console.log(`📊 RAM actualizada: ${currentFreeRAM}GB libre (era ${this.freeRAM}GB)`);
                 
                 // Determinar si cambiaría de perfil
                 let newProfile = 'ultra-low';
@@ -171,7 +164,6 @@ class SmartMemoryManager {
                 }
                 
                 if (newProfile !== this.profile) {
-                    console.log(`🔄 Perfil cambiaría de ${this.profile} a ${newProfile} (requiere reinicio)`);
                 }
                 
                 this.freeRAM = currentFreeRAM;
@@ -188,10 +180,6 @@ smartMemoryManager.startMemoryMonitoring();
 
 // Mostrar configuración aplicada
 const memoryLimits = smartMemoryManager.getMemoryLimits();
-console.log(`✅ Configuración aplicada: ${memoryLimits.profile.toUpperCase()}`);
-console.log(`🎯 Límites: App ${memoryLimits.app}MB | WebView ${memoryLimits.webview}MB`);
-console.log(`🖥️ Sistema: ${memoryLimits.totalRAM}GB total | ${memoryLimits.freeRAM}GB libre`);
-console.log(`📊 Monitoreo de RAM activado cada 30 segundos`);
 
 // Clase para manejar el socket en el proceso principal
 class MainSocketManager {
@@ -1288,13 +1276,11 @@ ipcMain.handle('check-update-status', () => {
 // Handler para triggear verificación de actualizaciones
 ipcMain.handle('trigger-update-check', async () => {
   try {
-    console.log('🔄 Verificando actualizaciones manualmente...');
     const result = await autoUpdater.checkForUpdatesAndNotify();
     
     if (result && result.updateInfo) {
       updateStatus.available = true;
       updateStatus.version = result.updateInfo.version;
-      console.log(`✅ Actualización encontrada: v${result.updateInfo.version}`);
       
       // Enviar notificación a todas las ventanas
       if (mainWindow) {
@@ -1304,7 +1290,6 @@ ipcMain.handle('trigger-update-check', async () => {
       return { success: true, updateInfo: result.updateInfo };
     } else {
       updateStatus.available = false;
-      console.log('ℹ️ No hay actualizaciones disponibles');
       return { success: true, message: 'No hay actualizaciones disponibles' };
     }
   } catch (error) {
@@ -1627,7 +1612,6 @@ ipcMain.handle('check-for-updates', async (event) => {
 // Handler para descomprimir Brave en segundo plano (LAZY LOADING)
 ipcMain.handle('extract-brave-background', async (event) => {
   try {
-    console.log('🔧 Extrayendo Brave bajo demanda...');
     
     if (!chromeController) {
       chromeController = getBraveController();
@@ -1735,7 +1719,6 @@ app.whenReady().then(async () => {
       try {
         await appUpdater.checkForUpdates();
       } catch (error) {
-        console.log('Error verificando actualizaciones:', error.message);
       }
     }, 5000); // Aumentar delay para evitar carga inicial
   }
