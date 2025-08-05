@@ -182,7 +182,6 @@ class UdemyInterceptorSimple {
         // Configurar interceptor de navegación solo en páginas de curso sin /learn
         const currentUrl = window.location.href;
         if (currentUrl.includes('/course/') && !currentUrl.includes('/learn')) {
-            
             this.setupNavigationInterceptor();
         }
         
@@ -611,6 +610,7 @@ class UdemyInterceptorSimple {
     listModifications() {
         console.group('📝 Modificaciones Activas');
         for (const [id, config] of this.modifications) {
+            console.log(`${config.enabled ? '✅' : '❌'} ${id}: ${config.description}`);
         }
         console.groupEnd();
     }
@@ -691,8 +691,6 @@ class UdemyInterceptorSimple {
                             message: '🚀 Abriendo curso en Brave...'
                         });
                     }
-                } else {
-                    console.warn('⚠️ No se pudo extraer slug de la URL:', targetUrl);
                 }
             }
         };
@@ -712,14 +710,13 @@ class UdemyInterceptorSimple {
         
         if (currentUrl.includes('/course/') && !currentUrl.includes('/learn')) {
             // Página de curso individual - interceptar botones de inscripción
-            
             this.setupEnrollButtonInterceptor();
         } 
         
         // Página de búsqueda o lista - interceptar botones de guardar
-        if (currentUrl.includes('/search/') ) {
-    this.setupSaveButtonInterceptor();
-} 
+        if (currentUrl.includes('/search/')) {
+            this.setupSaveButtonInterceptor();
+        } 
         
         // Eliminar elementos no deseados (botones de logout, suscripción, etc.)
         this.removeUnwantedElements();
@@ -730,7 +727,6 @@ class UdemyInterceptorSimple {
         if (this.saveButtonListenerAttached) {
             return;
         }
-        
         
         // Marcar como añadido
         this.saveButtonListenerAttached = true;
@@ -884,8 +880,6 @@ class UdemyInterceptorSimple {
         
         // Buscar y reemplazar botones de suscripción/inscripción
         const checkForEnrollButtons = () => {
-            // ⚡ PERMITIR MÚLTIPLES CONTENEDORES para responsive design
-            
             // PASO 1: Buscar contenedores primero (más eficiente y evita duplicados)
             const containerSelectors = [
                 '[data-purpose="course-cta-holder"]',
@@ -899,7 +893,6 @@ class UdemyInterceptorSimple {
             let processedContainers = 0;
             containerSelectors.forEach(selector => {
                 const containers = document.querySelectorAll(selector);
-                
                 containers.forEach((container, index) => {
                     if (container && !container.dataset.interceptorReplaced && !container.querySelector('.udemy-interceptor-enroll-btn')) {
                         if (this.replaceEnrollButton(container)) {
@@ -1008,7 +1001,6 @@ class UdemyInterceptorSimple {
             udemyId: courseInfo.slug,
             urlImage: courseInfo.image || null
         };
-        
         
         // Procesar el guardado del curso (funcionalidad principal)
         this.saveCourseToBackend(payload, courseInfo.slug);
@@ -1135,7 +1127,6 @@ class UdemyInterceptorSimple {
             return false;
         }
         
-        
         // Marcar como procesado INMEDIATAMENTE
         container.dataset.interceptorReplaced = 'true';
         
@@ -1214,7 +1205,6 @@ class UdemyInterceptorSimple {
             return false;
         }
         
-        
         // Marcar como procesado INMEDIATAMENTE
         button.dataset.interceptorReplaced = 'true';
         
@@ -1269,8 +1259,6 @@ class UdemyInterceptorSimple {
                 udemyId: slug,
                 urlImage: imageUrl
             };
-            
-          
             
             // Enviar directamente al backend
             this.saveCourseToBackend(payload, slug);
@@ -1448,7 +1436,6 @@ class UdemyInterceptorSimple {
     }
     
     saveCourseToBackend(payload, slug) {
-        
         // Verificar si ya se está procesando este curso
         if (this.processingSlugs.has(slug)) {
             return;
@@ -1487,7 +1474,7 @@ class UdemyInterceptorSimple {
             document.dispatchEvent(customEvent);
             
         } catch (error) {
-           
+            // Ignorar errores de notificación
         }
         
         
@@ -1511,7 +1498,6 @@ class UdemyInterceptorSimple {
             return response.json().then(data => ({ data, status: responseStatus }));
         })
         .then(data => {
-            
             // Enviar notificación de éxito usando DOM CustomEvent
             const successMessage = data.message ? `✅ ${data.message}` : '✅ Curso guardado exitosamente';
             
@@ -1550,7 +1536,6 @@ class UdemyInterceptorSimple {
             }, 2000);
         })
         .catch(error => {
-            
             // Enviar error usando DOM CustomEvent
             const errorMessage = error.message.toLowerCase();
             
@@ -1604,8 +1589,6 @@ class UdemyInterceptorSimple {
                 } else {
                     message = '❌ Error: ' + error.message;
                 }
-                
-            
 
                 const errorEvent = new CustomEvent('udemy-interceptor-notification', {
                     detail: {
@@ -1630,7 +1613,6 @@ class UdemyInterceptorSimple {
     }
 
     openCourseAfterSave(slug) {
-        
         // Abrir el curso en Brave inmediatamente después de guardarlo exitosamente
         const learnUrl = `https://www.udemy.com/course/${slug}/learn/`;
         
@@ -1722,7 +1704,6 @@ class UdemyInterceptorSimple {
     // Método createDirectNotification eliminado - solo usar Electron
 
     async openCourseInBrave(courseUrl) {
-        
         // Normalizar URL a string antes de enviar
         const normalizedUrl = this.normalizeUrl(courseUrl);
         
@@ -1815,7 +1796,6 @@ class UdemyInterceptorSimple {
     }
 
     cleanup() {
-        
         // Limpiar intervalos
         if (this.enrollButtonInterval) {
             clearInterval(this.enrollButtonInterval);
@@ -1869,7 +1849,6 @@ class UdemyInterceptorSimple {
         if (injectedStyle) {
             injectedStyle.remove();
         }
-        
     }
 
     removeUnwantedElements() {

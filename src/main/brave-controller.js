@@ -912,8 +912,164 @@ class BraveController {
         return null;
     }
 
+    // Mostrar diálogo de configuración inicial
+    showInitialSetupDialog() {
+        console.log('🔧 showInitialSetupDialog ejecutándose...');
+        const { BrowserWindow } = require('electron');
+        const windows = BrowserWindow.getAllWindows();
+        console.log('🔧 Ventanas encontradas:', windows.length);
+        
+        // Buscar la ventana principal (no la de DevTools)
+        const mainWindow = windows.find(win => 
+            !win.isDestroyed() && 
+            win.webContents && 
+            !win.webContents.isDevToolsOpened() &&
+            win.isVisible()
+        );
+        
+        if (mainWindow) {
+            console.log('🔧 Ventana principal encontrada, enviando evento a todas las páginas...');
+            
+            // Enviar evento al renderer principal
+            mainWindow.webContents.send('show-setup-dialog', {
+                type: 'info',
+                title: 'Configuración inicial',
+                message: 'Configurando por primera vez...',
+                showProgress: true,
+                progress: 0,
+                persistent: true,
+                overlay: {
+                    background: 'rgba(0, 0, 0, 0.8)', // Fondo negro con transparencia
+                    blur: false
+                },
+                size: 'small', // Tamaño pequeño
+                animation: 'popup'
+            });
+            
+            // También enviar a todos los webviews/iframes dentro de la ventana principal
+            // Esto asegura que el popup aparezca en la página activa del webview
+            mainWindow.webContents.executeJavaScript(`
+                // Enviar mensaje a todos los iframes de la aplicación
+                const frames = document.querySelectorAll('iframe');
+                frames.forEach(frame => {
+                    try {
+                        if (frame.contentWindow && frame.contentWindow.postMessage) {
+                            frame.contentWindow.postMessage({
+                                type: 'show-setup-dialog',
+                                data: {
+                                    type: 'info',
+                                    title: 'Configuración inicial',
+                                    message: 'Configurando por primera vez...',
+                                    showProgress: true,
+                                    progress: 0,
+                                    persistent: true,
+                                    overlay: {
+                                        background: 'rgba(0, 0, 0, 0.8)',
+                                        blur: false
+                                    },
+                                    size: 'small',
+                                    animation: 'popup'
+                                }
+                            }, '*');
+                        }
+                    } catch (e) {
+                        // Ignorar errores de CORS
+                    }
+                });
+            `).catch(() => {
+                // Ignorar errores de ejecución
+            });
+            
+            console.log('🔧 Evento show-setup-dialog enviado a ventana principal y webviews!');
+        } else {
+            console.log('🔧 ERROR: No se encontró ventana principal!');
+        }
+    }
+
+    // Actualizar progreso del diálogo
+    updateSetupProgress(progress, message = null) {
+        const { BrowserWindow } = require('electron');
+        const windows = BrowserWindow.getAllWindows();
+        const mainWindow = windows.find(win => 
+            !win.isDestroyed() && 
+            win.webContents && 
+            !win.webContents.isDevToolsOpened() &&
+            win.isVisible()
+        );
+        
+        if (mainWindow) {
+            // Enviar via IPC
+            mainWindow.webContents.send('update-setup-progress', {
+                progress: progress,
+                message: message
+            });
+            
+            // También enviar via postMessage a los iframes
+            mainWindow.webContents.executeJavaScript(`
+                const frames = document.querySelectorAll('iframe');
+                frames.forEach(frame => {
+                    try {
+                        if (frame.contentWindow && frame.contentWindow.postMessage) {
+                            frame.contentWindow.postMessage({
+                                type: 'update-setup-progress',
+                                data: {
+                                    progress: ${progress},
+                                    message: ${message ? `'${message}'` : 'null'}
+                                }
+                            }, '*');
+                        }
+                    } catch (e) {
+                        // Ignorar errores
+                    }
+                });
+            `).catch(() => {
+                // Ignorar errores de ejecución
+            });
+        }
+    }
+
+    // Cerrar diálogo de configuración
+    closeSetupDialog() {
+        const { BrowserWindow } = require('electron');
+        const windows = BrowserWindow.getAllWindows();
+        const mainWindow = windows.find(win => 
+            !win.isDestroyed() && 
+            win.webContents && 
+            !win.webContents.isDevToolsOpened() &&
+            win.isVisible()
+        );
+        
+        if (mainWindow) {
+            // Enviar via IPC
+            mainWindow.webContents.send('close-setup-dialog');
+            
+            // También enviar via postMessage a los iframes
+            mainWindow.webContents.executeJavaScript(`
+                const frames = document.querySelectorAll('iframe');
+                frames.forEach(frame => {
+                    try {
+                        if (frame.contentWindow && frame.contentWindow.postMessage) {
+                            frame.contentWindow.postMessage({
+                                type: 'close-setup-dialog'
+                            }, '*');
+                        }
+                    } catch (e) {
+                        // Ignorar errores
+                    }
+                });
+            `).catch(() => {
+                // Ignorar errores de ejecución
+            });
+        }
+    }
+
     // Extraer Brave desde archivo .7z
     async extractBrave7z(sevenZipPath) {
+        console.log('🔧 Iniciando extracción de Brave desde:', sevenZipPath);
+        
+        // Mostrar diálogo de configuración inicial
+        console.log('🔧 Llamando a showInitialSetupDialog...');
+        this.showInitialSetupDialog();
         
         // Verificar que el archivo .7z existe y obtener información
         if (!fs.existsSync(sevenZipPath)) {
@@ -927,6 +1083,9 @@ class BraveController {
         
         
         try {
+            // Actualizar progreso: preparando extracción
+            this.updateSetupProgress(10, 'Preparando extracción...');
+            
             // Crear directorio de destino si no existe
             if (!fs.existsSync(braveDir)) {
                 fs.mkdirSync(braveDir, { recursive: true });
@@ -940,6 +1099,9 @@ class BraveController {
                 throw new Error(`Sin permisos de escritura en directorio: ${braveDir}`);
             }
 
+            // Actualizar progreso: iniciando extracción
+            this.updateSetupProgress(25, 'Iniciando extracción...');
+            
             // Usar diferentes métodos de extracción según el sistema
             if (process.platform === 'win32') {
                 // Intentar usar 7z.exe incluido o del sistema en Windows
@@ -970,6 +1132,9 @@ class BraveController {
                 }
                 
                 
+                // Actualizar progreso: extrayendo archivos
+                this.updateSetupProgress(50, 'Extrayendo archivos...');
+                
                 const startTime = Date.now();
                 const result = await execAsync(command);
                 const endTime = Date.now();
@@ -990,6 +1155,9 @@ class BraveController {
                 const command = `7z x "${sevenZipPath}" -o"${braveDir}" -y`;
                 
                 try {
+                    // Actualizar progreso: extrayendo archivos  
+                    this.updateSetupProgress(50, 'Extrayendo archivos...');
+                    
                     const startTime = Date.now();
                     const result = await execAsync(command);
                     const endTime = Date.now();
@@ -1017,10 +1185,15 @@ class BraveController {
                 });
             }
             
+            // Actualizar progreso: verificando archivos
+            this.updateSetupProgress(80, 'Verificando archivos...');
+            
             // Buscar el ejecutable en la estructura extraída
             const braveExecutable = await this.findBraveExecutableInDir(braveDir);
             
             if (braveExecutable) {
+                // Actualizar progreso: configurando permisos
+                this.updateSetupProgress(90, 'Configurando permisos...');
                 
                 // Verificar detalles del ejecutable
                 const execStats = fs.statSync(braveExecutable);
@@ -1036,6 +1209,14 @@ class BraveController {
                     }
                 } else {
                 }
+                
+                // Finalizar configuración
+                this.updateSetupProgress(100, 'Configuración completada');
+                
+                // Cerrar diálogo después de un breve delay
+                setTimeout(() => {
+                    this.closeSetupDialog();
+                }, 1000);
                 
                 return braveExecutable;
             } else {
@@ -1065,6 +1246,8 @@ class BraveController {
             }
             
         } catch (error) {
+            // Cerrar diálogo en caso de error
+            this.closeSetupDialog();
             
             // Sugerir soluciones según el error
             if (error.message.includes('7z') || error.message.includes('7-Zip')) {

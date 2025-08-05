@@ -3,7 +3,7 @@ const AppConfig = {
     // Información de la aplicación
     app: {
         name: 'Udemigo',
-        version: '2.1.6',
+        version: '2.2.7',
         description: 'Tu plataforma de aprendizaje mejorada',
         author: 'ForIf',
         homepage: 'https://forif.co'

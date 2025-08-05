@@ -178,10 +178,104 @@
             }
 
             setupIPCListeners() {
+                console.log('🔧 Configurando listeners IPC...');
+                
                 // Listen for navigation commands from main process
                 window.electronAPI.receive('navigate-to-page', (page) => {
                     this.navigateToPage(page);
                 });
+
+                // Listen for setup dialog events
+                window.electronAPI.receive('show-setup-dialog', (options) => {
+                    console.log('🔧 ✅ Renderer recibió evento show-setup-dialog:', options);
+                    this.showSetupDialog(options);
+                });
+
+                window.electronAPI.receive('update-setup-progress', (data) => {
+                    console.log('🔧 ✅ Renderer recibió evento update-setup-progress:', data);
+                    this.updateSetupProgress(data.progress, data.message);
+                });
+
+                window.electronAPI.receive('close-setup-dialog', () => {
+                    console.log('🔧 ✅ Renderer recibió evento close-setup-dialog');
+                    this.closeSetupDialog();
+                });
+                
+                console.log('🔧 ✅ Listeners IPC configurados correctamente');
+            }
+
+            // Setup Dialog Methods
+            showSetupDialog(options) {
+                console.log('🔧 showSetupDialog ejecutándose con opciones:', options);
+                
+                // Create dialog manager instance if not exists
+                if (!window.dialogManager) {
+                    console.log('🔧 Creando nueva instancia de DialogManager...');
+                    window.dialogManager = new DialogManager();
+                } else {
+                    console.log('🔧 Usando DialogManager existente');
+                }
+
+                // Customize dialog appearance for setup
+                const setupOptions = {
+                    type: options.type || 'info',
+                    title: options.title || 'Configuración',
+                    message: options.message || 'Configurando...',
+                    showProgress: options.showProgress || false,
+                    progress: options.progress || 0,
+                    persistent: options.persistent || true,
+                    animation: options.animation || 'popup',
+                    buttons: [], // No buttons for setup dialog
+                    position: 'center'
+                };
+
+                // Show dialog and store reference
+                this.setupDialog = window.dialogManager.show(setupOptions);
+                
+                // Apply custom styling for black transparent background
+                if (options.overlay) {
+                    const overlay = document.getElementById('dialog-overlay');
+                    if (overlay) {
+                        if (options.overlay.background) {
+                            overlay.style.background = options.overlay.background;
+                        }
+                        if (options.overlay.blur === false) {
+                            overlay.style.backdropFilter = 'none';
+                        }
+                    }
+                }
+
+                // Apply small size if specified
+                if (options.size === 'small') {
+                    const container = document.getElementById('dialog-container');
+                    if (container) {
+                        container.style.maxWidth = '350px';
+                        container.style.width = '350px';
+                    }
+                }
+            }
+
+            updateSetupProgress(progress, message) {
+                if (window.dialogManager) {
+                    window.dialogManager.updateProgress(progress, message);
+                    if (message) {
+                        window.dialogManager.updateMessage(message);
+                    }
+                }
+            }
+
+            closeSetupDialog() {
+                if (window.dialogManager) {
+                    window.dialogManager.hide();
+                    this.setupDialog = null;
+                    
+                    // Reset container styles
+                    const container = document.getElementById('dialog-container');
+                    if (container) {
+                        container.style.maxWidth = '';
+                        container.style.width = '';
+                    }
+                }
             }
 
             async navigateToPage(pageName) {

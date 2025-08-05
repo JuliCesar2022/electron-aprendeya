@@ -271,6 +271,46 @@ class UdemyWebViewPage {
             this.handleLogoutFromMain();
         });
 
+        // Listen for setup dialog events via IPC
+        window.electronAPI.receive('show-setup-dialog', (options) => {
+            console.log('🔧 ✅ WebView recibió evento show-setup-dialog via IPC:', options);
+            this.showSetupDialog(options);
+        });
+
+        window.electronAPI.receive('update-setup-progress', (data) => {
+            console.log('🔧 ✅ WebView recibió evento update-setup-progress via IPC:', data);
+            this.updateSetupProgress(data.progress, data.message);
+        });
+
+        window.electronAPI.receive('close-setup-dialog', () => {
+            console.log('🔧 ✅ WebView recibió evento close-setup-dialog via IPC');
+            this.closeSetupDialog();
+        });
+
+        // Listen for setup dialog events via postMessage (desde el main process)
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type) {
+                console.log('🔧 ✅ WebView recibió postMessage:', event.data);
+                
+                switch (event.data.type) {
+                    case 'show-setup-dialog':
+                        if (event.data.data) {
+                            console.log('🔧 Mostrando dialog via postMessage...');
+                            this.showSetupDialog(event.data.data);
+                        }
+                        break;
+                    case 'update-setup-progress':
+                        if (event.data.data) {
+                            this.updateSetupProgress(event.data.data.progress, event.data.data.message);
+                        }
+                        break;
+                    case 'close-setup-dialog':
+                        this.closeSetupDialog();
+                        break;
+                }
+            }
+        });
+
         // Listen for interceptor events
         this.setupInterceptorListeners();
         
@@ -1078,6 +1118,82 @@ class UdemyWebViewPage {
             }).catch(() => {
                 // Silently ignore errors
             });
+        }
+    }
+
+    // Setup Dialog Methods
+    showSetupDialog(options) {
+        console.log('🔧 WebView showSetupDialog ejecutándose con opciones:', options);
+        
+        // Use the dialog manager instance already initialized
+        if (!this.dialog) {
+            console.log('🔧 Dialog manager no está disponible en WebView');
+            return;
+        }
+
+        // Customize dialog appearance for setup
+        const setupOptions = {
+            type: options.type || 'info',
+            title: options.title || 'Configuración',
+            message: options.message || 'Configurando...',
+            showProgress: options.showProgress || false,
+            progress: options.progress || 0,
+            persistent: options.persistent || true,
+            animation: options.animation || 'popup',
+            buttons: [], // No buttons for setup dialog
+            position: 'center'
+        };
+
+        // Show dialog and store reference
+        this.setupDialog = this.dialog.show(setupOptions);
+        
+        // Apply custom styling for black transparent background
+        if (options.overlay) {
+            const overlay = document.getElementById('dialog-overlay');
+            if (overlay) {
+                if (options.overlay.background) {
+                    overlay.style.background = options.overlay.background;
+                }
+                if (options.overlay.blur === false) {
+                    overlay.style.backdropFilter = 'none';
+                }
+            }
+        }
+
+        // Apply small size if specified
+        if (options.size === 'small') {
+            const container = document.getElementById('dialog-container');
+            if (container) {
+                container.style.maxWidth = '350px';
+                container.style.width = '350px';
+            }
+        }
+        
+        console.log('🔧 ✅ Dialog de configuración mostrado en WebView');
+    }
+
+    updateSetupProgress(progress, message) {
+        console.log('🔧 WebView updateSetupProgress:', progress, message);
+        if (this.dialog) {
+            this.dialog.updateProgress(progress, message);
+            if (message) {
+                this.dialog.updateMessage(message);
+            }
+        }
+    }
+
+    closeSetupDialog() {
+        console.log('🔧 WebView closeSetupDialog ejecutándose');
+        if (this.dialog) {
+            this.dialog.hide();
+            this.setupDialog = null;
+            
+            // Reset container styles
+            const container = document.getElementById('dialog-container');
+            if (container) {
+                container.style.maxWidth = '';
+                container.style.width = '';
+            }
         }
     }
 
