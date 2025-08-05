@@ -326,6 +326,11 @@
         background: linear-gradient(45deg, #4ecdc4, #44bd87);
     }
 
+    .video-test-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
     @keyframes fadeInUp {
         from {
             opacity: 0;
@@ -439,6 +444,21 @@
     </div>
 
     <div class="dashboard-card" style="margin-top: 30px;">
+        <h3 class="card-title">🎬 Probador de Videos DRM</h3>
+        <p>Herramientas para probar videos protegidos con DRM (Widevine/PlayReady)</p>
+        <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
+            <button class="video-test-btn" id="shaka-player-btn" 
+                    style="background: linear-gradient(45deg, #4285f4, #34a853); color: white; border: none; padding: 15px 25px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; font-size: 1rem; font-weight: 500;">
+                🎮 Shaka Player Demo
+            </button>
+            <button class="video-test-btn" id="bitmovin-demo-btn"
+                    style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; border: none; padding: 15px 25px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; font-size: 1rem; font-weight: 500;">
+                🎯 Bitmovin DRM Demos
+            </button>
+        </div>
+    </div>
+
+    <div class="dashboard-card" style="margin-top: 30px;">
         <h3 class="card-title">🔥 Mis Cursos</h3>
         <div class="courses-grid" id="myCoursesList">
             <!-- Los cursos se cargarán dinámicamente -->
@@ -483,6 +503,8 @@
                 window.location.href = 'https://www.udemy.com/';
             }
         });
+        document.getElementById('shaka-player-btn')?.addEventListener('click', openShakaPlayerDemo);
+        document.getElementById('bitmovin-demo-btn')?.addEventListener('click', openBitmovinDemo);
 
         myLearningInitialized = true;
     }
@@ -683,6 +705,26 @@
         }
     }
 
+    function openShakaPlayerDemo() {
+        const url = 'https://shaka-player-demo.appspot.com/';
+        if (window.electronAPI) {
+            window.electronAPI.send('webview-navigate', url);
+            showNotification('Abriendo Shaka Player Demo...', 'info');
+        } else {
+            window.open(url, '_blank');
+        }
+    }
+
+    function openBitmovinDemo() {
+        const url = 'https://bitmovin.com/demos/drm';
+        if (window.electronAPI) {
+            window.electronAPI.send('webview-navigate', url);
+            showNotification('Abriendo Bitmovin DRM Demos...', 'info');
+        } else {
+            window.open(url, '_blank');
+        }
+    }
+
     function logout() {
         const confirmed = confirm('¿Estás seguro que deseas cerrar sesión?');
         if (!confirmed) return;
@@ -710,7 +752,8 @@
         // Remover event listeners específicos si es necesario
         const elements = [
             'logout-btn', 'search-my-courses-btn', 'searchInput', 
-            'open-notes-btn', 'take-screenshot-btn', 'back-btn-nav'
+            'open-notes-btn', 'take-screenshot-btn', 'back-btn-nav',
+            'shaka-player-btn', 'bitmovin-demo-btn'
         ];
         
         elements.forEach(id => {

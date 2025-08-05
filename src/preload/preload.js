@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'webview-page-ready',
       'load-webview-page',
       'webview-notification',
-      'course-action'
+      'course-action',
+      'go-to-webview-and-navigate'
     ];
     if (validSendChannels.includes(channel)) {
       ipcRenderer.send(channel, data);

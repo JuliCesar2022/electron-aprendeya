@@ -1201,6 +1201,22 @@ ipcMain.on('webview-navigate', (event, url) => {
   }
 });
 
+// Handler to go to webview page and navigate to URL
+ipcMain.on('go-to-webview-and-navigate', (event, url) => {
+  const webContents = event.sender;
+  const window = BrowserWindow.fromWebContents(webContents);
+  
+  if (window && url) {
+    // First load the webview page
+    window.loadFile(path.join(__dirname, '../renderer/pages/udemy-webview/index.html'));
+    
+    // After a short delay, send navigation event
+    setTimeout(() => {
+      webContents.send('webview-navigate', url);
+    }, 1500);
+  }
+});
+
 // Handlers para llamadas bidireccionales (invoke)
 ipcMain.handle('get-udemy-interceptor-code', () => {
   return udemyInterceptorCode;
