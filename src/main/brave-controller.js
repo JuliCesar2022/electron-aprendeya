@@ -2102,6 +2102,73 @@ if (window.location.href.includes('loading.html')) {
 
         // Solo ejecutar fallback si es necesario, luego configurar kiosko
         setTimeout(setCookiesViaDocument, 1000);
+        
+        // Agregar botón de refresh después de configurar el modo kiosko
+        setTimeout(addRefreshButton, 2000);
+    }
+    
+    // ✨ NUEVO: Agregar botón de refresh en la esquina superior derecha
+    function addRefreshButton() {
+        // Verificar que no existe ya
+        if (document.getElementById('udemigo-refresh-btn')) {
+            return;
+        }
+        
+        // Crear el botón
+        const refreshBtn = document.createElement('button');
+        refreshBtn.id = 'udemigo-refresh-btn';
+        refreshBtn.innerHTML = '🔄';
+        refreshBtn.title = 'Actualizar página';
+        
+        // Estilos del botón
+        refreshBtn.style.cssText = \`
+            position: fixed !important;
+            top: 20px !important;
+            right: 20px !important;
+            z-index: 999999 !important;
+            width: 48px !important;
+            height: 48px !important;
+            border: none !important;
+            border-radius: 50% !important;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
+            color: white !important;
+            font-size: 20px !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+            transition: all 0.3s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-family: system-ui, -apple-system, sans-serif !important;
+        \`;
+        
+        // Efectos hover
+        refreshBtn.addEventListener('mouseenter', () => {
+            refreshBtn.style.transform = 'scale(1.1)';
+            refreshBtn.style.boxShadow = '0 6px 16px rgba(76, 175, 80, 0.5)';
+        });
+        
+        refreshBtn.addEventListener('mouseleave', () => {
+            refreshBtn.style.transform = 'scale(1)';
+            refreshBtn.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.3)';
+        });
+        
+        // Funcionalidad de refresh
+        refreshBtn.addEventListener('click', () => {
+            // Animación de loading
+            refreshBtn.innerHTML = '⏳';
+            refreshBtn.style.transform = 'rotate(360deg)';
+            
+            // Actualizar la página
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        });
+        
+        // Agregar al DOM
+        document.body.appendChild(refreshBtn);
+        
+        console.log('🔄 Botón de refresh agregado por Udemigo');
     }
 }
 `;

@@ -17,15 +17,10 @@ class UdemyInterceptorSimple {
         
         // Sin cola de acciones - comunicación directa con Electron
         
-        // Cooldown para evitar clicks múltiples rápidos
-        this.lastSaveTime = 0;
-        this.saveCooldown = 0; // Sin cooldown entre saves
         
         // Flag para evitar duplicación de botones de inscripción
         this.enrollButtonReplaced = false;
         
-        // Flag para evitar duplicación de event listeners
-        this.saveButtonListenerAttached = false;
         
         // Set para rastrear cursos que se están procesando (evitar duplicados)
         this.processingSlugs = new Set();
@@ -34,6 +29,12 @@ class UdemyInterceptorSimple {
     }
     
     hideOriginalButtonsImmediately() {
+        // NO MODIFICAR NADA EN RUTAS DE BÚSQUEDA
+        if (window.location.href.includes('/courses/search') || window.location.href.includes('/search/')) {
+            console.log('🚫 Interceptor deshabilitado en ruta de búsqueda:', window.location.href);
+            return; // Salir completamente sin hacer modificaciones
+        }
+        
         // ⚡ CSS para ocultar botones inmediatamente
         const hideButtonsCSS = `
             <style id="udemy-interceptor-hide-buttons">
@@ -310,6 +311,11 @@ class UdemyInterceptorSimple {
             return 0;
         }
         
+        // NO MODIFICAR NADA EN RUTAS DE BÚSQUEDA
+        if (window.location.href.includes('/courses/search') || window.location.href.includes('/search/')) {
+            console.log('🚫 Interceptor deshabilitado en ruta de búsqueda:', window.location.href);
+            return 0; // Salir completamente sin hacer modificaciones
+        }
         
         let totalModified = 0;
         
@@ -332,6 +338,12 @@ class UdemyInterceptorSimple {
     }
     
     applyModification(config) {
+        // NO MODIFICAR NADA EN RUTAS DE BÚSQUEDA
+        if (window.location.href.includes('/courses/search') || window.location.href.includes('/search/')) {
+            console.log('🚫 Interceptor deshabilitado en ruta de búsqueda:', window.location.href);
+            return 0; // Salir completamente sin hacer modificaciones
+        }
+        
         try {
             const elements = document.querySelectorAll(config.selector);
             let modified = 0;
@@ -439,6 +451,12 @@ class UdemyInterceptorSimple {
     }
     
     hideButtonsInNodeImmediate(node) {
+        // NO MODIFICAR NADA EN RUTAS DE BÚSQUEDA
+        if (window.location.href.includes('/courses/search') || window.location.href.includes('/search/')) {
+            console.log('🚫 Interceptor deshabilitado en ruta de búsqueda:', window.location.href);
+            return; // Salir completamente sin hacer modificaciones
+        }
+        
         // ⚡ NUEVA ESTRATEGIA: Detectar y reemplazar inmediatamente en lugar de ocultar
         const enrollButtonSelectors = [
             '[data-purpose="subscription-redirect-button"]',
@@ -529,6 +547,12 @@ class UdemyInterceptorSimple {
     
     handleMutations(mutations) {
         if (!this.isActive) return;
+        
+        // NO MODIFICAR NADA EN RUTAS DE BÚSQUEDA
+        if (window.location.href.includes('/courses/search') || window.location.href.includes('/search/')) {
+            console.log('🚫 Interceptor deshabilitado en ruta de búsqueda:', window.location.href);
+            return; // Salir completamente sin hacer modificaciones
+        }
         
         // Throttling más agresivo para DOM observer
         const now = Date.now();
@@ -701,6 +725,11 @@ class UdemyInterceptorSimple {
     }
 
     setupButtonInterceptors() {
+        // NO MODIFICAR NADA EN RUTAS DE BÚSQUEDA
+        if (window.location.href.includes('/courses/search') || window.location.href.includes('/search/')) {
+            console.log('🚫 Interceptor deshabilitado en ruta de búsqueda:', window.location.href);
+            return; // Salir completamente sin hacer modificaciones
+        }
         
         // Resetear flag de botón reemplazado para nueva página
         this.enrollButtonReplaced = false;
@@ -712,163 +741,13 @@ class UdemyInterceptorSimple {
             // Página de curso individual - interceptar botones de inscripción
             this.setupEnrollButtonInterceptor();
         } 
-        
-        // Página de búsqueda o lista - interceptar botones de guardar
-        if (currentUrl.includes('/search/')) {
-            this.setupSaveButtonInterceptor();
-        } 
+ 
         
         // Eliminar elementos no deseados (botones de logout, suscripción, etc.)
         this.removeUnwantedElements();
     }
     
-    setupSaveButtonInterceptor() {
-        // Verificar si ya se añadió el event listener para evitar duplicados
-        if (this.saveButtonListenerAttached) {
-            return;
-        }
-        
-        // Marcar como añadido
-        this.saveButtonListenerAttached = true;
-        
-        // Crear función del event listener para poder removerla después
-        this.saveButtonClickHandler = (event) => {
-            // Lista de selectores para botones de guardar
-            const saveSelectors = [
-                '[data-testid="save-to-list-button"]',
-                '[data-purpose="save-to-list"]',
-                '[data-purpose="wishlist-icon"]',
-                '[data-purpose="save-button"]',
-                '[aria-label*="Save"]',
-                '[aria-label*="Guardar"]',
-                '[aria-label*="Add to wishlist"]',
-                '[aria-label*="Agregar a lista"]',
-                '.wishlist-icon',
-                '.save-button',
-                '.bookmark-icon',
-                'button[title*="Save"]',
-                'button[title*="Guardar"]',
-                'button[title*="wishlist"]'
-            ];
-            
-            // Verificar si el elemento clickeado coincide con algún selector
-            let saveButton = null;
-            for (const selector of saveSelectors) {
-                saveButton = event.target.closest(selector);
-                if (saveButton) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    this.handleSaveToListClick(event, saveButton);
-                    return;
-                }
-            }
-            
-            // También verificar por texto del botón
-            const clickedElement = event.target;
-            const elementText = (clickedElement.textContent || clickedElement.innerText || '').trim().toLowerCase();
-            
-            if (elementText.includes('save') || 
-                elementText.includes('guardar') || 
-                elementText.includes('bookmark') ||
-                elementText.includes('wishlist') ||
-                elementText.includes('lista')) {
-                
-                event.preventDefault();
-                event.stopPropagation();
-                return;
-            }
-
-            // INTERCEPTAR BOTONES DE INSCRIPCIÓN
-            // Lista de selectores para botones de inscripción/enroll
-            const enrollSelectors = [
-                '[data-purpose="buy-this-course-button"]',
-                '[data-purpose="enroll-button"]',
-                '[data-testid="add-to-cart"]',
-                'button[data-purpose*="buy"]',
-                'button[data-purpose*="enroll"]',
-                'button[data-purpose*="purchase"]',
-                '.buy-button',
-                '.enroll-button',
-                '.purchase-button'
-            ];
-            
-            // Verificar si el elemento clickeado es un botón de inscripción
-            let enrollButton = null;
-            for (const selector of enrollSelectors) {
-                enrollButton = event.target.closest(selector);
-                if (enrollButton) {
-                    // NO interceptar si es nuestro botón personalizado
-                    if (enrollButton.classList.contains('udemy-interceptor-enroll-btn')) {
-                        return; // Permitir que el evento continúe
-                    }
-                    event.preventDefault();
-                    event.stopPropagation();
-                    return;
-                }
-            }
-            
-            // También verificar por texto del botón de inscripción
-            if (elementText.includes('enroll') || 
-                elementText.includes('inscribir') ||
-                elementText.includes('buy') || 
-                elementText.includes('comprar') ||
-                elementText.includes('add to cart') ||
-                elementText.includes('agregar al carrito') ||
-                elementText.includes('free') ||
-                elementText.includes('gratis')) {
-                
-                // NO interceptar si es nuestro botón personalizado
-                if (clickedElement.classList.contains('udemy-interceptor-enroll-btn') || 
-                    clickedElement.closest('.udemy-interceptor-enroll-btn')) {
-                    return; // Permitir que el evento continúe
-                }
-                
-                event.preventDefault();
-                event.stopPropagation();
-                this.handleEnrollClick(event, clickedElement);
-                return;
-            }
-        };
-        
-        // Añadir el event listener al document
-        document.addEventListener('click', this.saveButtonClickHandler, true);
-        
-        // También configurar interceptor específico para elementos dinámicos
-        this.setupDynamicSaveButtons();
-    }
     
-    setupDynamicSaveButtons() {
-        // Interceptor para botones que se cargan dinámicamente
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList') {
-                    mutation.addedNodes.forEach((node) => {
-                        if (node.nodeType === Node.ELEMENT_NODE) {
-                            // Buscar botones de guardar en los nuevos nodos
-                            const saveButtons = node.querySelectorAll([
-                                '[data-testid="save-to-list-button"]',
-                                '[data-purpose="save-to-list"]',
-                                '[data-purpose="wishlist-icon"]',
-                                '.wishlist-icon',
-                                '.save-button'
-                            ].join(', '));
-                            
-                            saveButtons.forEach(button => {
-                                if (!button.dataset.interceptorAttached) {
-                                    button.dataset.interceptorAttached = 'true';
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
     
     setupEnrollButtonInterceptor() {
         
@@ -970,155 +849,8 @@ class UdemyInterceptorSimple {
         }
     }
     
-    handleSaveToListClick(event, element) {
-        // Añadir cooldown para evitar doble ejecución
-        const now = Date.now();
-        if (now - this.lastSaveTime < 1000) { // 1 segundo de cooldown
-            return;
-        }
-        this.lastSaveTime = now;
-        
-        // Intentar múltiples estrategias para encontrar el contenedor del curso
-        const courseCard = this.findCourseContainer(element);
-                          
-        if (!courseCard) {
-            this.showErrorNotification('❌ No se pudo encontrar la información del curso');
-            return;
-        }
-        
-        // Extraer información del curso con múltiples estrategias
-        const courseInfo = this.extractCourseInfo(courseCard);
-        
-        if (!courseInfo.slug) {
-            this.showErrorNotification('❌ No se pudo extraer el identificador del curso');
-            return;
-        }
-        
-        
-        // Preparar datos para enviar al backend
-        const payload = {
-            name: courseInfo.title,
-            udemyId: courseInfo.slug,
-            urlImage: courseInfo.image || null
-        };
-        
-        // Procesar el guardado del curso (funcionalidad principal)
-        this.saveCourseToBackend(payload, courseInfo.slug);
-        
-        // Notificación directa - sin cola
-    }
 
-    findCourseContainer(element) {
-        // Lista de selectores para encontrar el contenedor del curso
-        const containerSelectors = [
-           
-        ];
-        
-        // Intentar encontrar el contenedor más cercano
-        for (const selector of containerSelectors) {
-            const container = element.closest(selector);
-            if (container) {
-                return container;
-            }
-        }
-        
-        // Si no se encuentra un contenedor específico, buscar hacia arriba
-        let currentElement = element;
-        for (let i = 0; i < 10 && currentElement.parentElement; i++) {
-            currentElement = currentElement.parentElement;
-            
-            // Verificar si este elemento contiene información de curso
-            const hasLink = currentElement.querySelector('a[href*="/course/"]');
-            const hasTitle = currentElement.querySelector('h1, h2, h3, h4, [data-purpose*="title"]');
-            
-            if (hasLink && hasTitle) {
-                return currentElement;
-            }
-        }
-        
-        return null;
-    }
 
-    extractCourseInfo(courseCard) {
-        // Múltiples selectores para título
-        const titleSelectors = [
-            'h3',
-            'h2', 
-            'h1',
-            'h4',
-            '[data-purpose="course-title-url"]',
-            '[data-purpose*="title"]',
-            '.course-card-title',
-            '.course-title',
-            'a[href*="/course/"]',
-            '[class*="title"]'
-        ];
-        
-        // Múltiples selectores para enlaces
-        const linkSelectors = [
-            'a[href*="/course/"]',
-            '[data-purpose="course-title-url"]',
-            'a[href*="/learn/"]'
-        ];
-        
-        // Múltiples selectores para imágenes
-        const imageSelectors = [
-            'img',
-            '[data-purpose="course-image"] img',
-            '.course-image img',
-            '[class*="image"] img'
-        ];
-        
-        // Extraer título
-        let titleElement = null;
-        for (const selector of titleSelectors) {
-            titleElement = courseCard.querySelector(selector);
-            if (titleElement) break;
-        }
-        
-        // Extraer enlace
-        let linkElement = null;
-        for (const selector of linkSelectors) {
-            linkElement = courseCard.querySelector(selector);
-            if (linkElement) break;
-        }
-        
-        // Extraer imagen
-        let imageElement = null;
-        for (const selector of imageSelectors) {
-            imageElement = courseCard.querySelector(selector);
-            if (imageElement) break;
-        }
-        
-        // Obtener valores
-        const title = titleElement?.textContent?.trim() || titleElement?.title?.trim() || linkElement?.textContent?.trim() || 'Curso sin título';
-        const courseUrl = linkElement?.href || window.location.href;
-        const image = imageElement?.src || imageElement?.dataset?.src || '';
-        
-        // Extraer slug con múltiples patrones
-        let slug = null;
-        const slugPatterns = [
-            /\/course\/([^/\?]+)/,
-            /\/learn\/lecture\/([^/\?]+)/,
-            /course_id=([^&]+)/,
-            /course\/([^/\?#]+)/
-        ];
-        
-        for (const pattern of slugPatterns) {
-            const match = courseUrl.match(pattern);
-            if (match && match[1]) {
-                slug = match[1];
-                break;
-            }
-        }
-        
-        return {
-            title,
-            courseUrl,
-            image,
-            slug
-        };
-    }
     
     replaceEnrollButton(container) {
         // ⚡ CONTROL POR CONTENEDOR - permitir múltiples contenedores
@@ -1327,6 +1059,7 @@ class UdemyInterceptorSimple {
         
         return button;
     }
+
 
     
     handleCourseEnrollment(courseTitle, courseUrl) {
@@ -1802,10 +1535,6 @@ class UdemyInterceptorSimple {
             this.enrollButtonInterval = null;
         }
         
-        if (this.saveButtonInterval) {
-            clearInterval(this.saveButtonInterval);
-            this.saveButtonInterval = null;
-        }
         
         // Limpiar timeouts
         if (this.mutationTimeout) {
@@ -1831,12 +1560,6 @@ class UdemyInterceptorSimple {
         // Resetear flag de botón reemplazado
         this.enrollButtonReplaced = false;
         
-        // Limpiar event listener de save buttons si existe
-        if (this.saveButtonClickHandler) {
-            document.removeEventListener('click', this.saveButtonClickHandler, true);
-            this.saveButtonClickHandler = null;
-            this.saveButtonListenerAttached = false;
-        }
         
         // Limpiar event listener de navegación si existe
         if (this.navigationClickHandler) {

@@ -19,6 +19,10 @@ class UdemyWebViewPage {
         // Auth manager
         this.authManager = null;
         
+        // Flags para evitar listeners duplicados
+        this.domReadyListenerAttached = false;
+        this.navigationListenersAttached = false;
+        
         this.init();
     }
 
@@ -137,47 +141,76 @@ class UdemyWebViewPage {
     setupWebViewEvents() {
         if (!this.webview) return;
 
-        // WebView DOM ready
-        this.webview.addEventListener('dom-ready', () => {
-            // Usar estrategia de reintentos para interceptor
-            this.initializeInterceptorWithRetry();
+        // WebView DOM ready - LIMITAR A UN SOLO LISTENER
+        if (!this.domReadyListenerAttached) {
+            this.domReadyListenerAttached = true;
             
-            // INTERCEPTOR DE NAVEGACIÓN: Forzar navegación en WebView
-            this.webview.executeJavaScript(`
+            this.webview.addEventListener('dom-ready', () => {
+                console.log('🔄 WebView DOM ready - iniciando interceptor...');
                 
-                // INTERCEPTAR Y FORZAR NAVEGACIÓN (solución que funciona)
-                document.addEventListener('click', function(e) {
-                    const target = e.target.closest('a') || e.target;
-                    
-                    if (target.tagName === 'A' && target.href) {
+                // Limpiar interceptor anterior antes de inyectar nuevo
+                this.cleanupPreviousInterceptor().then(() => {
+                    // Usar estrategia de reintentos para interceptor
+                    this.initializeInterceptorWithRetry();
+                });
+                
+                // INTERCEPTOR DE NAVEGACIÓN: Forzar navegación en WebView
+                this.webview.executeJavaScript(`
+                    // Solo agregar listener si no existe ya
+                    if (!window.navigationInterceptorAttached) {
+                        window.navigationInterceptorAttached = true;
                         
-                        // Prevenir comportamiento por defecto y forzar navegación
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
+                        console.log('🔗 Configurando interceptor de navegación...');
                         
-                        // Forzar navegación directa
-                        window.location.href = target.href;
+                        // INTERCEPTAR Y FORZAR NAVEGACIÓN (solución que funciona)
+                        document.addEventListener('click', function(e) {
+                            const target = e.target.closest('a') || e.target;
+                            
+                            if (target.tagName === 'A' && target.href) {
+                                console.log('🔗 Interceptando navegación a:', target.href);
+                                
+                                // Prevenir comportamiento por defecto y forzar navegación
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                
+                                // Forzar navegación directa
+                                window.location.href = target.href;
+                            }
+                        }, true); // Capture phase
                     }
-                }, true); // Capture phase
-            `);
-        });
+                `).catch(error => {
+                    console.log('❌ Error configurando navegación:', error);
+                });
+            });
+        }
 
-        // WebView navigation events
-        this.webview.addEventListener('did-navigate', (event) => {
-            if (event.url.includes('udemy.com')) {
-                // Limpiar interceptor anterior y reinyectar con reintentos
-                this.cleanupPreviousInterceptor();
-                this.initializeInterceptorWithRetry();
-            }
-        });
+        // WebView navigation events - LIMITAR LISTENERS
+        if (!this.navigationListenersAttached) {
+            this.navigationListenersAttached = true;
+            
+            this.webview.addEventListener('did-navigate', (event) => {
+                console.log('🧭 Navegación completa a:', event.url);
+                if (event.url.includes('udemy.com')) {
+                    // Limpiar interceptor anterior y reinyectar con reintentos
+                    this.cleanupPreviousInterceptor().then(() => {
+                        setTimeout(() => {
+                            this.initializeInterceptorWithRetry();
+                        }, 1000); // Delay para asegurar que la página esté lista
+                    });
+                }
+            });
 
-        this.webview.addEventListener('did-navigate-in-page', (event) => {
-            if (event.url.includes('udemy.com')) {
-                // Para navegación en página, solo reinicializar si es necesario
-                this.checkAndReinitializeInterceptor();
-            }
-        });
+            this.webview.addEventListener('did-navigate-in-page', (event) => {
+                console.log('🔄 Navegación en página a:', event.url);
+                if (event.url.includes('udemy.com')) {
+                    // Para navegación en página, verificar si necesita reinicialización
+                    setTimeout(() => {
+                        this.checkAndReinitializeInterceptor();
+                    }, 500);
+                }
+            });
+        }
 
         // Monitoreo de navegación (opcional para debug)
         this.webview.addEventListener('will-navigate', (event) => {
@@ -550,73 +583,100 @@ class UdemyWebViewPage {
 
     async injectInterceptor() {
         try {
-            if (window.electronAPI) {
-                const interceptorCode = await window.electronAPI.invoke('get-udemy-interceptor-code');
-                
-                if (interceptorCode) {
-                    
-                    const wrappedCode = `
-                        (function() {
-                            try {
-                                ${interceptorCode}
-                                return true; // Indica éxito
-                            } catch (e) {
-                                return false; // Indica fallo
-                            }
-                        })();
-                    `;
-                    
+            if (!window.electronAPI) {
+                console.log('🚫 No electronAPI disponible');
+                this.floatingWidget.updateStatus('disconnected', 'Sin API');
+                return false;
+            }
+
+            const interceptorCode = await window.electronAPI.invoke('get-udemy-interceptor-code');
+            
+            if (!interceptorCode) {
+                console.log('🚫 No se obtuvo código del interceptor');
+                this.floatingWidget.updateStatus('disconnected', 'Sin interceptor');
+                return false;
+            }
+            
+            console.log('🔄 Iniciando inyección del interceptor...');
+            console.log('📝 Código del interceptor recibido, longitud:', interceptorCode ? interceptorCode.length : 0);
+            
+            // Verificar que el WebView esté listo antes de inyectar
+            if (!this.webview || !this.webview.executeJavaScript) {
+                console.log('🚫 WebView no está listo para inyección');
+                this.floatingWidget.updateStatus('error', 'WebView no listo');
+                return false;
+            }
+            
+            const wrappedCode = `
+                (function() {
                     try {
-                        const injectionResult = await this.webview.executeJavaScript(wrappedCode);
-                        
-                        if (injectionResult === false) {
-                            this.floatingWidget.updateStatus('error', 'Error ejecutando interceptor');
-                            return false;
-                        }
-                        
-                        this.floatingWidget.updateStatus('connected', 'Interceptor modular activo');
-                        
-                        // Verificar que el sistema esté inicializado después de un pequeño delay
-                        return new Promise((resolve) => {
-                            setTimeout(async () => {
-                                try {
-                                    const checkCode = `
-                                        if (window.UdemyInterceptor) {
-                                            const status = window.UdemyInterceptor.getStatus();
-                                            status;
-                                        } else {
-                                            null;
-                                        }
-                                    `;
-                                    
-                                    const status = await this.webview.executeJavaScript(checkCode);
-                                    
-                                    if (status && (status.isInitialized || status.isActive)) {
-                                        this.floatingWidget.updateStatus('connected', `Sistema listo • ${status.totalModifications} mods`);
-                                        resolve(true);
-                                    } else {
-                                        this.floatingWidget.updateStatus('warning', 'Sistema modular incompleto');
-                                        resolve(false);
-                                    }
-                                } catch (verifyError) {
-                                    this.floatingWidget.updateStatus('error', 'Error verificando sistema');
-                                    resolve(false);
-                                }
-                            }, 2000);
-                        });
-                        
-                    } catch (jsError) {
-                        this.floatingWidget.updateStatus('disconnected', 'Error ejecutando interceptor');
-                        return false;
+                        console.log('🔄 Ejecutando interceptor en WebView...');
+                        ${interceptorCode}
+                        console.log('✅ Interceptor ejecutado exitosamente');
+                        return { success: true, message: 'Interceptor cargado' };
+                    } catch (e) {
+                        console.error('❌ Error ejecutando interceptor:', e);
+                        return { success: false, error: e.message };
                     }
-                } else {
-                    this.floatingWidget.updateStatus('disconnected', 'Sin interceptor');
+                })();
+            `;
+            
+            try {
+                const injectionResult = await this.webview.executeJavaScript(wrappedCode);
+                console.log('🎯 Resultado de la inyección:', injectionResult);
+                
+                if (!injectionResult || !injectionResult.success) {
+                    const errorMsg = injectionResult?.error || 'Error desconocido';
+                    console.log('❌ Error en la inyección:', errorMsg);
+                    this.floatingWidget.updateStatus('error', 'Error ejecutando interceptor');
                     return false;
                 }
+                
+                console.log('✅ Interceptor inyectado exitosamente');
+                this.floatingWidget.updateStatus('connected', 'Interceptor activo');
+                
+                // Verificar inicialización después de un delay
+                setTimeout(async () => {
+                    try {
+                        const checkCode = `
+                            if (window.UdemyInterceptor) {
+                                const status = window.UdemyInterceptor.getStatus ? window.UdemyInterceptor.getStatus() : {};
+                                { initialized: true, status: status };
+                            } else if (window.udemyInterceptorInstance) {
+                                const status = window.udemyInterceptorInstance.getStatus ? window.udemyInterceptorInstance.getStatus() : {};
+                                { initialized: true, status: status };
+                            } else {
+                                { initialized: false };
+                            }
+                        `;
+                        
+                        const status = await this.webview.executeJavaScript(checkCode);
+                        
+                        if (status && status.initialized) {
+                            const mods = status.status?.totalModifications || 0;
+                            this.floatingWidget.updateStatus('connected', `Sistema listo • ${mods} mods`);
+                            console.log('✅ Verificación exitosa - Interceptor funcionando');
+                        } else {
+                            this.floatingWidget.updateStatus('warning', 'Sistema incompleto');
+                            console.log('⚠️ Interceptor inyectado pero no inicializado completamente');
+                        }
+                    } catch (verifyError) {
+                        console.log('❌ Error verificando interceptor:', verifyError);
+                        this.floatingWidget.updateStatus('error', 'Error verificando sistema');
+                    }
+                }, 1500);
+                
+                return true;
+                
+            } catch (jsError) {
+                console.log('❌ Error ejecutando JavaScript en WebView:', jsError);
+                this.floatingWidget.updateStatus('error', 'Error inyección JS');
+                return false;
             }
-            return false;
+            
         } catch (error) {
-            this.floatingWidget.updateStatus('disconnected', 'Error obteniendo interceptor');
+            console.log('❌ Error general en injectInterceptor:', error);
+            this.floatingWidget.updateStatus('error', 'Error obteniendo interceptor');
             return false;
         }
     }
@@ -672,36 +732,69 @@ class UdemyWebViewPage {
 
     async cleanupPreviousInterceptor() {
         try {
-            await this.webview.executeJavaScript(`
-                // Limpiar interceptor simple anterior
-                if (window.udemyInterceptorInstance && window.udemyInterceptorInstance.cleanup) {
-                    window.udemyInterceptorInstance.cleanup();
-                }
-                
-                // Limpiar interceptor modular anterior  
-                if (window.UdemyInterceptor && window.UdemyInterceptor.cleanup) {
-                    window.UdemyInterceptor.cleanup();
-                }
-                
-                // Limpiar observadores globales huérfanos
-                if (window.interceptorObserver) {
-                    window.interceptorObserver.disconnect();
-                    window.interceptorObserver = null;
-                }
-                
-                // Limpiar intervalos huérfanos
-                if (window.interceptorInterval) {
-                    clearInterval(window.interceptorInterval);
-                    window.interceptorInterval = null;
-                }
-                
-                // Limpiar registro global si existe
-                if (window.interceptorProcessedElements) {
-                    window.interceptorProcessedElements.clear();
-                }
-                
+            console.log('🧤 Limpiando interceptor anterior...');
+            
+            const cleanupResult = await this.webview.executeJavaScript(`
+                (function() {
+                    try {
+                        let cleaned = [];
+                        
+                        // Limpiar interceptor simple anterior
+                        if (window.udemyInterceptorInstance && window.udemyInterceptorInstance.cleanup) {
+                            window.udemyInterceptorInstance.cleanup();
+                            window.udemyInterceptorInstance = null;
+                            cleaned.push('simple');
+                        }
+                        
+                        // Limpiar interceptor modular anterior  
+                        if (window.UdemyInterceptor && window.UdemyInterceptor.cleanup) {
+                            window.UdemyInterceptor.cleanup();
+                            window.UdemyInterceptor = null;
+                            cleaned.push('modular');
+                        }
+                        
+                        // Limpiar observadores globales huérfanos
+                        if (window.interceptorObserver) {
+                            window.interceptorObserver.disconnect();
+                            window.interceptorObserver = null;
+                            cleaned.push('observer');
+                        }
+                        
+                        // Limpiar intervalos huérfanos
+                        if (window.interceptorInterval) {
+                            clearInterval(window.interceptorInterval);
+                            window.interceptorInterval = null;
+                            cleaned.push('interval');
+                        }
+                        
+                        // Limpiar registro global si existe
+                        if (window.interceptorProcessedElements) {
+                            window.interceptorProcessedElements.clear();
+                            window.interceptorProcessedElements = null;
+                            cleaned.push('elements');
+                        }
+                        
+                        // Limpiar flags de navegación para permitir re-inyección
+                        window.navigationInterceptorAttached = false;
+                        
+                        console.log('✅ Cleanup completado:', cleaned);
+                        return { success: true, cleaned: cleaned };
+                        
+                    } catch (e) {
+                        console.error('❌ Error en cleanup:', e);
+                        return { success: false, error: e.message };
+                    }
+                })()
             `);
+            
+            if (cleanupResult?.success) {
+                console.log('✅ Cleanup exitoso:', cleanupResult.cleaned);
+            } else {
+                console.log('❌ Error en cleanup:', cleanupResult?.error);
+            }
+            
         } catch (error) {
+            console.log('❌ Error ejecutando cleanup:', error);
         }
     }
 
@@ -1199,14 +1292,18 @@ class UdemyWebViewPage {
 
     // Cleanup function para limpiar memoria
     cleanup() {
+        console.log('🧤 Iniciando cleanup de UdemyWebViewPage...');
+        
         // Clear memory monitoring interval
         if (this.memoryMonitoringInterval) {
             clearInterval(this.memoryMonitoringInterval);
+            this.memoryMonitoringInterval = null;
         }
 
         // Clear polling interval
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
         }
 
         // Cleanup memory mode button
@@ -1220,7 +1317,19 @@ class UdemyWebViewPage {
             this.statusBar.destroy();
             this.statusBar = null;
         }
-
+        
+        // Reset listener flags
+        this.domReadyListenerAttached = false;
+        this.navigationListenersAttached = false;
+        
+        // Cleanup WebView interceptor
+        if (this.webview) {
+            this.cleanupPreviousInterceptor().catch(error => {
+                console.log('❌ Error limpiando interceptor en cleanup:', error);
+            });
+        }
+        
+        console.log('✅ Cleanup completado');
     }
 }
 
