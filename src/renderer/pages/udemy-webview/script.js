@@ -639,15 +639,17 @@ class UdemyWebViewPage {
                 setTimeout(async () => {
                     try {
                         const checkCode = `
-                            if (window.UdemyInterceptor) {
-                                const status = window.UdemyInterceptor.getStatus ? window.UdemyInterceptor.getStatus() : {};
-                                { initialized: true, status: status };
-                            } else if (window.udemyInterceptorInstance) {
-                                const status = window.udemyInterceptorInstance.getStatus ? window.udemyInterceptorInstance.getStatus() : {};
-                                { initialized: true, status: status };
-                            } else {
-                                { initialized: false };
-                            }
+                            (() => {
+                                if (window.UdemyInterceptor) {
+                                    const status = window.UdemyInterceptor.getStatus ? window.UdemyInterceptor.getStatus() : {};
+                                    return { initialized: true, status: status };
+                                } else if (window.udemyInterceptorInstance) {
+                                    const status = window.udemyInterceptorInstance.getStatus ? window.udemyInterceptorInstance.getStatus() : {};
+                                    return { initialized: true, status: status };
+                                } else {
+                                    return { initialized: false };
+                                }
+                            })();
                         `;
                         
                         const status = await this.webview.executeJavaScript(checkCode);
@@ -1131,13 +1133,9 @@ class UdemyWebViewPage {
             const webglDisabled = currentPrefs.includes('webgl=false');
             
             
-            // FORZAR RECARGA DEL WEBVIEW para aplicar cambios
-            if (oldPrefs !== webprefString) {
-                const currentSrc = this.webview.src;
-                setTimeout(() => {
-                    this.webview.src = currentSrc;
-                }, 100);
-            }
+            // Nota: En la versión actual de Electron, reasignar src falla con ERR_ABORTED (-3) en el inicio "GUEST_VIEW_MANAGER_CALL".
+            // Para cambiar webpreferences dinámicamente es mejor crearlo asincrónicamente o simplemente no recargar la 
+            // misma URL. Se ha comentado la recarga forzada para evitar el cierre abrupto.
             
         } catch (error) {
             // Fallback: configuración como ultra-low para sombras consistentes

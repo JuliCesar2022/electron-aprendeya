@@ -581,16 +581,14 @@ class BraveController {
         
         const onlyPackagedBravePaths = [
             // 🏆 PRIMERA PRIORIDAD: process.resourcesPath (FUERA del .asar)
-            path.join(resourcesPath, 'bundled-browsers/brave/brave/brave/brave.exe'), // Windows empaquetado
+            path.join(resourcesPath, 'bundled-browsers/brave/brave.exe'), // Windows empaquetado (directo)
+            path.join(resourcesPath, 'bundled-browsers/brave/brave/brave/brave.exe'), // Windows empaquetado (nested)
             path.join(resourcesPath, 'bundled-browsers/brave/brave'), // Linux empaquetado
-            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave/brave.exe'), // Windows extraído
-            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave'), // Linux extraído
             
             // 📁 FALLBACK: Rutas de desarrollo (si no está empaquetado)
-            path.join(__dirname, '../../bundled-browsers/brave/brave/brave/brave.exe'), // Windows desarrollo
+            path.join(__dirname, '../../bundled-browsers/brave/brave.exe'), // Windows desarrollo (directo)
+            path.join(__dirname, '../../bundled-browsers/brave/brave/brave/brave.exe'), // Windows desarrollo (nested)
             path.join(__dirname, '../../bundled-browsers/brave/brave'), // Linux desarrollo  
-            path.join(__dirname, '../../bundled-browsers/brave/brave-extracted/brave/brave.exe'), // Windows desarrollo extraído
-            path.join(__dirname, '../../bundled-browsers/brave/brave-extracted/brave'), // Linux desarrollo extraído
         ];
         
         this.debugLog('info', '🎯 MODO PRODUCCIÓN: Solo buscando Brave empaquetado (' + onlyPackagedBravePaths.length + ' rutas)');
@@ -698,13 +696,13 @@ class BraveController {
         
         const paths = [
             // 🏆 PRIMERA PRIORIDAD: process.resourcesPath (FUERA del .asar)
-            path.join(resourcesPath, 'bundled-browsers/brave/brave/brave/brave.exe'), // Windows empaquetado
+            path.join(resourcesPath, 'bundled-browsers/brave/brave.exe'), // Windows empaquetado (directo)
+            path.join(resourcesPath, 'bundled-browsers/brave/brave/brave/brave.exe'), // Windows empaquetado (nested)
             path.join(resourcesPath, 'bundled-browsers/brave/brave'), // Linux empaquetado
-            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave/brave.exe'), // Windows extraído
-            path.join(resourcesPath, 'bundled-browsers/brave/brave-extracted/brave'), // Linux extraído
             
             // 📁 FALLBACK: Rutas de desarrollo (si no está empaquetado)
-            path.join(__dirname, '../../bundled-browsers/brave/brave/brave/brave.exe'), // Windows desarrollo
+            path.join(__dirname, '../../bundled-browsers/brave/brave.exe'), // Windows desarrollo (directo)
+            path.join(__dirname, '../../bundled-browsers/brave/brave/brave/brave.exe'), // Windows desarrollo (nested)
             path.join(__dirname, '../../bundled-browsers/brave/brave'), // Linux desarrollo
         ];
 
